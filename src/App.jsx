@@ -908,63 +908,102 @@ Use real-time prices from today.`
     setPricesLoading(false);
   };
 
+  const detectSentiment = (text) => {
+    const pos = ["עלייה","זינוק","שיא","רווח","חיובי","עולה","צמיחה","surge","rally","gain","rise","up","bull","beat","record","high","growth","profit"];
+    const neg = ["ירידה","צניחה","הפסד","שלילי","נופל","משבר","drop","fall","loss","down","bear","miss","crash","risk","decline","sell","lower"];
+    const t = text.toLowerCase();
+    const p = pos.filter(w=>t.includes(w)).length;
+    const n = neg.filter(w=>t.includes(w)).length;
+    return p > n ? "positive" : n > p ? "negative" : "neutral";
+  };
+
+  const RSS_FEEDS = [
+    { url: "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,^IXIC,^DJI&region=US&lang=en-US", source: "Yahoo Finance" },
+    { url: "https://www.investing.com/rss/news_25.rss", source: "Investing.com" },
+    { url: "https://feeds.marketwatch.com/marketwatch/topstories/", source: "MarketWatch" },
+    { url: "https://rss.cnn.com/rss/money_latest.rss", source: "CNN Money" },
+  ];
+
   const fetchNews = async (customQuery = "") => {
     setNewsLoading(true);
-    const tickers = assets.map(a => extractTicker(a.security)).join(", ");
-    const topics  = [...customTopics, ...watchlist].join(", ");
-    const query   = customQuery || `${tickers}, ${topics}, שוק ההון`;
+    const tickers = assets.map(a => extractTicker(a.security));
+    const topics  = [...customTopics, ...watchlist, ...tickers];
+    const filterTerms = customQuery
+      ? customQuery.toLowerCase().split(/\s+/)
+      : topics.map(t => t.toLowerCase());
+
     try {
-      const resp = await rateLimitedFetch({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 350,
-          messages: [{
-            role: "user",
-            content: `Search for the latest financial news today about: ${query}.
-Return ONLY a JSON array (no markdown):
-[{"title":"headline","source":"name","sentiment":"positive|negative|neutral","symbol":"ticker or GENERAL","summary":"2-3 sentence summary in Hebrew"}]
-Include 6-8 items, mix of Hebrew and international sources.`
-          }]
-        });
-      const data = await resp.json();
-      const text = (data.content||[]).map(b=>b.text||"").join("");
-      const m = text.match(/\[[\s\S]*\]/);
-      if (m) {
-        const parsed = JSON.parse(m[0]);
-        setNews(parsed);
-        // log sentiment for graph
-        const date = new Date().toISOString().slice(0,10);
-        const pos  = parsed.filter(n=>n.sentiment==="positive").length;
-        const neg  = parsed.filter(n=>n.sentiment==="negative").length;
-        const neu  = parsed.filter(n=>n.sentiment==="neutral").length;
-        setSentimentLog(prev => {
-          const filtered = prev.filter(l=>l.date!==date);
-          return [...filtered, {date, pos, neg, neu, total: parsed.length}].slice(-30);
-        });
+      const allItems = [];
+      for (const feed of RSS_FEEDS) {
+        try {
+          const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}&api_key=free&count=20`;
+          const resp = await fetch(apiUrl);
+          const data = await resp.json();
+          if (data.items) {
+            data.items.forEach(item => {
+              allItems.push({
+                title: item.title,
+                summary: item.description?.replace(/<[^>]*>/g,"").slice(0,200) || "",
+                source: feed.source,
+                link: item.link,
+                pubDate: item.pubDate,
+                sentiment: detectSentiment((item.title||"") + " " + (item.description||"")),
+                symbol: tickers.find(t => (item.title||"").toUpperCase().includes(t)) || "GENERAL",
+              });
+            });
+          }
+        } catch {}
       }
+
+      // filter by topics if we have them
+      let filtered = allItems;
+      if (filterTerms.length > 0 && !customQuery) {
+        filtered = allItems.filter(item =>
+          filterTerms.some(term => (item.title + " " + item.summary).toLowerCase().includes(term))
+        );
+        if (filtered.length < 5) filtered = allItems; // fallback to all
+      } else if (customQuery) {
+        filtered = allItems.filter(item =>
+          filterTerms.some(term => (item.title + " " + item.summary).toLowerCase().includes(term))
+        );
+        if (filtered.length < 3) filtered = allItems.slice(0,10);
+      }
+
+      const sorted = filtered.sort((a,b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(0,12);
+      setNews(sorted);
+
+      // log sentiment
+      const date = new Date().toISOString().slice(0,10);
+      const pos  = sorted.filter(n=>n.sentiment==="positive").length;
+      const neg  = sorted.filter(n=>n.sentiment==="negative").length;
+      const neu  = sorted.filter(n=>n.sentiment==="neutral").length;
+      setSentimentLog(prev => {
+        const f = prev.filter(l=>l.date!==date);
+        return [...f, {date, pos, neg, neu, total: sorted.length}].slice(-30);
+      });
     } catch {}
     setNewsLoading(false);
   };
 
   const fetchDailySummary = async () => {
     setSummaryLoading(true);
-    const tickers = assets.map(a => extractTicker(a.security)).join(", ");
     try {
-      const resp = await rateLimitedFetch({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 350,
-          messages: [{
-            role: "user",
-            content: `Search for today's market summary and news about: ${tickers}.
-Write a concise daily briefing in Hebrew (4-5 sentences) covering:
-1. Overall market mood today
-2. Key moves in the specific tickers
-3. One key risk or opportunity
-Be direct and practical. No headers, just flowing text.`
-          }]
-        });
-      const data = await resp.json();
-      const text = (data.content||[]).map(b=>b.text||"").join("");
-      setDailySummary(text);
+      let currentNews = news;
+      if (currentNews.length === 0) {
+        const resp = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent("https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,^IXIC&region=US&lang=en-US")}&api_key=free&count=10`);
+        const data = await resp.json();
+        currentNews = (data.items||[]).map(item => ({
+          title: item.title,
+          sentiment: detectSentiment(item.title||""),
+        }));
+      }
+      const posCount = currentNews.filter(n=>n.sentiment==="positive").length;
+      const negCount = currentNews.filter(n=>n.sentiment==="negative").length;
+      const mood = posCount > negCount ? "חיובי" : negCount > posCount ? "שלילי" : "מעורב";
+      const topTitles = currentNews.slice(0,5).map(n=>`• ${n.title}`).join("\n");
+      const tickers = assets.map(a=>extractTicker(a.security)).join(", ");
+      const summary = `מצב השוק היום: ${mood} (${posCount} חיוביות, ${negCount} שליליות מתוך ${currentNews.length} כותרות).\n\nכותרות מובילות:\n${topTitles}\n\nמניות בתיק שלך: ${tickers||"לא הוגדרו"}.`;
+      setDailySummary(summary);
     } catch { setDailySummary("שגיאה בטעינת הסיכום"); }
     setSummaryLoading(false);
   };
@@ -1582,8 +1621,13 @@ ${realized}
                 </span>
                 {item.source && <span style={{fontSize:10,color:T.textSub,marginRight:"auto"}}>{item.source}</span>}
               </div>
-              <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:5,lineHeight:1.5}}>{item.title}</div>
+              <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:5,lineHeight:1.5}}>
+                {item.link
+                  ? <a href={item.link} target="_blank" rel="noopener noreferrer" style={{color:T.text,textDecoration:"none"}}>{item.title} ↗</a>
+                  : item.title}
+              </div>
               {item.summary && <div style={{fontSize:12,color:T.textMid,lineHeight:1.7}}>{item.summary}</div>}
+              {item.pubDate && <div style={{fontSize:10,color:T.textSub,marginTop:4}}>{new Date(item.pubDate).toLocaleString("he-IL")}</div>}
             </Card>
           ))}
         </div>

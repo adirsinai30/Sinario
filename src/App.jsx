@@ -83,6 +83,33 @@ const uid    = ()  => Date.now() + Math.floor(Math.random()*9999);
 const fmtDt  = dt  => { const d=new Date(dt); return d.toLocaleDateString("he-IL")+" "+d.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"}); };
 const toILS  = item => item.currency==="ILS" ? +item.amount : (+item.amount)*(+item.rateUsed||1);
 
+// ─── RATE LIMITER (shared across ALL API calls — prevents 429) ─────────────
+const _rl = { lastCall: 0, queue: Promise.resolve() };
+async function rateLimitedFetch(body) {
+  _rl.queue = _rl.queue.then(async () => {
+    const wait = 4000 - (Date.now() - _rl.lastCall);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    _rl.lastCall = Date.now();
+    const resp = await fetch("/api/anthropic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (resp.status === 429) {
+      // Auto-retry after 12 seconds on rate limit
+      await new Promise(r => setTimeout(r, 12000));
+      _rl.lastCall = Date.now();
+      return fetch("/api/anthropic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+    return resp;
+  });
+  return _rl.queue;
+}
+
 function useStorage(key,init){
   const [val,setVal]=useState(init);
   const ready=useRef(false);
@@ -160,7 +187,6 @@ const globalCss=`
   .rte-editor li{margin-bottom:2px;}
 `;
 
-// ─── BASE COMPONENTS ─────────────────────────────────────────────────────────
 function Card({children,style={},onClick}){return <div onClick={onClick} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:20,boxShadow:"0 1px 3px rgba(0,0,0,.03)",...style}}>{children}</div>;}
 function Btn({children,variant="primary",onClick,style={},disabled=false}){
   const v={primary:{background:T.navy,color:"#fff"},secondary:{background:T.bg,color:T.textMid,border:`1px solid ${T.border}`},danger:{background:T.dangerBg,color:T.danger,border:`1px solid ${T.dangerBorder}`}};
@@ -245,44 +271,25 @@ function Donut({slices,size=140}){
   );
 }
 
-// ─── RTE (Rich Text Editor) ──────────────────────────────────────────────────
-// עורך טקסט עשיר פשוט: B/I/U + רשימות + אימוג'י
 const EMOJIS=["😀","😂","❤️","👍","🙏","✅","⚠️","🎉","🍕","🏠","✈️","🛒","💰","📝","🔑","💡","📅","🎂","🌟","💪"];
 function RichTextEditor({value,onChange,placeholder,minHeight=80}){
   const editorRef=useRef(null);
   const [showEmoji,setShowEmoji]=useState(false);
   const initialized=useRef(false);
-
-  // sync value into editor once on mount
-  useEffect(()=>{
-    if(editorRef.current&&!initialized.current){
-      editorRef.current.innerHTML=value||"";
-      initialized.current=true;
-    }
-  },[]);
-
-  // when value cleared externally (e.g. after save)
-  useEffect(()=>{
-    if(!value&&editorRef.current&&initialized.current){
-      editorRef.current.innerHTML="";
-    }
-  },[value]);
-
+  useEffect(()=>{if(editorRef.current&&!initialized.current){editorRef.current.innerHTML=value||"";initialized.current=true;}},[]);
+  useEffect(()=>{if(!value&&editorRef.current&&initialized.current){editorRef.current.innerHTML="";}},[value]);
   const exec=cmd=>{document.execCommand(cmd,false,null);editorRef.current?.focus();};
   const execVal=(cmd,val)=>{document.execCommand(cmd,false,val);editorRef.current?.focus();};
   const insertEmoji=e=>{execVal("insertText",e);setShowEmoji(false);};
   const handleInput=()=>{if(editorRef.current)onChange(editorRef.current.innerHTML);};
-
   const toolBtn=(label,action,title)=>(
     <button onMouseDown={ev=>{ev.preventDefault();action();}} title={title}
       style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:12,fontWeight:600,color:T.textMid,fontFamily:T.font,lineHeight:1}}>
       {label}
     </button>
   );
-
   return(
     <div style={{border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden",background:T.surface,position:"relative"}}>
-      {/* Toolbar */}
       <div style={{display:"flex",gap:4,padding:"6px 8px",borderBottom:`1px solid ${T.border}`,background:T.bg,flexWrap:"wrap",alignItems:"center"}}>
         {toolBtn("B",()=>exec("bold"),"מודגש")}
         {toolBtn("I",()=>exec("italic"),"נטוי")}
@@ -301,23 +308,12 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
           )}
         </div>
       </div>
-      {/* Editable area */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        className="rte-editor"
-        onInput={handleInput}
-        data-placeholder={placeholder||""}
-        style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}
-      />
-      {/* placeholder via CSS trick */}
+      <div ref={editorRef} contentEditable suppressContentEditableWarning className="rte-editor" onInput={handleInput} data-placeholder={placeholder||""} style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}/>
       <style>{`.rte-editor:empty:before{content:attr(data-placeholder);color:#a8a29e;pointer-events:none;}`}</style>
     </div>
   );
 }
 
-// ─── ADD/EDIT EXPENSE DRAWER ──────────────────────────────────────────────────
 function AddExpenseDrawer({cats,onAdd,onClose,initData=null}){
   const [step,setStep]=useState(initData?1:0);
   const [form,setForm]=useState(initData||{amount:"",desc:"",catId:cats[0]?.id||"",who:"א",date:today()});
@@ -361,7 +357,6 @@ function AddExpenseDrawer({cats,onAdd,onClose,initData=null}){
   );
 }
 
-// ─── PIN SCREEN ───────────────────────────────────────────────────────────────
 function PinScreen({onUnlock}){
   const [pin,setPin]=useState("");
   const [showPin,setShowPin]=useState(false);
@@ -369,7 +364,6 @@ function PinScreen({onUnlock}){
   const [attempts,setAttempts]=useState(0);
   const [locked,setLocked]=useState(false);
   const np=[["1","2","3"],["4","5","6"],["7","8","9"],["⌫","0","✓"]];
-
   const submit=useCallback((pinVal)=>{
     if(locked||shaking)return;
     if(pinVal===CORRECT_PIN){try{sessionStorage.setItem("sinario_auth","1");}catch{}onUnlock();}
@@ -379,14 +373,12 @@ function PinScreen({onUnlock}){
       setShaking(true);setTimeout(()=>{setShaking(false);setPin("");},500);
     }
   },[locked,shaking,attempts,onUnlock]);
-
   const press=k=>{
     if(locked||shaking)return;
     if(k==="⌫"){setPin(p=>p.slice(0,-1));return;}
     if(k==="✓"){if(pin)submit(pin);return;}
     setPin(p=>p+k);
   };
-
   return(
     <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#0d1f35 0%,#1e3a5f 55%,#2d5282 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:T.font,direction:"rtl",padding:20,position:"relative",overflow:"hidden"}}>
       <style>{globalCss}</style>
@@ -431,23 +423,17 @@ function PinScreen({onUnlock}){
   );
 }
 
-
-// ─── TAB: הוצאות (שוטפות + מיוחדות) ─────────────────────────────────────────
 function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0}){
-  const [expMode,setExpMode]=useState("regular"); // "regular" | "special"
-  // regular state
+  const [expMode,setExpMode]=useState("regular");
   const [showAdd,setShowAdd]=useState(false);
   const [editExp,setEditExp]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
-  // special state
   const [showSpecialForm,setShowSpecialForm]=useState(false);
   const [editSpecialId,setEditSpecialId]=useState(null);
   const [confirmSpecialId,setConfirmSpecialId]=useState(null);
   const [showAll,setShowAll]=useState(false);
   const blankSp={desc:"",catId:"home",amount:"",currency:"ILS",rateUsed:"1",date:today()};
   const [spForm,setSpForm]=useState(blankSp);
-
-  // ── regular computations ──
   const totalBudget=cats.reduce((s,c)=>s+c.budget,0);
   const regularTotal=expenses.reduce((s,e)=>s+e.amount,0);
   const combinedTotal=regularTotal+monthSpecialTotal;
@@ -456,18 +442,10 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const sapir=expenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0);
   const diff=Math.abs(adir-sapir)/2;
   const from=adir>sapir?"ספיר":"אדיר";
-
-  // ── regular handlers ──
   const doDelete=id=>{setExpenses(expenses.filter(e=>e.id!==id));setConfirmId(null);};
   const doEdit=u=>setExpenses(expenses.map(e=>e.id===u.id?{...u,amount:+u.amount}:e));
-
-  // ── special computations ──
-  const periodSpecial=showAll
-    ?[...specialItems].sort((a,b)=>new Date(b.date)-new Date(a.date))
-    :specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;});
+  const periodSpecial=showAll?[...specialItems].sort((a,b)=>new Date(b.date)-new Date(a.date)):specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;});
   const specialTotal=periodSpecial.reduce((s,i)=>s+toILS(i),0);
-
-  // ── special handlers ──
   const openAddSp=()=>{setEditSpecialId(null);setSpForm(blankSp);setShowSpecialForm(true);};
   const openEditSp=item=>{setEditSpecialId(item.id);setSpForm({...item,amount:String(item.amount),rateUsed:String(item.rateUsed||1)});setShowSpecialForm(true);};
   const saveSp=()=>{
@@ -477,21 +455,16 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
     setSpForm(blankSp);setShowSpecialForm(false);setEditSpecialId(null);
   };
   const doDeleteSp=id=>{setSpecialItems(specialItems.filter(x=>x.id!==id));setConfirmSpecialId(null);};
-
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
       {confirmId&&<ConfirmModal message="למחוק הוצאה זו?" onConfirm={()=>doDelete(confirmId)} onCancel={()=>setConfirmId(null)}/>}
       {confirmSpecialId&&<ConfirmModal message="למחוק הוצאה מיוחדת זו?" onConfirm={()=>doDeleteSp(confirmSpecialId)} onCancel={()=>setConfirmSpecialId(null)}/>}
       {editExp&&<AddExpenseDrawer cats={cats} initData={editExp} onAdd={doEdit} onClose={()=>setEditExp(null)}/>}
-
-      {/* Toggle */}
       <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:3,gap:3}}>
         {[["regular","הוצאות שוטפות"],["special","הוצאות מיוחדות"]].map(([v,l])=>(
           <button key={v} onClick={()=>setExpMode(v)} style={{flex:1,padding:"9px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:expMode===v?T.surface:"transparent",color:expMode===v?T.navy:T.textSub,boxShadow:expMode===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
         ))}
       </div>
-
-      {/* ══ הוצאות שוטפות ══ */}
       {expMode==="regular"&&(<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:14,fontWeight:600,color:T.text}}>הוצאות שוטפות</div>
@@ -531,10 +504,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
               {cats.map(c=>{const sp=catSpent(c.id);return(
                 <div key={c.id} style={{marginBottom:11}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
-                      <CatIcon icon={c.icon} color={c.color} size={28}/>
-                      <span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span>
-                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}><CatIcon icon={c.icon} color={c.color} size={28}/><span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span></div>
                     <span style={{fontSize:12,color:sp>c.budget?T.danger:T.textSub,flexShrink:0,fontWeight:sp>c.budget?600:400}}>{fmt(sp)}</span>
                   </div>
                   <PBar value={sp} max={c.budget} color={c.color} h={4}/>
@@ -561,8 +531,6 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
         </Card>
         {showAdd&&<AddExpenseDrawer cats={cats} onAdd={e=>setExpenses([e,...expenses])} onClose={()=>setShowAdd(false)}/>}
       </>)}
-
-      {/* ══ הוצאות מיוחדות ══ */}
       {expMode==="special"&&(<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
@@ -606,8 +574,6 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   );
 }
 
-
-// ─── TAB: רשימת קניות ────────────────────────────────────────────────────────
 function GroceryTab(){
   const [grocery,setGrocery]=useStorage("kp-grocery",DEFAULT_GROCERY);
   const [newItem,setNewItem]=useState({name:"",qty:"1",price:""});
@@ -629,11 +595,14 @@ function GroceryTab(){
     setScanMsg("מנתח קבלה…");
     const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.readAsDataURL(file);});
     try{
-      const resp=await fetch("/api/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,messages:[{role:"user",content:[
+      const resp = await rateLimitedFetch({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:400,
+        messages:[{role:"user",content:[
           {type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:b64}},
           {type:"text",text:`חלץ רשימת פריטים מהקבלה. החזר JSON בלבד:\n{"items":[{"name":"שם בעברית","qty":"1","price":0}]}`}
-        ]}]})});
+        ]}]
+      });
       const data=await resp.json();
       const text=data.content?.map(b=>b.text||"").join("");
       const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
@@ -654,15 +623,12 @@ function GroceryTab(){
         </div>
         {done.length>0&&(
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            {/* ביטול בחירה */}
             <button onClick={uncheckAll} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
               ביטול בחירה
             </button>
-            {/* מחיקת נרכשו — אייקון אשפה + אישור */}
             <button onClick={()=>setConfirmClear(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,color:T.danger,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-              <Icon name="trash" size={13} color={T.danger}/>
-              מחיקה
+              <Icon name="trash" size={13} color={T.danger}/>מחיקה
             </button>
           </div>
         )}
@@ -678,7 +644,6 @@ function GroceryTab(){
           <Btn onClick={add} style={{padding:"10px 12px",flexShrink:0}}><Icon name="plus" size={14} color="#fff"/></Btn>
         </div>
       </Card>
-      {/* העלאת קבלה */}
       <input ref={fileRef} type="file" accept="image/*" onChange={handleReceiptUpload} style={{display:"none"}}/>
       <Card style={{border:`1.5px dashed ${T.border}`,background:T.bg,padding:14,cursor:"pointer"}} onClick={()=>fileRef.current?.click()}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
@@ -688,7 +653,6 @@ function GroceryTab(){
         </div>
         {!scanMsg&&<div style={{fontSize:11,color:T.textSub,marginTop:3,textAlign:"center"}}>מופעל על ידי Claude AI</div>}
       </Card>
-      {/* טבלה */}
       <Card style={{padding:0,overflow:"hidden"}}>
         <div style={{display:"flex",alignItems:"center",padding:"9px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
           <div style={{width:24,flexShrink:0}}/>
@@ -732,720 +696,36 @@ function GroceryTab(){
   );
 }
 
-
-// ─── PDF EXPORT FOR MENU ──────────────────────────────────────────────────────
-function exportMenuPDF(menu){
-  const w=window.open("","_blank");
-  if(!w)return;
-  const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
-  const cats=(menu.categories||[menu.category]).filter(Boolean);
-  const concepts=(menu.concepts||[]);
-  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-  <title>${menu.name}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;color:#1c1917;background:#fff;padding:48px 56px;direction:rtl;}
-    .header{border-bottom:2px solid #1e3a5f;padding-bottom:20px;margin-bottom:28px;}
-    .title{font-family:'DM Serif Display',serif;font-size:32px;font-weight:400;color:#1e3a5f;letter-spacing:-0.5px;margin-bottom:8px;}
-    .tags{display:flex;gap:8px;flex-wrap:wrap;}
-    .tag{background:#ebf0f7;color:#1e3a5f;border:1px solid #c3d4e8;border-radius:99px;padding:4px 14px;font-size:12px;font-weight:600;}
-    .section{margin-bottom:28px;}
-    .section-title{font-size:11px;font-weight:700;color:#a8a29e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e6e2db;}
-    .dish{padding:9px 0;border-bottom:1px solid #f7f6f3;font-size:14px;color:#1c1917;display:flex;align-items:center;gap:8px;}
-    .dish:last-child{border-bottom:none;}
-    .dish-bullet{width:6px;height:6px;border-radius:50%;background:#1e3a5f;flex-shrink:0;}
-    .notes-box{background:#f7f6f3;border:1px solid #e6e2db;border-radius:10px;padding:16px;margin-top:8px;}
-    .notes-label{font-size:11px;font-weight:700;color:#57534e;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
-    .notes-text{font-size:13px;color:#57534e;line-height:1.7;}
-    .footer{margin-top:40px;text-align:center;font-size:10px;color:#a8a29e;}
-    @media print{body{padding:32px 40px;}}
-  </style></head><body>
-  <div class="header">
-    <div class="title">${menu.name}</div>
-    <div class="tags">
-      ${cats.map(c=>`<span class="tag">${c}</span>`).join("")}
-      ${menu.servings?`<span class="tag">${menu.servings} אנשים</span>`:""}
-      ${concepts.map(c=>`<span class="tag">${c}</span>`).join("")}
-    </div>
-  </div>
-  ${sections.length>0?sections.map(sec=>`
-    <div class="section">
-      <div class="section-title">${sec.title||""}</div>
-      ${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}
-    </div>
-  `).join(""):((menu.dishes||[]).filter(d=>d.trim()).length>0?`
-    <div class="section">
-      <div class="section-title">מנות</div>
-      ${(menu.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}
-    </div>
-  `:"")
-  }
-  ${menu.notes?`<div class="notes-box"><div class="notes-label">הערות</div><div class="notes-text">${menu.notes.replace(/<[^>]+>/g," ").trim()}</div></div>`:""}
-  <div class="footer">Sinario · ${new Date().toLocaleDateString("he-IL")}</div>
-  <script>window.onload=()=>{window.print();}<\/script>
-  </body></html>`);
-  w.document.close();
-}
-
-// ─── TAB: מתכונים ────────────────────────────────────────────────────────────
-function RecipesTab({menuConceptsList}){
-  const [items,setItems]=useStorage("kp-recipes",DEFAULT_RECIPES);
-  const [mode,setMode]=useState("recipe");
-  const [filterCat,setFilterCat]=useState("הכל");
-  const [filterConcept,setFilterConcept]=useState("הכל");
-  const [selected,setSelected]=useState(null);
-  const [showForm,setShowForm]=useState(false);
-  const [editId,setEditId]=useState(null);
-  const [confirmId,setConfirmId]=useState(null);
-
-  // categories is now multi-select array; keep backward compat with old "category" string
-  const normCats=item=>{
-    if(Array.isArray(item.categories))return item.categories;
-    if(item.category)return[item.category];
-    return[];
-  };
-
-  const blankR={type:"recipe",name:"",categories:[],servings:"",prepTime:"",cookTime:"",ingredients:[{item:"",qty:"",unit:""}],steps:[""],prepNotes:"",concepts:[]};
-  // menu has sections: [{id,title,dishes:[]}]
-  const blankM={type:"menu",name:"",categories:[],servings:"",concepts:[],sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],notes:""};
-
-  const [form,setForm]=useState(blankR);
-  const [notesHtml,setNotesHtml]=useState("");
-
-  const openAdd=()=>{setEditId(null);const b=mode==="recipe"?blankR:{...blankM,sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}]};setForm(b);setNotesHtml("");setShowForm(true);};
-  const openEdit=item=>{
-    setEditId(item.id);
-    const f={...item,categories:normCats(item),servings:String(item.servings||""),prepTime:String(item.prepTime||""),cookTime:String(item.cookTime||"")};
-    if(item.type==="menu"&&!f.sections){
-      f.sections=[{id:uid(),title:"מנות",dishes:item.dishes||[""]}];
-    }
-    setForm(f);
-    setNotesHtml(item.notes||item.prepNotes||"");
-    setShowForm(true);setSelected(null);
-  };
-  const save=()=>{
-    if(!form.name)return;
-    const saved={...form,id:editId||uid(),servings:+form.servings||0,categories:form.categories||[]};
-    if(form.type==="recipe")saved.prepNotes=notesHtml;
-    if(form.type==="menu")saved.notes=notesHtml;
-    delete saved.category; // remove legacy field
-    if(editId)setItems(items.map(x=>x.id===editId?saved:x));
-    else setItems([...items,saved]);
-    setShowForm(false);setEditId(null);setNotesHtml("");
-  };
-  const doDelete=id=>{setItems(items.filter(x=>x.id!==id));setConfirmId(null);if(selected===id)setSelected(null);};
-  const toggleC=c=>setForm(f=>({...f,concepts:f.concepts.includes(c)?f.concepts.filter(x=>x!==c):[...f.concepts,c]}));
-  const toggleCat=c=>setForm(f=>({...f,categories:(f.categories||[]).includes(c)?(f.categories||[]).filter(x=>x!==c):[...(f.categories||[]),c]}));
-
-  const filtered=items.filter(r=>{
-    const rc=normCats(r);
-    return r.type===mode
-      &&(filterCat==="הכל"||rc.includes(filterCat))
-      &&(filterConcept==="הכל"||(r.concepts||[]).includes(filterConcept));
-  });
-  const sel=items.find(r=>r.id===selected);
-
-  // ── section helpers for menu ──
-  const addSection=()=>setForm(f=>({...f,sections:[...(f.sections||[]),{id:uid(),title:"",dishes:[""]}]}));
-  const removeSection=id=>setForm(f=>({...f,sections:(f.sections||[]).filter(s=>s.id!==id)}));
-  const updateSection=(id,key,val)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===id?{...s,[key]:val}:s)}));
-  const addDishToSection=(sid)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:[...s.dishes,""]}:s)}));
-  const updateDish=(sid,di,val)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:s.dishes.map((d,i)=>i===di?val:d)}:s)}));
-  const removeDish=(sid,di)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:s.dishes.filter((_,i)=>i!==di)}:s)}));
-
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
-      {confirmId&&<ConfirmModal message="למחוק לצמיתות?" onConfirm={()=>doDelete(confirmId)} onCancel={()=>setConfirmId(null)}/>}
-      {!selected?(
-        <>
-          <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:3,gap:3}}>
-            {[["recipe","מתכונים"],["menu","תפריטים"]].map(([v,l])=><button key={v} onClick={()=>{setMode(v);setFilterCat("הכל");setFilterConcept("הכל");setShowForm(false);}} style={{flex:1,padding:"8px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:mode===v?T.surface:"transparent",color:mode===v?T.navy:T.textSub,boxShadow:mode===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}
-          </div>
-          {/* category multi-filter */}
-          <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>
-            {["הכל",...RCATS].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterCat===c?T.navy:T.border}`,background:filterCat===c?T.navy:"transparent",color:filterCat===c?"#fff":T.textSub}}>{c}</button>)}
-          </div>
-          {mode==="menu"&&<div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
-            <Btn onClick={openAdd} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
-          </div>
-          {showForm&&(
-            <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
-              <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>{editId?(mode==="recipe"?"עריכת מתכון":"עריכת תפריט"):(mode==="recipe"?"מתכון חדש":"תפריט חדש")}</div>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-
-                  <div style={{display:"flex",gap:8}}>
-  <Inp placeholder="תיאור" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} style={{flex:3}}/>
-  <Inp type="number" placeholder="כמות אנשים" value={form.servings} onChange={e=>setForm({...form,servings:e.target.value})} style={{flex:1}}/>
-  {mode==="recipe"&&<Inp type="number" placeholder="זמן הכנה (דק׳)" value={form.prepTime} onChange={e=>setForm({...form,prepTime:e.target.value})} style={{flex:1}}/>}
-</div>
-                {/* Multi-select categories */}
-                <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סוג ארוחה</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {RCATS.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}
-                </div>
-                <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סגנון</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{menuConceptsList.map(c=><button key={c} onClick={()=>toggleC(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.concepts||[]).includes(c)?T.navyMid:T.border}`,background:(form.concepts||[]).includes(c)?T.navyMid:"transparent",color:(form.concepts||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
-
-                {mode==="recipe"&&(<>
-                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>מצרכים</div>
-                  {form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}
-                  <button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button>
-                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>
-                  {form.steps.map((st,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:10}}>{i+1}</div><textarea value={st} onChange={e=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?e.target.value:x)}))} rows={2} style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,resize:"vertical"}}/></div>)}
-                  <button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button>
-                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div>
-                  <RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/>
-                </>)}
-
-                {mode==="menu"&&(<>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div>
-                    <button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button>
-                  </div>
-                  {(form.sections||[]).map(sec=>(
-                    <div key={sec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:12}}>
-                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                        <Inp placeholder="שם החלק (למשל: מנות ראשונות)" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>
-                        {(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}
-                      </div>
-                      {sec.dishes.map((d,di)=>(
-                        <div key={di} style={{display:"flex",gap:6,marginBottom:6}}>
-                          <Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>
-                          {sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}
-                        </div>
-                      ))}
-                      <button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button>
-                    </div>
-                  ))}
-                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div>
-                  <RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הערות…"/>
-                </>)}
-                <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
-              </div>
-            </Card>
-          )}
-          {filtered.map(r=>{const rc=normCats(r);return(
-            <Card key={r.id} style={{cursor:"pointer"}} onClick={()=>setSelected(r.id)}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:6}}>{r.name}</div>
-                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                    {rc.map((c,i)=><span key={i} style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{c}</span>)}
-                    {r.servings&&<span style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{r.servings} אנשים</span>}
-                    {r.type==="recipe"&&(r.prepTime||r.cookTime)&&<span style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{(+r.prepTime||0)+(+r.cookTime||0)} דק׳</span>}
-                    {(r.concepts||[]).map(c=><span key={c} style={{fontSize:11,color:T.navyMid,background:T.navyLight,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.navyBorder}`}}>{c}</span>)}
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  {r.type==="menu"&&<button onClick={e=>{e.stopPropagation();exportMenuPDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Icon name="download" size={12} color={T.navy}/><span style={{fontSize:10,color:T.navy,fontFamily:T.font,fontWeight:600}}>PDF</span></button>}
-                  <ActionBtns onEdit={()=>openEdit(r)} onDelete={()=>setConfirmId(r.id)}/>
-                </div>
-              </div>
-            </Card>
-          );})}
-          {filtered.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:32,fontSize:13}}>אין {mode==="recipe"?"מתכונים":"תפריטים"} עדיין</div>}
-        </>
-      ):(sel&&(
-        <div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.navy,cursor:"pointer",fontSize:13,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>← חזרה</button>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              {sel.type==="menu"&&<button onClick={()=>exportMenuPDF(sel)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/>ייצוא PDF</button>}
-              <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>
-            </div>
-          </div>
-          <Card>
-            <div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text,marginBottom:10}}>{sel.name}</div>
-            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-              {normCats(sel).map((c,i)=><span key={i} style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{c}</span>)}
-              {sel.servings&&<span style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{sel.servings} איש</span>}
-              {sel.type==="recipe"&&(sel.prepTime||sel.cookTime)&&<span style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{(+sel.prepTime||0)+(+sel.cookTime||0)} דק׳</span>}
-              {(sel.concepts||[]).map(c=><span key={c} style={{fontSize:12,color:T.navyMid,background:T.navyLight,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.navyBorder}`}}>{c}</span>)}
-            </div>
-            {sel.type==="recipe"&&(<>
-              {sel.ingredients?.length>0&&(<><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>מצרכים</div>{sel.ingredients.map((ing,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><span style={{fontSize:13,color:T.text}}>{ing.item}</span><span style={{fontSize:13,color:T.textSub}}>{ing.qty} {ing.unit}</span></div>)}</>)}
-              {sel.steps?.length>0&&<div style={{marginTop:14}}><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>אופן הכנה</div>{sel.steps.map((st,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:10}}><div style={{width:24,height:24,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div><div style={{fontSize:13,color:T.text,lineHeight:1.7}}>{st}</div></div>)}</div>}
-              {sel.prepNotes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הכנות מקדימות</div><div style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.prepNotes}}/></div>}
-            </>)}
-            {sel.type==="menu"&&(<>
-              {(sel.sections||[]).filter(s=>s.dishes?.some(d=>d.trim())).map(sec=>(
-                <div key={sec.id} style={{marginBottom:18}}>
-                  {sec.title&&<div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{sec.title}</div>}
-                  {sec.dishes.filter(d=>d.trim()).map((d,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><div style={{width:6,height:6,borderRadius:"50%",background:T.navy,flexShrink:0}}/><span style={{fontSize:13,color:T.text}}>{d}</span></div>)}
-                </div>
-              ))}
-              {/* backward compat: old dishes array */}
-              {!sel.sections&&(sel.dishes||[]).filter(Boolean).length>0&&(sel.dishes||[]).filter(Boolean).map((d,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><div style={{width:20,height:20,borderRadius:"50%",background:T.navyLight,color:T.navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700}}>{i+1}</div><span style={{fontSize:13,color:T.text}}>{d}</span></div>)}
-              {sel.notes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הערות</div><div style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.notes}}/></div>}
-            </>)}
-          </Card>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
-// ─── TAB: פתקים ──────────────────────────────────────────────────────────────
-function NotesTab(){
-  const [notes,setNotes]=useStorage("kp-notes",DEFAULT_NOTES);
-  const [html,setHtml]=useState("");
-  const [who,setWho]=useState("א");
-  const [editId,setEditId]=useState(null);
-  const [confirmId,setConfirmId]=useState(null);
-  const save=()=>{
-    if(!html.replace(/<[^>]+>/g,"").trim())return;
-    if(editId){setNotes(notes.map(n=>n.id===editId?{...n,text:html,who}:n));setEditId(null);}
-    else{setNotes([{id:uid(),text:html,who,date:new Date().toISOString()},...notes]);}
-    setHtml("");
-  };
-  const startEdit=note=>{setEditId(note.id);setHtml(note.text);setWho(note.who);};
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
-      {confirmId&&<ConfirmModal message="למחוק פתק זה?" onConfirm={()=>{setNotes(notes.filter(n=>n.id!==confirmId));setConfirmId(null);}} onCancel={()=>setConfirmId(null)}/>}
-      <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,padding:16}}>
-        {editId&&<div style={{fontSize:12,color:T.navy,fontWeight:600,marginBottom:8}}>עריכת פתק</div>}
-        <RichTextEditor value={html} onChange={setHtml} placeholder="כתוב פתק…" minHeight={80}/>
-        <div style={{display:"flex",gap:8,marginTop:10,alignItems:"center"}}>
-          <div style={{display:"flex",gap:6}}>{[["א","אדיר"],["ס","ספיר"]].map(([v,l])=><button key={v} onClick={()=>setWho(v)} style={{padding:"6px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:`1px solid ${who===v?T.navy:T.border}`,background:who===v?T.navyLight:"transparent",color:who===v?T.navy:T.textMid}}>{l}</button>)}</div>
-          <div style={{marginRight:"auto",display:"flex",gap:8}}>{editId&&<Btn variant="secondary" onClick={()=>{setEditId(null);setHtml("");}} style={{padding:"8px 14px"}}>ביטול</Btn>}<Btn onClick={save} style={{padding:"8px 20px"}}>{editId?"עדכון":"שמירה"}</Btn></div>
-        </div>
-      </Card>
-      {notes.map(note=>(
-        <Card key={note.id} style={{padding:16}}>
-          <div style={{fontSize:14,color:T.text,lineHeight:1.7,marginBottom:10}} dangerouslySetInnerHTML={{__html:note.text}}/>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontSize:11,color:T.textSub}}>{note.who==="א"?"אדיר":"ספיר"} · {fmtDt(note.date)}</div>
-            <ActionBtns onEdit={()=>startEdit(note)} onDelete={()=>setConfirmId(note.id)}/>
-          </div>
-        </Card>
-      ))}
-      {notes.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:32,fontSize:13}}>אין פתקים עדיין</div>}
-    </div>
-  );
-}
-
-// ─── SECTION: חופשות ─────────────────────────────────────────────────────────
-function TripsSection({month,year,setMonth,setYear}){
-  const [trips,setTrips]=useStorage("kp-trips",DEFAULT_TRIPS);
-  const [sel,setSel]=useState(null);
-  const [showNew,setShowNew]=useState(false);
-  const [showItem,setShowItem]=useState(false);
-  const [showAll,setShowAll]=useState(false);
-  const [editTripId,setEditTripId]=useState(null);
-  const [editItemId,setEditItemId]=useState(null);
-  const [confirmTrip,setConfirmTrip]=useState(null);
-  const [confirmItem,setConfirmItem]=useState(null);
-  const blankTf={name:"",budget:"",dateFrom:"",dateTo:"",color:T.navy};
-  const [tf,setTf]=useState(blankTf);
-  const blankItf={cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1"};
-  const [itf,setItf]=useState(blankItf);
-  const tripTotal=t=>t.items.reduce((s,i)=>s+toILS(i),0);
-  const openAddTrip=()=>{setEditTripId(null);setTf(blankTf);setShowNew(true);};
-  const openEditTrip=trip=>{setEditTripId(trip.id);setTf({name:trip.name,budget:String(trip.budget),dateFrom:trip.dateFrom||"",dateTo:trip.dateTo||"",color:trip.color||T.navy});setShowNew(true);};
-  const saveTrip=()=>{
-    if(!tf.name||!tf.budget||!tf.dateFrom||!tf.dateTo)return;
-    if(editTripId)setTrips(trips.map(t=>t.id===editTripId?{...t,...tf,budget:+tf.budget}:t));
-    else setTrips([...trips,{...tf,id:uid(),budget:+tf.budget,items:[]}]);
-    setTf(blankTf);setShowNew(false);setEditTripId(null);
-  };
-  const openAddItem=()=>{setEditItemId(null);setItf(blankItf);setShowItem(true);};
-  const openEditItem=item=>{setEditItemId(item.id);setItf({cat:item.cat||"אחר",label:item.label,amount:String(item.amount),currency:item.currency||"ILS",rateUsed:String(item.rateUsed||1)});setShowItem(true);};
-  const saveItem=()=>{
-    if(!itf.label||!itf.amount)return;
-    const saved={...itf,id:editItemId||uid(),amount:+itf.amount,rateUsed:+itf.rateUsed||1};
-    if(editItemId)setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.map(i=>i.id===editItemId?saved:i)}:t));
-    else setTrips(trips.map(t=>t.id===sel?{...t,items:[...t.items,saved]}:t));
-    setItf(blankItf);setShowItem(false);setEditItemId(null);
-  };
-  const doDeleteTrip=id=>{setTrips(trips.filter(t=>t.id!==id));setConfirmTrip(null);if(sel===id)setSel(null);};
-  const doDeleteItem=id=>{setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.filter(i=>i.id!==id)}:t));setConfirmItem(null);};
-  const selTrip=trips.find(t=>t.id===sel);
-  const catIcon=c=>({טיסות:"plane",מלון:"home",ביטוח:"heart",אוכל:"basket",בילויים:"sparkle",כרטיסים:"note"}[c]||"currency");
-  const filteredTrips=showAll?[...trips].sort((a,b)=>(a.dateFrom||"").localeCompare(b.dateFrom||"")):trips.filter(t=>{if(!t.dateFrom)return true;const d=new Date(t.dateFrom);return d.getMonth()===month&&d.getFullYear()===year;});
-  return(
-    <div style={{padding:"0 0 40px"}}>
-      {confirmTrip&&<ConfirmModal message="למחוק את החופשה?" onConfirm={()=>doDeleteTrip(confirmTrip)} onCancel={()=>setConfirmTrip(null)}/>}
-      {confirmItem&&<ConfirmModal message="למחוק פריט זה?" onConfirm={()=>doDeleteItem(confirmItem)} onCancel={()=>setConfirmItem(null)}/>}
-      <div style={{padding:"16px 16px 0"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div>
-      <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
-        {!sel?(
-          <>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <div style={{fontSize:14,fontWeight:600,color:T.text}}>{filteredTrips.length} חופשות</div>
-                <button onClick={()=>setShowAll(v=>!v)} style={{fontSize:11,color:showAll?T.navy:T.textSub,fontFamily:T.font,background:showAll?T.navyLight:"transparent",border:`1px solid ${showAll?T.navyBorder:T.border}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>{showAll?"לפי תקופה":"צפייה בהכל"}</button>
-              </div>
-              <Btn onClick={openAddTrip} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
-            </div>
-            {showNew&&(
-              <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
-                <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>{editTripId?"עריכת חופשה":"חופשה חדשה"}</div>
-                <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  <Inp placeholder="שם החופשה" value={tf.name} onChange={e=>setTf({...tf,name:e.target.value})}/>
-                  <div style={{display:"flex",gap:8}}>
-                    <div style={{flex:1}}><div style={{fontSize:11,color:T.textMid,fontWeight:600,marginBottom:4}}>מתאריך</div><Inp type="date" value={tf.dateFrom} onChange={e=>setTf({...tf,dateFrom:e.target.value})}/></div>
-                    <div style={{flex:1}}><div style={{fontSize:11,color:T.textMid,fontWeight:600,marginBottom:4}}>עד תאריך</div><Inp type="date" value={tf.dateTo} onChange={e=>setTf({...tf,dateTo:e.target.value})}/></div>
-                  </div>
-                  <Inp type="number" placeholder="תקציב ₪" value={tf.budget} onChange={e=>setTf({...tf,budget:e.target.value})}/>
-                  <div style={{display:"flex",gap:8}}><Btn onClick={saveTrip} disabled={!tf.name||!tf.budget||!tf.dateFrom||!tf.dateTo} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowNew(false);setEditTripId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
-                </div>
-              </Card>
-            )}
-            {filteredTrips.map(trip=>{
-              const tot=tripTotal(trip);const over=tot>trip.budget;
-              const dateLabel=trip.dateFrom&&trip.dateTo?`${new Date(trip.dateFrom).toLocaleDateString("he-IL")} – ${new Date(trip.dateTo).toLocaleDateString("he-IL")}`:trip.dateFrom||"";
-              return(
-                <Card key={trip.id} style={{cursor:"pointer"}} onClick={()=>setSel(trip.id)}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,alignItems:"flex-start"}}>
-                    <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{trip.name}</div>{dateLabel&&<div style={{fontSize:12,color:T.textSub}}>{dateLabel}</div>}</div>
-                    <ActionBtns onEdit={()=>openEditTrip(trip)} onDelete={()=>setConfirmTrip(trip.id)}/>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><div style={{fontSize:18,fontWeight:600,fontFamily:T.display}}>{fmt(tot)}</div><div style={{fontSize:12,color:T.textSub}}>מתוך {fmt(trip.budget)}</div></div>
-                  <PBar value={tot} max={trip.budget} color={trip.color||T.navy}/>
-                  <div style={{marginTop:6,fontSize:12,fontWeight:600,color:over?T.danger:T.success}}>
-                    {over?`חריגה של ${fmt(tot-trip.budget)}`:`נותר ${fmt(trip.budget-tot)}`}
-                  </div>
-                </Card>
-              );
-            })}
-            {filteredTrips.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:32,fontSize:13}}>{showAll?"אין חופשות":`אין חופשות ב${MONTHS[month]} ${year}`}</div>}
-          </>
-        ):(selTrip&&(
-          <div>
-            <button onClick={()=>setSel(null)} style={{background:"none",border:"none",color:T.navy,cursor:"pointer",fontSize:13,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",gap:4,marginBottom:14}}>← חזרה</button>
-            <Card style={{marginBottom:12}}>
-              <div style={{fontSize:22,fontWeight:300,fontFamily:T.display,marginBottom:4}}>{selTrip.name}</div>
-              {(selTrip.dateFrom||selTrip.dateTo)&&<div style={{fontSize:12,color:T.textSub,marginBottom:12}}>{selTrip.dateFrom&&new Date(selTrip.dateFrom).toLocaleDateString("he-IL")}{selTrip.dateTo&&` – ${new Date(selTrip.dateTo).toLocaleDateString("he-IL")}`}</div>}
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><div><div style={{fontSize:11,color:T.textSub}}>שולם</div><div style={{fontSize:22,fontWeight:600,fontFamily:T.display}}>{fmt(tripTotal(selTrip))}</div></div><div style={{textAlign:"left"}}><div style={{fontSize:11,color:T.textSub}}>תקציב</div><div style={{fontSize:22,fontWeight:600,fontFamily:T.display,color:T.navy}}>{fmt(selTrip.budget)}</div></div></div>
-              <PBar value={tripTotal(selTrip)} max={selTrip.budget} h={6}/>
-              <div style={{marginTop:8,fontSize:12,fontWeight:600,color:tripTotal(selTrip)>selTrip.budget?T.danger:T.success}}>
-                {tripTotal(selTrip)>selTrip.budget?`חריגה של ${fmt(tripTotal(selTrip)-selTrip.budget)}`:`נותר ${fmt(selTrip.budget-tripTotal(selTrip))}`}
-              </div>
-            </Card>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"4px 0 8px"}}>
-              <div style={{fontSize:13,fontWeight:600,color:T.text}}>פירוט הוצאות</div>
-              <Btn onClick={openAddItem} style={{padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={12} color="#fff"/>הוספה</Btn>
-            </div>
-            {showItem&&(
-              <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,marginBottom:10}}>
-                <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:10}}>{editItemId?"עריכת פריט":"פריט חדש"}</div>
-                <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>קטגוריה</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{TCAT.map(c=><button key={c} onClick={()=>setItf({...itf,cat:c})} style={{padding:"6px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${itf.cat===c?T.navy:T.border}`,background:itf.cat===c?T.navyLight:"transparent",color:itf.cat===c?T.navy:T.textMid}}>{c}</button>)}</div>
-                  <Inp placeholder="תיאור" value={itf.label} onChange={e=>setItf({...itf,label:e.target.value})}/>
-                  <Inp type="number" placeholder="סכום" value={itf.amount} onChange={e=>setItf({...itf,amount:e.target.value})}/>
-                  <CurrencyField currency={itf.currency} setCurrency={c=>setItf({...itf,currency:c})} rate={itf.rateUsed} setRate={r=>setItf({...itf,rateUsed:r})} amount={itf.amount}/>
-                  <div style={{display:"flex",gap:8}}><Btn onClick={saveItem} disabled={!itf.label||!itf.amount} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowItem(false);setEditItemId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
-                </div>
-              </Card>
-            )}
-            {selTrip.items.map((item,i)=>{const cur=CURRENCIES.find(c=>c.code===item.currency)||CURRENCIES[0];return(
-              <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<selTrip.items.length-1?`1px solid ${T.border}`:"none"}}>
-                <CatIcon icon={catIcon(item.cat)} color={T.navy} size={34}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:500,color:T.text}}>{item.label}</div>
-                  <div style={{fontSize:11,color:T.textSub}}>{item.cat}{item.currency!=="ILS"?` · ${fmtCur(item.amount,cur.symbol)}`:""}</div>
-                </div>
-                <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(toILS(item))}</div>
-                <ActionBtns onEdit={()=>openEditItem(item)} onDelete={()=>setConfirmItem(item.id)}/>
-              </div>
-            );})}
-            {selTrip.items.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין פירוט עדיין</div>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-
-// ─── SECTION: דוחות ──────────────────────────────────────────────────────────
-function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYear}){
-  const [savingsGoal,setSavingsGoal]=useStorage("kp-savings-goal",3000);
-  const [editGoal,setEditGoal]=useState(false);
-  const [goalInput,setGoalInput]=useState("");
-  const [drillCat,setDrillCat]=useState(null);
-  const [reportTab,setReportTab]=useState("monthly");
-
-  const monthExp=e=>{const d=new Date(e.date||e.expense_date||"");return d.getMonth()===month&&d.getFullYear()===year;};
-  const prevM=month===0?11:month-1;const prevY=month===0?year-1:year;
-  const monthExpenses=expenses.filter(monthExp);
-  const totalSpent=monthExpenses.reduce((s,e)=>s+e.amount,0);
-  const monthSpecial=specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;});
-  const totalSpecial=monthSpecial.reduce((s,i)=>s+toILS(i),0);
-  const grandTotal=totalSpent+totalSpecial;
-  const totalBudget=cats.reduce((s,c)=>s+c.budget,0);
-  const remaining=totalBudget-grandTotal;
-  const savedThisMonth=Math.max(0,remaining);
-  const catSpent=id=>monthExpenses.filter(e=>e.catId===id).reduce((s,e)=>s+e.amount,0);
-
-  const trend=Array.from({length:6},(_, i)=>{
-    const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;
-    const v=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi;}).reduce((s,e)=>s+e.amount,0)
-           +specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===mi&&d.getFullYear()===yi;}).reduce((s,i2)=>s+toILS(i2),0);
-    return{label:MONTHS[mi].slice(0,3),v,current:mi===month&&yi===year};
-  });
-  const maxT=Math.max(...trend.map(t=>t.v),1);
-
-  const annualData=MONTHS.map((m,mi)=>{
-    const v=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===year;}).reduce((s,e)=>s+e.amount,0)
-           +specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===mi&&d.getFullYear()===year;}).reduce((s,i2)=>s+toILS(i2),0);
-    return{label:m.slice(0,3),v,mi};
-  });
-  const annualTotal=annualData.reduce((s,d)=>s+d.v,0);
-  const annualAvg=annualTotal/12;
-  const maxA=Math.max(...annualData.map(d=>d.v),1);
-
-  const splitTrend=Array.from({length:6},(_,i)=>{
-    const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;
-    const ae=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.who==="א";}).reduce((s,e)=>s+e.amount,0);
-    const se=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.who==="ס";}).reduce((s,e)=>s+e.amount,0);
-    return{label:MONTHS[mi].slice(0,3),a:ae,s:se,current:mi===month&&yi===year};
-  });
-
-  const prevMonthTotal=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===prevM&&d.getFullYear()===prevY;}).reduce((s,e)=>s+e.amount,0);
-  const insights=[];
-  if(grandTotal>totalBudget)insights.push({type:"warn",text:`חרגת ב-${fmt(grandTotal-totalBudget)} מהתקציב החודשי`});
-  else insights.push({type:"good",text:`נותר ${fmt(remaining)} מהתקציב — ${Math.round((remaining/totalBudget)*100)}%`});
-  if(prevMonthTotal>0){const diff=grandTotal-prevMonthTotal;if(Math.abs(diff)>200)insights.push({type:diff>0?"warn":"good",text:diff>0?`הוצאות גבוהות ב-${fmt(diff)} לעומת ${MONTHS[prevM]}`:`חסכת ${fmt(-diff)} לעומת ${MONTHS[prevM]}`});}
-  const topCat=cats.map(c=>({...c,sp:catSpent(c.id)})).sort((a,b)=>b.sp-a.sp)[0];
-  if(topCat?.sp>topCat?.budget)insights.push({type:"warn",text:`${topCat.label}: חריגה של ${fmt(topCat.sp-topCat.budget)}`});
-  if(savedThisMonth>=savingsGoal)insights.push({type:"good",text:`יעד החיסכון הושג! ${fmt(savedThisMonth)} נחסכו החודש`});
-  else if(savingsGoal>0)insights.push({type:"info",text:`נדרש עוד ${fmt(savingsGoal-savedThisMonth)} להשגת יעד החיסכון`});
-
-  const drillExpenses=drillCat?monthExpenses.filter(e=>e.catId===drillCat):[];
-  const drillCatObj=cats.find(c=>c.id===drillCat);
-
-  const exportCSV=()=>{
-    const rows=[["תאריך","תיאור","קטגוריה","מי שילם","סכום"],...monthExpenses.map(e=>{const c=cats.find(x=>x.id===e.catId);return[e.date,e.desc||"",c?.label||"",e.who==="א"?"אדיר":"ספיר",e.amount];}),...monthSpecial.map(i=>[i.date,i.desc,"מיוחד","",toILS(i).toFixed(0)])];
-    const csv=rows.map(r=>r.join(",")).join("\n");
-    const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,\uFEFF"+encodeURIComponent(csv);a.download=`sinario-${MONTHS[month]}-${year}.csv`;a.click();
-  };
-
-  const tabBtn=(id,label)=><button onClick={()=>setReportTab(id)} style={{padding:"7px 14px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:`1px solid ${reportTab===id?T.navy:T.border}`,background:reportTab===id?T.navy:"transparent",color:reportTab===id?"#fff":T.textSub,flexShrink:0}}>{label}</button>;
-
-  return(
-    <div style={{padding:"0 0 40px"}}>
-      <div style={{padding:"16px 16px 0"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div>
-      <div style={{padding:"12px 16px 0",display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none"}}>
-        {tabBtn("monthly","חודשי")}{tabBtn("annual","שנתי")}{tabBtn("split","חלוקה")}{tabBtn("insights","תובנות")}
-      </div>
-      <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
-
-        {reportTab==="monthly"&&(<>
-          <Card>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
-              <div>
-                <div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה״כ {MONTHS[month]}</div>
-                <div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(grandTotal)}</div>
-                <div style={{fontSize:12,color:T.textSub,marginTop:4}}>מתוך {fmt(totalBudget)}</div>
-              </div>
-              <button onClick={exportCSV} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-                <Icon name="download" size={13} color={T.textMid}/>CSV
-              </button>
-            </div>
-            <PBar value={grandTotal} max={totalBudget} h={6}/>
-            <div style={{marginTop:8,fontSize:12,fontWeight:600,color:grandTotal>totalBudget?T.danger:T.success}}>
-              {grandTotal>totalBudget?`חריגה של ${fmt(grandTotal-totalBudget)}`:`נותר ${fmt(remaining)}`}
-            </div>
-            {totalSpecial>0&&<div style={{marginTop:6,fontSize:11,color:T.textSub}}>הוצאות שוטפות {fmt(totalSpent)} + מיוחדות {fmt(totalSpecial)}</div>}
-          </Card>
-          <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="target" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:600,color:T.navy}}>יעד חיסכון חודשי</div></div>
-              <button onClick={()=>{setEditGoal(v=>!v);setGoalInput(String(savingsGoal));}} style={{background:"none",border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>{editGoal?"סגור":"עריכה"}</button>
-            </div>
-            {editGoal?(
-              <div style={{display:"flex",gap:8}}>
-                <Inp type="number" placeholder="יעד חיסכון ₪" value={goalInput} onChange={e=>setGoalInput(e.target.value)} style={{flex:1}}/>
-                <Btn onClick={()=>{setSavingsGoal(+goalInput||0);setEditGoal(false);}} style={{padding:"10px 16px"}}>שמור</Btn>
-              </div>
-            ):(
-              <>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                  <span style={{fontSize:12,color:T.textMid}}>נחסך בפועל</span>
-                  <span style={{fontSize:14,fontWeight:600,color:savedThisMonth>=savingsGoal?T.success:T.danger}}>{fmt(savedThisMonth)}</span>
-                </div>
-                <PBar value={savedThisMonth} max={savingsGoal||1} color={savedThisMonth>=savingsGoal?T.success:T.navy} h={6}/>
-                <div style={{marginTop:6,fontSize:11,color:T.textMid}}>{savingsGoal>0?`יעד: ${fmt(savingsGoal)}`:"לא הוגדר יעד"}</div>
-              </>
-            )}
-          </Card>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>השוואה לחודש קודם</div>
-            <div style={{display:"flex",gap:10,alignItems:"center"}}>
-              <div style={{flex:1,textAlign:"center",padding:14,background:T.bg,borderRadius:12}}><div style={{fontSize:11,color:T.textSub,marginBottom:4}}>{MONTHS[prevM]}</div><div style={{fontSize:20,fontWeight:600,fontFamily:T.display,color:T.text}}>{fmt(prevMonthTotal)}</div></div>
-              <div style={{color:grandTotal>prevMonthTotal?T.danger:T.success,fontWeight:700,fontSize:18}}>{grandTotal>prevMonthTotal?"▲":"▼"}</div>
-              <div style={{flex:1,textAlign:"center",padding:14,background:T.navyLight,borderRadius:12,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,color:T.navy,marginBottom:4}}>{MONTHS[month]}</div><div style={{fontSize:20,fontWeight:600,fontFamily:T.display,color:T.navy}}>{fmt(grandTotal)}</div></div>
-            </div>
-          </Card>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>מגמה — 6 חודשים</div>
-            <div style={{display:"flex",alignItems:"flex-end",gap:8,height:110}}>
-              {trend.map((t,i)=>(
-                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                  <div style={{fontSize:9,color:t.current?T.navy:T.textSub,fontWeight:t.current?700:400,textAlign:"center"}}>{t.v>0?fmt(t.v):""}</div>
-                  <div style={{width:"100%",background:T.bg,borderRadius:6,height:72,display:"flex",alignItems:"flex-end",overflow:"hidden",border:`1px solid ${T.border}`}}>
-                    <div style={{width:"100%",height:`${(t.v/maxT)*100}%`,background:t.current?T.navy:"#c3d4e8",borderRadius:4,transition:"height .7s"}}/>
-                  </div>
-                  <span style={{fontSize:10,color:t.current?T.navy:T.textSub,fontWeight:t.current?700:400}}>{t.label}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>
-              {drillCat?<><button onClick={()=>setDrillCat(null)} style={{background:"none",border:"none",color:T.navy,cursor:"pointer",fontSize:13,fontFamily:T.font,fontWeight:600}}>← חזרה</button><span style={{marginRight:8}}>{drillCatObj?.label}</span></>:"פירוט לפי קטגוריה"}
-            </div>
-            {!drillCat?(
-              cats.map(c=>{const sp=catSpent(c.id);return(
-                <div key={c.id} style={{marginBottom:14,cursor:"pointer"}} onClick={()=>setDrillCat(c.id)}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}><CatIcon icon={c.icon} color={c.color} size={30}/><div><div style={{fontSize:13,color:T.text,fontWeight:500}}>{c.label}</div><div style={{fontSize:11,color:T.textSub}}>{((sp/(totalSpent||1))*100).toFixed(0)}% מהכלל</div></div></div>
-                    <div style={{textAlign:"left"}}><div style={{fontSize:14,fontWeight:600,color:sp>c.budget?T.danger:T.text}}>{fmt(sp)}</div><div style={{fontSize:10,color:T.textSub}}>מתוך {fmt(c.budget)}</div></div>
-                  </div>
-                  <PBar value={sp} max={c.budget} color={c.color}/>
-                </div>
-              );})
-            ):(
-              <>
-                <div style={{marginBottom:12}}><div style={{fontSize:20,fontWeight:300,fontFamily:T.display}}>{fmt(catSpent(drillCat))}</div><div style={{fontSize:12,color:T.textSub}}>מתוך {fmt(drillCatObj?.budget||0)} תקציב</div></div>
-                <PBar value={catSpent(drillCat)} max={drillCatObj?.budget||1} color={drillCatObj?.color||T.navy} h={6}/>
-                <div style={{marginTop:14}}>
-                  {drillExpenses.sort((a,b)=>new Date(b.date)-new Date(a.date)).map((e,i)=>(
-                    <div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<drillExpenses.length-1?`1px solid ${T.border}`:"none"}}>
-                      <div><div style={{fontSize:13,fontWeight:500,color:T.text}}>{e.desc||"הוצאה"}</div><div style={{fontSize:11,color:T.textSub}}>{e.who==="א"?"אדיר":"ספיר"} · {new Date(e.date).toLocaleDateString("he-IL")}</div></div>
-                      <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(e.amount)}</div>
-                    </div>
-                  ))}
-                  {drillExpenses.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:16,fontSize:13}}>אין הוצאות בקטגוריה זו</div>}
-                </div>
-              </>
-            )}
-          </Card>
-        </>)}
-
-        {reportTab==="annual"&&(<>
-          <Card><div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה״כ {year}</div><div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(annualTotal)}</div><div style={{fontSize:12,color:T.textSub,marginTop:4}}>ממוצע חודשי: {fmt(annualAvg)}</div></Card>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>הוצאות לאורך {year}</div>
-            <div style={{display:"flex",alignItems:"flex-end",gap:5,height:130}}>
-              {annualData.map((d,i)=>(
-                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                  <div style={{fontSize:8,color:d.mi===month?T.navy:T.textSub,fontWeight:d.mi===month?700:400,textAlign:"center",writingMode:"vertical-rl"}}>{d.v>0?`₪${Math.round(d.v/1000)}K`:""}</div>
-                  <div style={{width:"100%",background:T.bg,borderRadius:4,height:90,display:"flex",alignItems:"flex-end",overflow:"hidden",border:`1px solid ${T.border}`}}>
-                    <div style={{width:"100%",height:`${(d.v/maxA)*100}%`,background:d.mi===month?T.navy:"#c3d4e8",transition:"height .7s"}}/>
-                  </div>
-                  <span style={{fontSize:8,color:d.mi===month?T.navy:T.textSub,fontWeight:d.mi===month?700:400}}>{d.label}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חודש לפי חודש</div>
-            {annualData.filter(d=>d.v>0).sort((a,b)=>b.v-a.v).map((d,i)=>(
-              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:28,height:28,borderRadius:8,background:d.mi===month?T.navy:T.bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:d.mi===month?"#fff":T.textMid}}>{d.label.slice(0,2)}</div><span style={{fontSize:13,color:T.text,fontWeight:d.mi===month?600:400}}>{MONTHS[d.mi]}</span></div>
-                <div style={{textAlign:"left"}}><div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(d.v)}</div><div style={{fontSize:10,color:T.textSub}}>{((d.v/annualTotal)*100).toFixed(0)}%</div></div>
-              </div>
-            ))}
-          </Card>
-        </>)}
-
-        {reportTab==="split"&&(<>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חלוקה — {MONTHS[month]}</div>
-            {[["אדיר","א"],["ספיר","ס"]].map(([name,who])=>{
-              const amt=monthExpenses.filter(e=>e.who===who).reduce((s,e)=>s+e.amount,0);
-              const pct=((amt/(totalSpent||1))*100).toFixed(0);
-              return(
-                <div key={who} style={{marginBottom:14}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,fontWeight:600,color:T.text}}>{name}</span><span style={{fontSize:14,fontWeight:600,color:T.navy}}>{fmt(amt)} <span style={{fontSize:11,color:T.textSub,fontWeight:400}}>({pct}%)</span></span></div>
-                  <PBar value={amt} max={totalSpent||1} color={T.navy} h={6}/>
-                </div>
-              );
-            })}
-            {Math.abs(monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)-monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0))>5&&(
-              <div style={{marginTop:8,background:T.navyLight,borderRadius:10,padding:12,border:`1px solid ${T.navyBorder}`}}>
-                <div style={{fontSize:12,fontWeight:600,color:T.navy}}>
-                  {monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)>monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0)?"ספיר חייבת לאדיר":"אדיר חייב לספיר"}: {fmt(Math.abs(monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)-monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0))/2)}
-                </div>
-              </div>
-            )}
-          </Card>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>חלוקה — 6 חודשים</div>
-            <div style={{display:"flex",alignItems:"flex-end",gap:8,height:120}}>
-              {splitTrend.map((t,i)=>{const maxV=Math.max(...splitTrend.map(x=>x.a+x.s),1);return(
-                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                  <div style={{width:"100%",height:90,display:"flex",alignItems:"flex-end",gap:2}}>
-                    <div style={{flex:1,background:T.navy,borderRadius:"3px 3px 0 0",height:`${(t.a/maxV)*90}px`,transition:"height .7s",opacity:t.current?1:.6}}/>
-                    <div style={{flex:1,background:"#be185d",borderRadius:"3px 3px 0 0",height:`${(t.s/maxV)*90}px`,transition:"height .7s",opacity:t.current?1:.6}}/>
-                  </div>
-                  <span style={{fontSize:10,color:t.current?T.navy:T.textSub,fontWeight:t.current?700:400}}>{t.label}</span>
-                </div>
-              );})}
-            </div>
-            <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:T.textSub}}>
-              <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:T.navy}}/> אדיר</div>
-              <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:"#be185d"}}/> ספיר</div>
-            </div>
-          </Card>
-        </>)}
-
-        {reportTab==="insights"&&(<>
-          <Card>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}><Icon name="insights" size={15} color={T.navy}/><div style={{fontSize:14,fontWeight:600,color:T.text}}>תובנות חכמות — {MONTHS[month]}</div></div>
-            {insights.map((ins,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:8,background:ins.type==="warn"?T.dangerBg:ins.type==="good"?T.successBg:T.navyLight,border:`1px solid ${ins.type==="warn"?T.dangerBorder:ins.type==="good"?"#bbf7d0":T.navyBorder}`}}>
-                <span style={{fontSize:14}}>{ins.type==="warn"?"⚠️":ins.type==="good"?"✓":"→"}</span>
-                <span style={{fontSize:13,color:T.text,lineHeight:1.5}}>{ins.text}</span>
-              </div>
-            ))}
-            {insights.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:20,fontSize:13}}>אין תובנות לחודש זה</div>}
-          </Card>
-          <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>קטגוריות עם חריגות חוזרות</div>
-            {cats.map(c=>{
-              const overMonths=Array.from({length:6},(_,i)=>{const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;const sp=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.catId===c.id;}).reduce((s,e)=>s+e.amount,0);return sp>c.budget;}).filter(Boolean).length;
-              if(overMonths<2)return null;
-              return(
-                <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${T.border}`}}>
-                  <CatIcon icon={c.icon} color={c.color} size={32}/>
-                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.text}}>{c.label}</div><div style={{fontSize:11,color:T.danger}}>חריגה ב-{overMonths} מתוך 6 חודשים אחרונים</div></div>
-                  <div style={{fontSize:12,color:T.textSub}}>תקציב {fmt(c.budget)}</div>
-                </div>
-              );
-            })}
-            {cats.every(c=>Array.from({length:6},(_,i)=>{const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;return expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.catId===c.id;}).reduce((s,e)=>s+e.amount,0)>c.budget;}).filter(Boolean).length<2)&&<div style={{textAlign:"center",color:T.textSub,padding:16,fontSize:13}}>אין חריגות חוזרות</div>}
-          </Card>
-        </>)}
-
-      </div>
-    </div>
-  );
-}
-
-// ─── SECTION: השקעות ─────────────────────────────────────────────────────────
-// function InvestSection(){
-//   return(
-//     <div style={{padding:16}}>
-//       <Card style={{padding:40,textAlign:"center"}}>
-//         <Icon name="chart" size={32} color={T.navy}/>
-//         <div style={{fontSize:22,fontWeight:300,fontFamily:T.display,color:T.text,marginTop:16,marginBottom:8}}>ההשקעות שלנו</div>
-//         <div style={{fontSize:13,color:T.textSub,lineHeight:1.8,maxWidth:280,margin:"0 auto"}}>מעקב תיק מסחר, חדשות יומיות, ניתוח ביצועים וסוכן חכם — בפיתוח.</div>
-//         <div style={{marginTop:20,display:"inline-block",background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 16px",fontSize:12,color:T.navy,fontWeight:600}}>בקרוב</div>
-//       </Card>
-//     </div>
-//   );
-// }
-
 // ─── INVEST SECTION v3 ───────────────────────────────────────────────────────
 // העתק את כל הפונקציה הזו והחלף בה את InvestSection הקיים
+
+// ─── RATE LIMITER (shared across all API calls) ────────────────────────────
+const _rl = { lastCall: 0, queue: Promise.resolve() };
+async function rateLimitedFetch(body) {
+  _rl.queue = _rl.queue.then(async () => {
+    const wait = 4000 - (Date.now() - _rl.lastCall);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    _rl.lastCall = Date.now();
+
+    const resp = await fetch("/api/anthropic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (resp.status === 429) {
+      await new Promise(r => setTimeout(r, 12000));
+      _rl.lastCall = Date.now();
+      return fetch("/api/anthropic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
+    return resp;
+  });
+  return _rl.queue;
+}
 
 function InvestSection() {
 
@@ -1636,12 +916,9 @@ function InvestSection() {
     if (!tickers.length) return;
     setPricesLoading(true); setPricesError("");
     try {
-      const resp = await fetch("/api/anthropic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const resp = await rateLimitedFetch({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 800,
+          max_tokens: 400,
           messages: [{
             role: "user",
             content: `Search for current live market prices for these tickers: ${tickers.join(", ")}.
@@ -1649,8 +926,7 @@ Return ONLY valid JSON, no markdown, no explanation:
 {"TICKER": price_as_number, ...}
 Use real-time prices from today.`
           }]
-        })
-      });
+        });
       const data = await resp.json();
       const text = (data.content||[]).map(b=>b.text||"").join("");
       const m = text.match(/\{[\s\S]*?\}/);
@@ -1666,12 +942,9 @@ Use real-time prices from today.`
     const topics  = [...customTopics, ...watchlist].join(", ");
     const query   = customQuery || `${tickers}, ${topics}, שוק ההון`;
     try {
-      const resp = await fetch("/api/anthropic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const resp = await rateLimitedFetch({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1500,
+          max_tokens: 350,
           messages: [{
             role: "user",
             content: `Search for the latest financial news today about: ${query}.
@@ -1679,8 +952,7 @@ Return ONLY a JSON array (no markdown):
 [{"title":"headline","source":"name","sentiment":"positive|negative|neutral","symbol":"ticker or GENERAL","summary":"2-3 sentence summary in Hebrew"}]
 Include 6-8 items, mix of Hebrew and international sources.`
           }]
-        })
-      });
+        });
       const data = await resp.json();
       const text = (data.content||[]).map(b=>b.text||"").join("");
       const m = text.match(/\[[\s\S]*\]/);
@@ -1705,12 +977,9 @@ Include 6-8 items, mix of Hebrew and international sources.`
     setSummaryLoading(true);
     const tickers = assets.map(a => extractTicker(a.security)).join(", ");
     try {
-      const resp = await fetch("/api/anthropic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const resp = await rateLimitedFetch({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 600,
+          max_tokens: 350,
           messages: [{
             role: "user",
             content: `Search for today's market summary and news about: ${tickers}.
@@ -1720,8 +989,7 @@ Write a concise daily briefing in Hebrew (4-5 sentences) covering:
 3. One key risk or opportunity
 Be direct and practical. No headers, just flowing text.`
           }]
-        })
-      });
+        });
       const data = await resp.json();
       const text = (data.content||[]).map(b=>b.text||"").join("");
       setDailySummary(text);
@@ -1756,12 +1024,9 @@ Be direct and practical. No headers, just flowing text.`
     }).join("\n");
     const realized = `סך רווח ממומש: ${totalRealized>=0?"+":""}${fmt(totalRealized)}`;
     try {
-      const resp = await fetch("/api/anthropic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const resp = await rateLimitedFetch({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1200,
+          max_tokens: 500,
           messages: [{
             role: "user",
             content: `אתה יועץ השקעות חכם. הנה תיק ההשקעות של המשתמש:
@@ -1773,8 +1038,7 @@ ${realized}
 
 ענה בעברית, ממוקד ומעשי. השתמש בחיפוש אינטרנט אם צריך מידע עדכני. סיים עם המלצה אחת ברורה.`
           }]
-        })
-      });
+        });
       const data = await resp.json();
       const text = (data.content||[]).map(b=>b.text||"").join("");
       const entry = { id: uid(), q: agentQuery, a: text, date: new Date().toISOString() };
@@ -2449,7 +1713,478 @@ ${realized}
   );
 }
 
-// ─── SECTION: הגדרות ─────────────────────────────────────────────────────────
+
+function exportMenuPDF(menu){
+  const w=window.open("","_blank");
+  if(!w)return;
+  const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
+  const cats=(menu.categories||[menu.category]).filter(Boolean);
+  const concepts=(menu.concepts||[]);
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <title>${menu.name}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'DM Sans',sans-serif;color:#1c1917;background:#fff;padding:48px 56px;direction:rtl;}.header{border-bottom:2px solid #1e3a5f;padding-bottom:20px;margin-bottom:28px;}.title{font-family:'DM Serif Display',serif;font-size:32px;font-weight:400;color:#1e3a5f;letter-spacing:-0.5px;margin-bottom:8px;}.tags{display:flex;gap:8px;flex-wrap:wrap;}.tag{background:#ebf0f7;color:#1e3a5f;border:1px solid #c3d4e8;border-radius:99px;padding:4px 14px;font-size:12px;font-weight:600;}.section{margin-bottom:28px;}.section-title{font-size:11px;font-weight:700;color:#a8a29e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e6e2db;}.dish{padding:9px 0;border-bottom:1px solid #f7f6f3;font-size:14px;color:#1c1917;display:flex;align-items:center;gap:8px;}.dish:last-child{border-bottom:none;}.dish-bullet{width:6px;height:6px;border-radius:50%;background:#1e3a5f;flex-shrink:0;}.notes-box{background:#f7f6f3;border:1px solid #e6e2db;border-radius:10px;padding:16px;margin-top:8px;}.footer{margin-top:40px;text-align:center;font-size:10px;color:#a8a29e;}@media print{body{padding:32px 40px;}}</style></head><body>
+  <div class="header"><div class="title">${menu.name}</div><div class="tags">${cats.map(c=>`<span class="tag">${c}</span>`).join("")}${menu.servings?`<span class="tag">${menu.servings} אנשים</span>`:""}${concepts.map(c=>`<span class="tag">${c}</span>`).join("")}</div></div>
+  ${sections.length>0?sections.map(sec=>`<div class="section"><div class="section-title">${sec.title||""}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}</div>`).join(""):((menu.dishes||[]).filter(d=>d.trim()).length>0?`<div class="section"><div class="section-title">מנות</div>${(menu.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}</div>`:"")}
+  ${menu.notes?`<div class="notes-box"><div style="font-size:11px;font-weight:700;color:#57534e;margin-bottom:6px">הערות</div><div style="font-size:13px;color:#57534e;line-height:1.7">${menu.notes.replace(/<[^>]+>/g," ").trim()}</div></div>`:""}
+  <div class="footer">Sinario · ${new Date().toLocaleDateString("he-IL")}</div>
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.close();
+}
+
+function RecipesTab({menuConceptsList}){
+  const [items,setItems]=useStorage("kp-recipes",DEFAULT_RECIPES);
+  const [mode,setMode]=useState("recipe");
+  const [filterCat,setFilterCat]=useState("הכל");
+  const [filterConcept,setFilterConcept]=useState("הכל");
+  const [selected,setSelected]=useState(null);
+  const [showForm,setShowForm]=useState(false);
+  const [editId,setEditId]=useState(null);
+  const [confirmId,setConfirmId]=useState(null);
+  const normCats=item=>{if(Array.isArray(item.categories))return item.categories;if(item.category)return[item.category];return[];};
+  const blankR={type:"recipe",name:"",categories:[],servings:"",prepTime:"",cookTime:"",ingredients:[{item:"",qty:"",unit:""}],steps:[""],prepNotes:"",concepts:[]};
+  const blankM={type:"menu",name:"",categories:[],servings:"",concepts:[],sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],notes:""};
+  const [form,setForm]=useState(blankR);
+  const [notesHtml,setNotesHtml]=useState("");
+  const openAdd=()=>{setEditId(null);const b=mode==="recipe"?blankR:{...blankM,sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}]};setForm(b);setNotesHtml("");setShowForm(true);};
+  const openEdit=item=>{
+    setEditId(item.id);
+    const f={...item,categories:normCats(item),servings:String(item.servings||""),prepTime:String(item.prepTime||""),cookTime:String(item.cookTime||"")};
+    if(item.type==="menu"&&!f.sections){f.sections=[{id:uid(),title:"מנות",dishes:item.dishes||[""]}];}
+    setForm(f);setNotesHtml(item.notes||item.prepNotes||"");setShowForm(true);setSelected(null);
+  };
+  const save=()=>{
+    if(!form.name)return;
+    const saved={...form,id:editId||uid(),servings:+form.servings||0,categories:form.categories||[]};
+    if(form.type==="recipe")saved.prepNotes=notesHtml;
+    if(form.type==="menu")saved.notes=notesHtml;
+    delete saved.category;
+    if(editId)setItems(items.map(x=>x.id===editId?saved:x));
+    else setItems([...items,saved]);
+    setShowForm(false);setEditId(null);setNotesHtml("");
+  };
+  const doDelete=id=>{setItems(items.filter(x=>x.id!==id));setConfirmId(null);if(selected===id)setSelected(null);};
+  const toggleC=c=>setForm(f=>({...f,concepts:f.concepts.includes(c)?f.concepts.filter(x=>x!==c):[...f.concepts,c]}));
+  const toggleCat=c=>setForm(f=>({...f,categories:(f.categories||[]).includes(c)?(f.categories||[]).filter(x=>x!==c):[...(f.categories||[]),c]}));
+  const filtered=items.filter(r=>{const rc=normCats(r);return r.type===mode&&(filterCat==="הכל"||rc.includes(filterCat))&&(filterConcept==="הכל"||(r.concepts||[]).includes(filterConcept));});
+  const sel=items.find(r=>r.id===selected);
+  const addSection=()=>setForm(f=>({...f,sections:[...(f.sections||[]),{id:uid(),title:"",dishes:[""]}]}));
+  const removeSection=id=>setForm(f=>({...f,sections:(f.sections||[]).filter(s=>s.id!==id)}));
+  const updateSection=(id,key,val)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===id?{...s,[key]:val}:s)}));
+  const addDishToSection=(sid)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:[...s.dishes,""]}:s)}));
+  const updateDish=(sid,di,val)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:s.dishes.map((d,i)=>i===di?val:d)}:s)}));
+  const removeDish=(sid,di)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:s.dishes.filter((_,i)=>i!==di)}:s)}));
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
+      {confirmId&&<ConfirmModal message="למחוק לצמיתות?" onConfirm={()=>doDelete(confirmId)} onCancel={()=>setConfirmId(null)}/>}
+      {!selected?(
+        <>
+          <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:3,gap:3}}>
+            {[["recipe","מתכונים"],["menu","תפריטים"]].map(([v,l])=><button key={v} onClick={()=>{setMode(v);setFilterCat("הכל");setFilterConcept("הכל");setShowForm(false);}} style={{flex:1,padding:"8px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:mode===v?T.surface:"transparent",color:mode===v?T.navy:T.textSub,boxShadow:mode===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}
+          </div>
+          <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>
+            {["הכל",...RCATS].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterCat===c?T.navy:T.border}`,background:filterCat===c?T.navy:"transparent",color:filterCat===c?"#fff":T.textSub}}>{c}</button>)}
+          </div>
+          {mode==="menu"&&<div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
+            <Btn onClick={openAdd} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+          </div>
+          {showForm&&(
+            <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
+              <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>{editId?(mode==="recipe"?"עריכת מתכון":"עריכת תפריט"):(mode==="recipe"?"מתכון חדש":"תפריט חדש")}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",gap:8}}>
+                  <Inp placeholder="תיאור" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} style={{flex:3}}/>
+                  <Inp type="number" placeholder="כמות אנשים" value={form.servings} onChange={e=>setForm({...form,servings:e.target.value})} style={{flex:1}}/>
+                  {mode==="recipe"&&<Inp type="number" placeholder="זמן הכנה (דק׳)" value={form.prepTime} onChange={e=>setForm({...form,prepTime:e.target.value})} style={{flex:1}}/>}
+                </div>
+                <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סוג ארוחה</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{RCATS.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
+                <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סגנון</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{menuConceptsList.map(c=><button key={c} onClick={()=>toggleC(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.concepts||[]).includes(c)?T.navyMid:T.border}`,background:(form.concepts||[]).includes(c)?T.navyMid:"transparent",color:(form.concepts||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
+                {mode==="recipe"&&(<>
+                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>מצרכים</div>
+                  {form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}
+                  <button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button>
+                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>
+                  {form.steps.map((st,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:10}}>{i+1}</div><textarea value={st} onChange={e=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?e.target.value:x)}))} rows={2} style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,resize:"vertical"}}/></div>)}
+                  <button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button>
+                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div>
+                  <RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/>
+                </>)}
+                {mode==="menu"&&(<>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div><button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button></div>
+                  {(form.sections||[]).map(sec=>(
+                    <div key={sec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:12}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                        <Inp placeholder="שם החלק" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>
+                        {(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}
+                      </div>
+                      {sec.dishes.map((d,di)=>(
+                        <div key={di} style={{display:"flex",gap:6,marginBottom:6}}>
+                          <Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>
+                          {sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}
+                        </div>
+                      ))}
+                      <button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button>
+                    </div>
+                  ))}
+                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div>
+                  <RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הערות…"/>
+                </>)}
+                <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
+              </div>
+            </Card>
+          )}
+          {filtered.map(r=>{const rc=normCats(r);return(
+            <Card key={r.id} style={{cursor:"pointer"}} onClick={()=>setSelected(r.id)}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:6}}>{r.name}</div>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {rc.map((c,i)=><span key={i} style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{c}</span>)}
+                    {r.servings&&<span style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{r.servings} אנשים</span>}
+                    {r.type==="recipe"&&(r.prepTime||r.cookTime)&&<span style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{(+r.prepTime||0)+(+r.cookTime||0)} דק׳</span>}
+                    {(r.concepts||[]).map(c=><span key={c} style={{fontSize:11,color:T.navyMid,background:T.navyLight,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.navyBorder}`}}>{c}</span>)}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  {r.type==="menu"&&<button onClick={e=>{e.stopPropagation();exportMenuPDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Icon name="download" size={12} color={T.navy}/><span style={{fontSize:10,color:T.navy,fontFamily:T.font,fontWeight:600}}>PDF</span></button>}
+                  <ActionBtns onEdit={()=>openEdit(r)} onDelete={()=>setConfirmId(r.id)}/>
+                </div>
+              </div>
+            </Card>
+          );})}
+          {filtered.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:32,fontSize:13}}>אין {mode==="recipe"?"מתכונים":"תפריטים"} עדיין</div>}
+        </>
+      ):(sel&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.navy,cursor:"pointer",fontSize:13,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>← חזרה</button>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {sel.type==="menu"&&<button onClick={()=>exportMenuPDF(sel)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/>ייצוא PDF</button>}
+              <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>
+            </div>
+          </div>
+          <Card>
+            <div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text,marginBottom:10}}>{sel.name}</div>
+            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+              {normCats(sel).map((c,i)=><span key={i} style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{c}</span>)}
+              {sel.servings&&<span style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{sel.servings} איש</span>}
+              {sel.type==="recipe"&&(sel.prepTime||sel.cookTime)&&<span style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{(+sel.prepTime||0)+(+sel.cookTime||0)} דק׳</span>}
+              {(sel.concepts||[]).map(c=><span key={c} style={{fontSize:12,color:T.navyMid,background:T.navyLight,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.navyBorder}`}}>{c}</span>)}
+            </div>
+            {sel.type==="recipe"&&(<>
+              {sel.ingredients?.length>0&&(<><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>מצרכים</div>{sel.ingredients.map((ing,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><span style={{fontSize:13,color:T.text}}>{ing.item}</span><span style={{fontSize:13,color:T.textSub}}>{ing.qty} {ing.unit}</span></div>)}</>)}
+              {sel.steps?.length>0&&<div style={{marginTop:14}}><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>אופן הכנה</div>{sel.steps.map((st,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:10}}><div style={{width:24,height:24,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div><div style={{fontSize:13,color:T.text,lineHeight:1.7}}>{st}</div></div>)}</div>}
+              {sel.prepNotes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הכנות מקדימות</div><div style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.prepNotes}}/></div>}
+            </>)}
+            {sel.type==="menu"&&(<>
+              {(sel.sections||[]).filter(s=>s.dishes?.some(d=>d.trim())).map(sec=>(
+                <div key={sec.id} style={{marginBottom:18}}>
+                  {sec.title&&<div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{sec.title}</div>}
+                  {sec.dishes.filter(d=>d.trim()).map((d,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><div style={{width:6,height:6,borderRadius:"50%",background:T.navy,flexShrink:0}}/><span style={{fontSize:13,color:T.text}}>{d}</span></div>)}
+                </div>
+              ))}
+              {sel.notes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הערות</div><div style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.notes}}/></div>}
+            </>)}
+          </Card>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function NotesTab(){
+  const [notes,setNotes]=useStorage("kp-notes",DEFAULT_NOTES);
+  const [html,setHtml]=useState("");
+  const [who,setWho]=useState("א");
+  const [editId,setEditId]=useState(null);
+  const [confirmId,setConfirmId]=useState(null);
+  const save=()=>{
+    if(!html.replace(/<[^>]+>/g,"").trim())return;
+    if(editId){setNotes(notes.map(n=>n.id===editId?{...n,text:html,who}:n));setEditId(null);}
+    else{setNotes([{id:uid(),text:html,who,date:new Date().toISOString()},...notes]);}
+    setHtml("");
+  };
+  const startEdit=note=>{setEditId(note.id);setHtml(note.text);setWho(note.who);};
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
+      {confirmId&&<ConfirmModal message="למחוק פתק זה?" onConfirm={()=>{setNotes(notes.filter(n=>n.id!==confirmId));setConfirmId(null);}} onCancel={()=>setConfirmId(null)}/>}
+      <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,padding:16}}>
+        {editId&&<div style={{fontSize:12,color:T.navy,fontWeight:600,marginBottom:8}}>עריכת פתק</div>}
+        <RichTextEditor value={html} onChange={setHtml} placeholder="כתוב פתק…" minHeight={80}/>
+        <div style={{display:"flex",gap:8,marginTop:10,alignItems:"center"}}>
+          <div style={{display:"flex",gap:6}}>{[["א","אדיר"],["ס","ספיר"]].map(([v,l])=><button key={v} onClick={()=>setWho(v)} style={{padding:"6px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:`1px solid ${who===v?T.navy:T.border}`,background:who===v?T.navyLight:"transparent",color:who===v?T.navy:T.textMid}}>{l}</button>)}</div>
+          <div style={{marginRight:"auto",display:"flex",gap:8}}>{editId&&<Btn variant="secondary" onClick={()=>{setEditId(null);setHtml("");}} style={{padding:"8px 14px"}}>ביטול</Btn>}<Btn onClick={save} style={{padding:"8px 20px"}}>{editId?"עדכון":"שמירה"}</Btn></div>
+        </div>
+      </Card>
+      {notes.map(note=>(
+        <Card key={note.id} style={{padding:16}}>
+          <div style={{fontSize:14,color:T.text,lineHeight:1.7,marginBottom:10}} dangerouslySetInnerHTML={{__html:note.text}}/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:11,color:T.textSub}}>{note.who==="א"?"אדיר":"ספיר"} · {fmtDt(note.date)}</div>
+            <ActionBtns onEdit={()=>startEdit(note)} onDelete={()=>setConfirmId(note.id)}/>
+          </div>
+        </Card>
+      ))}
+      {notes.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:32,fontSize:13}}>אין פתקים עדיין</div>}
+    </div>
+  );
+}
+
+function TripsSection({month,year,setMonth,setYear}){
+  const [trips,setTrips]=useStorage("kp-trips",DEFAULT_TRIPS);
+  const [sel,setSel]=useState(null);
+  const [showNew,setShowNew]=useState(false);
+  const [showItem,setShowItem]=useState(false);
+  const [showAll,setShowAll]=useState(false);
+  const [editTripId,setEditTripId]=useState(null);
+  const [editItemId,setEditItemId]=useState(null);
+  const [confirmTrip,setConfirmTrip]=useState(null);
+  const [confirmItem,setConfirmItem]=useState(null);
+  const blankTf={name:"",budget:"",dateFrom:"",dateTo:"",color:T.navy};
+  const [tf,setTf]=useState(blankTf);
+  const blankItf={cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1"};
+  const [itf,setItf]=useState(blankItf);
+  const tripTotal=t=>t.items.reduce((s,i)=>s+toILS(i),0);
+  const openAddTrip=()=>{setEditTripId(null);setTf(blankTf);setShowNew(true);};
+  const openEditTrip=trip=>{setEditTripId(trip.id);setTf({name:trip.name,budget:String(trip.budget),dateFrom:trip.dateFrom||"",dateTo:trip.dateTo||"",color:trip.color||T.navy});setShowNew(true);};
+  const saveTrip=()=>{
+    if(!tf.name||!tf.budget||!tf.dateFrom||!tf.dateTo)return;
+    if(editTripId)setTrips(trips.map(t=>t.id===editTripId?{...t,...tf,budget:+tf.budget}:t));
+    else setTrips([...trips,{...tf,id:uid(),budget:+tf.budget,items:[]}]);
+    setTf(blankTf);setShowNew(false);setEditTripId(null);
+  };
+  const openAddItem=()=>{setEditItemId(null);setItf(blankItf);setShowItem(true);};
+  const openEditItem=item=>{setEditItemId(item.id);setItf({cat:item.cat||"אחר",label:item.label,amount:String(item.amount),currency:item.currency||"ILS",rateUsed:String(item.rateUsed||1)});setShowItem(true);};
+  const saveItem=()=>{
+    if(!itf.label||!itf.amount)return;
+    const saved={...itf,id:editItemId||uid(),amount:+itf.amount,rateUsed:+itf.rateUsed||1};
+    if(editItemId)setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.map(i=>i.id===editItemId?saved:i)}:t));
+    else setTrips(trips.map(t=>t.id===sel?{...t,items:[...t.items,saved]}:t));
+    setItf(blankItf);setShowItem(false);setEditItemId(null);
+  };
+  const doDeleteTrip=id=>{setTrips(trips.filter(t=>t.id!==id));setConfirmTrip(null);if(sel===id)setSel(null);};
+  const doDeleteItem=id=>{setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.filter(i=>i.id!==id)}:t));setConfirmItem(null);};
+  const selTrip=trips.find(t=>t.id===sel);
+  const catIcon=c=>({טיסות:"plane",מלון:"home",ביטוח:"heart",אוכל:"basket",בילויים:"sparkle",כרטיסים:"note"}[c]||"currency");
+  const filteredTrips=showAll?[...trips].sort((a,b)=>(a.dateFrom||"").localeCompare(b.dateFrom||"")):trips.filter(t=>{if(!t.dateFrom)return true;const d=new Date(t.dateFrom);return d.getMonth()===month&&d.getFullYear()===year;});
+  return(
+    <div style={{padding:"0 0 40px"}}>
+      {confirmTrip&&<ConfirmModal message="למחוק את החופשה?" onConfirm={()=>doDeleteTrip(confirmTrip)} onCancel={()=>setConfirmTrip(null)}/>}
+      {confirmItem&&<ConfirmModal message="למחוק פריט זה?" onConfirm={()=>doDeleteItem(confirmItem)} onCancel={()=>setConfirmItem(null)}/>}
+      <div style={{padding:"16px 16px 0"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div>
+      <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
+        {!sel?(
+          <>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{fontSize:14,fontWeight:600,color:T.text}}>{filteredTrips.length} חופשות</div>
+                <button onClick={()=>setShowAll(v=>!v)} style={{fontSize:11,color:showAll?T.navy:T.textSub,fontFamily:T.font,background:showAll?T.navyLight:"transparent",border:`1px solid ${showAll?T.navyBorder:T.border}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>{showAll?"לפי תקופה":"צפייה בהכל"}</button>
+              </div>
+              <Btn onClick={openAddTrip} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+            </div>
+            {showNew&&(
+              <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
+                <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>{editTripId?"עריכת חופשה":"חופשה חדשה"}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <Inp placeholder="שם החופשה" value={tf.name} onChange={e=>setTf({...tf,name:e.target.value})}/>
+                  <div style={{display:"flex",gap:8}}>
+                    <div style={{flex:1}}><div style={{fontSize:11,color:T.textMid,fontWeight:600,marginBottom:4}}>מתאריך</div><Inp type="date" value={tf.dateFrom} onChange={e=>setTf({...tf,dateFrom:e.target.value})}/></div>
+                    <div style={{flex:1}}><div style={{fontSize:11,color:T.textMid,fontWeight:600,marginBottom:4}}>עד תאריך</div><Inp type="date" value={tf.dateTo} onChange={e=>setTf({...tf,dateTo:e.target.value})}/></div>
+                  </div>
+                  <Inp type="number" placeholder="תקציב ₪" value={tf.budget} onChange={e=>setTf({...tf,budget:e.target.value})}/>
+                  <div style={{display:"flex",gap:8}}><Btn onClick={saveTrip} disabled={!tf.name||!tf.budget||!tf.dateFrom||!tf.dateTo} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowNew(false);setEditTripId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
+                </div>
+              </Card>
+            )}
+            {filteredTrips.map(trip=>{
+              const tot=tripTotal(trip);const over=tot>trip.budget;
+              const dateLabel=trip.dateFrom&&trip.dateTo?`${new Date(trip.dateFrom).toLocaleDateString("he-IL")} – ${new Date(trip.dateTo).toLocaleDateString("he-IL")}`:trip.dateFrom||"";
+              return(
+                <Card key={trip.id} style={{cursor:"pointer"}} onClick={()=>setSel(trip.id)}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,alignItems:"flex-start"}}>
+                    <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{trip.name}</div>{dateLabel&&<div style={{fontSize:12,color:T.textSub}}>{dateLabel}</div>}</div>
+                    <ActionBtns onEdit={()=>openEditTrip(trip)} onDelete={()=>setConfirmTrip(trip.id)}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><div style={{fontSize:18,fontWeight:600,fontFamily:T.display}}>{fmt(tot)}</div><div style={{fontSize:12,color:T.textSub}}>מתוך {fmt(trip.budget)}</div></div>
+                  <PBar value={tot} max={trip.budget} color={trip.color||T.navy}/>
+                  <div style={{marginTop:6,fontSize:12,fontWeight:600,color:over?T.danger:T.success}}>{over?`חריגה של ${fmt(tot-trip.budget)}`:`נותר ${fmt(trip.budget-tot)}`}</div>
+                </Card>
+              );
+            })}
+            {filteredTrips.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:32,fontSize:13}}>{showAll?"אין חופשות":`אין חופשות ב${MONTHS[month]} ${year}`}</div>}
+          </>
+        ):(selTrip&&(
+          <div>
+            <button onClick={()=>setSel(null)} style={{background:"none",border:"none",color:T.navy,cursor:"pointer",fontSize:13,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",gap:4,marginBottom:14}}>← חזרה</button>
+            <Card style={{marginBottom:12}}>
+              <div style={{fontSize:22,fontWeight:300,fontFamily:T.display,marginBottom:4}}>{selTrip.name}</div>
+              {(selTrip.dateFrom||selTrip.dateTo)&&<div style={{fontSize:12,color:T.textSub,marginBottom:12}}>{selTrip.dateFrom&&new Date(selTrip.dateFrom).toLocaleDateString("he-IL")}{selTrip.dateTo&&` – ${new Date(selTrip.dateTo).toLocaleDateString("he-IL")}`}</div>}
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><div><div style={{fontSize:11,color:T.textSub}}>שולם</div><div style={{fontSize:22,fontWeight:600,fontFamily:T.display}}>{fmt(tripTotal(selTrip))}</div></div><div style={{textAlign:"left"}}><div style={{fontSize:11,color:T.textSub}}>תקציב</div><div style={{fontSize:22,fontWeight:600,fontFamily:T.display,color:T.navy}}>{fmt(selTrip.budget)}</div></div></div>
+              <PBar value={tripTotal(selTrip)} max={selTrip.budget} h={6}/>
+              <div style={{marginTop:8,fontSize:12,fontWeight:600,color:tripTotal(selTrip)>selTrip.budget?T.danger:T.success}}>{tripTotal(selTrip)>selTrip.budget?`חריגה של ${fmt(tripTotal(selTrip)-selTrip.budget)}`:`נותר ${fmt(selTrip.budget-tripTotal(selTrip))}`}</div>
+            </Card>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"4px 0 8px"}}><div style={{fontSize:13,fontWeight:600,color:T.text}}>פירוט הוצאות</div><Btn onClick={openAddItem} style={{padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={12} color="#fff"/>הוספה</Btn></div>
+            {showItem&&(
+              <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:10}}>{editItemId?"עריכת פריט":"פריט חדש"}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>קטגוריה</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{TCAT.map(c=><button key={c} onClick={()=>setItf({...itf,cat:c})} style={{padding:"6px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${itf.cat===c?T.navy:T.border}`,background:itf.cat===c?T.navyLight:"transparent",color:itf.cat===c?T.navy:T.textMid}}>{c}</button>)}</div>
+                  <Inp placeholder="תיאור" value={itf.label} onChange={e=>setItf({...itf,label:e.target.value})}/>
+                  <Inp type="number" placeholder="סכום" value={itf.amount} onChange={e=>setItf({...itf,amount:e.target.value})}/>
+                  <CurrencyField currency={itf.currency} setCurrency={c=>setItf({...itf,currency:c})} rate={itf.rateUsed} setRate={r=>setItf({...itf,rateUsed:r})} amount={itf.amount}/>
+                  <div style={{display:"flex",gap:8}}><Btn onClick={saveItem} disabled={!itf.label||!itf.amount} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowItem(false);setEditItemId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
+                </div>
+              </Card>
+            )}
+            {selTrip.items.map((item,i)=>{const cur=CURRENCIES.find(c=>c.code===item.currency)||CURRENCIES[0];return(
+              <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<selTrip.items.length-1?`1px solid ${T.border}`:"none"}}>
+                <CatIcon icon={catIcon(item.cat)} color={T.navy} size={34}/>
+                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:T.text}}>{item.label}</div><div style={{fontSize:11,color:T.textSub}}>{item.cat}{item.currency!=="ILS"?` · ${fmtCur(item.amount,cur.symbol)}`:""}</div></div>
+                <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(toILS(item))}</div>
+                <ActionBtns onEdit={()=>openEditItem(item)} onDelete={()=>setConfirmItem(item.id)}/>
+              </div>
+            );})}
+            {selTrip.items.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין פירוט עדיין</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYear}){
+  const [savingsGoal,setSavingsGoal]=useStorage("kp-savings-goal",3000);
+  const [editGoal,setEditGoal]=useState(false);
+  const [goalInput,setGoalInput]=useState("");
+  const [drillCat,setDrillCat]=useState(null);
+  const [reportTab,setReportTab]=useState("monthly");
+  const monthExp=e=>{const d=new Date(e.date||e.expense_date||"");return d.getMonth()===month&&d.getFullYear()===year;};
+  const prevM=month===0?11:month-1;const prevY=month===0?year-1:year;
+  const monthExpenses=expenses.filter(monthExp);
+  const totalSpent=monthExpenses.reduce((s,e)=>s+e.amount,0);
+  const monthSpecial=specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;});
+  const totalSpecial=monthSpecial.reduce((s,i)=>s+toILS(i),0);
+  const grandTotal=totalSpent+totalSpecial;
+  const totalBudget=cats.reduce((s,c)=>s+c.budget,0);
+  const remaining=totalBudget-grandTotal;
+  const savedThisMonth=Math.max(0,remaining);
+  const catSpent=id=>monthExpenses.filter(e=>e.catId===id).reduce((s,e)=>s+e.amount,0);
+  const trend=Array.from({length:6},(_,i)=>{const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;const v=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi;}).reduce((s,e)=>s+e.amount,0)+specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===mi&&d.getFullYear()===yi;}).reduce((s,i2)=>s+toILS(i2),0);return{label:MONTHS[mi].slice(0,3),v,current:mi===month&&yi===year};});
+  const maxT=Math.max(...trend.map(t=>t.v),1);
+  const annualData=MONTHS.map((m,mi)=>{const v=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===year;}).reduce((s,e)=>s+e.amount,0)+specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===mi&&d.getFullYear()===year;}).reduce((s,i2)=>s+toILS(i2),0);return{label:m.slice(0,3),v,mi};});
+  const annualTotal=annualData.reduce((s,d)=>s+d.v,0);
+  const annualAvg=annualTotal/12;
+  const maxA=Math.max(...annualData.map(d=>d.v),1);
+  const splitTrend=Array.from({length:6},(_,i)=>{const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;const ae=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.who==="א";}).reduce((s,e)=>s+e.amount,0);const se=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.who==="ס";}).reduce((s,e)=>s+e.amount,0);return{label:MONTHS[mi].slice(0,3),a:ae,s:se,current:mi===month&&yi===year};});
+  const prevMonthTotal=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===prevM&&d.getFullYear()===prevY;}).reduce((s,e)=>s+e.amount,0);
+  const insights=[];
+  if(grandTotal>totalBudget)insights.push({type:"warn",text:`חרגת ב-${fmt(grandTotal-totalBudget)} מהתקציב החודשי`});
+  else insights.push({type:"good",text:`נותר ${fmt(remaining)} מהתקציב — ${Math.round((remaining/totalBudget)*100)}%`});
+  if(prevMonthTotal>0){const diff=grandTotal-prevMonthTotal;if(Math.abs(diff)>200)insights.push({type:diff>0?"warn":"good",text:diff>0?`הוצאות גבוהות ב-${fmt(diff)} לעומת ${MONTHS[prevM]}`:`חסכת ${fmt(-diff)} לעומת ${MONTHS[prevM]}`});}
+  const topCat=cats.map(c=>({...c,sp:catSpent(c.id)})).sort((a,b)=>b.sp-a.sp)[0];
+  if(topCat?.sp>topCat?.budget)insights.push({type:"warn",text:`${topCat.label}: חריגה של ${fmt(topCat.sp-topCat.budget)}`});
+  if(savedThisMonth>=savingsGoal)insights.push({type:"good",text:`יעד החיסכון הושג! ${fmt(savedThisMonth)} נחסכו החודש`});
+  else if(savingsGoal>0)insights.push({type:"info",text:`נדרש עוד ${fmt(savingsGoal-savedThisMonth)} להשגת יעד החיסכון`});
+  const drillExpenses=drillCat?monthExpenses.filter(e=>e.catId===drillCat):[];
+  const drillCatObj=cats.find(c=>c.id===drillCat);
+  const exportCSV=()=>{const rows=[["תאריך","תיאור","קטגוריה","מי שילם","סכום"],...monthExpenses.map(e=>{const c=cats.find(x=>x.id===e.catId);return[e.date,e.desc||"",c?.label||"",e.who==="א"?"אדיר":"ספיר",e.amount];}),...monthSpecial.map(i=>[i.date,i.desc,"מיוחד","",toILS(i).toFixed(0)])];const csv=rows.map(r=>r.join(",")).join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,\uFEFF"+encodeURIComponent(csv);a.download=`sinario-${MONTHS[month]}-${year}.csv`;a.click();};
+  const tabBtn=(id,label)=><button onClick={()=>setReportTab(id)} style={{padding:"7px 14px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:`1px solid ${reportTab===id?T.navy:T.border}`,background:reportTab===id?T.navy:"transparent",color:reportTab===id?"#fff":T.textSub,flexShrink:0}}>{label}</button>;
+  return(
+    <div style={{padding:"0 0 40px"}}>
+      <div style={{padding:"16px 16px 0"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div>
+      <div style={{padding:"12px 16px 0",display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none"}}>{tabBtn("monthly","חודשי")}{tabBtn("annual","שנתי")}{tabBtn("split","חלוקה")}{tabBtn("insights","תובנות")}</div>
+      <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
+        {reportTab==="monthly"&&(<>
+          <Card>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+              <div><div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה״כ {MONTHS[month]}</div><div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(grandTotal)}</div><div style={{fontSize:12,color:T.textSub,marginTop:4}}>מתוך {fmt(totalBudget)}</div></div>
+              <button onClick={exportCSV} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.textMid}/>CSV</button>
+            </div>
+            <PBar value={grandTotal} max={totalBudget} h={6}/>
+            <div style={{marginTop:8,fontSize:12,fontWeight:600,color:grandTotal>totalBudget?T.danger:T.success}}>{grandTotal>totalBudget?`חריגה של ${fmt(grandTotal-totalBudget)}`:`נותר ${fmt(remaining)}`}</div>
+            {totalSpecial>0&&<div style={{marginTop:6,fontSize:11,color:T.textSub}}>הוצאות שוטפות {fmt(totalSpent)} + מיוחדות {fmt(totalSpecial)}</div>}
+          </Card>
+          <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="target" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:600,color:T.navy}}>יעד חיסכון חודשי</div></div>
+              <button onClick={()=>{setEditGoal(v=>!v);setGoalInput(String(savingsGoal));}} style={{background:"none",border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>{editGoal?"סגור":"עריכה"}</button>
+            </div>
+            {editGoal?(<div style={{display:"flex",gap:8}}><Inp type="number" placeholder="יעד חיסכון ₪" value={goalInput} onChange={e=>setGoalInput(e.target.value)} style={{flex:1}}/><Btn onClick={()=>{setSavingsGoal(+goalInput||0);setEditGoal(false);}} style={{padding:"10px 16px"}}>שמור</Btn></div>):(
+              <><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:12,color:T.textMid}}>נחסך בפועל</span><span style={{fontSize:14,fontWeight:600,color:savedThisMonth>=savingsGoal?T.success:T.danger}}>{fmt(savedThisMonth)}</span></div><PBar value={savedThisMonth} max={savingsGoal||1} color={savedThisMonth>=savingsGoal?T.success:T.navy} h={6}/><div style={{marginTop:6,fontSize:11,color:T.textMid}}>{savingsGoal>0?`יעד: ${fmt(savingsGoal)}`:"לא הוגדר יעד"}</div></>
+            )}
+          </Card>
+          <Card>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>השוואה לחודש קודם</div>
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <div style={{flex:1,textAlign:"center",padding:14,background:T.bg,borderRadius:12}}><div style={{fontSize:11,color:T.textSub,marginBottom:4}}>{MONTHS[prevM]}</div><div style={{fontSize:20,fontWeight:600,fontFamily:T.display,color:T.text}}>{fmt(prevMonthTotal)}</div></div>
+              <div style={{color:grandTotal>prevMonthTotal?T.danger:T.success,fontWeight:700,fontSize:18}}>{grandTotal>prevMonthTotal?"▲":"▼"}</div>
+              <div style={{flex:1,textAlign:"center",padding:14,background:T.navyLight,borderRadius:12,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,color:T.navy,marginBottom:4}}>{MONTHS[month]}</div><div style={{fontSize:20,fontWeight:600,fontFamily:T.display,color:T.navy}}>{fmt(grandTotal)}</div></div>
+            </div>
+          </Card>
+          <Card>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>מגמה — 6 חודשים</div>
+            <div style={{display:"flex",alignItems:"flex-end",gap:8,height:110}}>
+              {trend.map((t,i)=>(
+                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <div style={{fontSize:9,color:t.current?T.navy:T.textSub,fontWeight:t.current?700:400,textAlign:"center"}}>{t.v>0?fmt(t.v):""}</div>
+                  <div style={{width:"100%",background:T.bg,borderRadius:6,height:72,display:"flex",alignItems:"flex-end",overflow:"hidden",border:`1px solid ${T.border}`}}><div style={{width:"100%",height:`${(t.v/maxT)*100}%`,background:t.current?T.navy:"#c3d4e8",borderRadius:4,transition:"height .7s"}}/></div>
+                  <span style={{fontSize:10,color:t.current?T.navy:T.textSub,fontWeight:t.current?700:400}}>{t.label}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>{drillCat?<><button onClick={()=>setDrillCat(null)} style={{background:"none",border:"none",color:T.navy,cursor:"pointer",fontSize:13,fontFamily:T.font,fontWeight:600}}>← חזרה</button><span style={{marginRight:8}}>{drillCatObj?.label}</span></>:"פירוט לפי קטגוריה"}</div>
+            {!drillCat?(cats.map(c=>{const sp=catSpent(c.id);return(
+              <div key={c.id} style={{marginBottom:14,cursor:"pointer"}} onClick={()=>setDrillCat(c.id)}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}><div style={{display:"flex",alignItems:"center",gap:8}}><CatIcon icon={c.icon} color={c.color} size={30}/><div><div style={{fontSize:13,color:T.text,fontWeight:500}}>{c.label}</div><div style={{fontSize:11,color:T.textSub}}>{((sp/(totalSpent||1))*100).toFixed(0)}% מהכלל</div></div></div><div style={{textAlign:"left"}}><div style={{fontSize:14,fontWeight:600,color:sp>c.budget?T.danger:T.text}}>{fmt(sp)}</div><div style={{fontSize:10,color:T.textSub}}>מתוך {fmt(c.budget)}</div></div></div>
+                <PBar value={sp} max={c.budget} color={c.color}/>
+              </div>
+            );})
+            ):(
+              <><div style={{marginBottom:12}}><div style={{fontSize:20,fontWeight:300,fontFamily:T.display}}>{fmt(catSpent(drillCat))}</div><div style={{fontSize:12,color:T.textSub}}>מתוך {fmt(drillCatObj?.budget||0)} תקציב</div></div><PBar value={catSpent(drillCat)} max={drillCatObj?.budget||1} color={drillCatObj?.color||T.navy} h={6}/><div style={{marginTop:14}}>{drillExpenses.sort((a,b)=>new Date(b.date)-new Date(a.date)).map((e,i)=>(<div key={e.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<drillExpenses.length-1?`1px solid ${T.border}`:"none"}}><div><div style={{fontSize:13,fontWeight:500,color:T.text}}>{e.desc||"הוצאה"}</div><div style={{fontSize:11,color:T.textSub}}>{e.who==="א"?"אדיר":"ספיר"} · {new Date(e.date).toLocaleDateString("he-IL")}</div></div><div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(e.amount)}</div></div>))}{drillExpenses.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:16,fontSize:13}}>אין הוצאות בקטגוריה זו</div>}</div></>
+            )}
+          </Card>
+        </>)}
+        {reportTab==="annual"&&(<>
+          <Card><div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה״כ {year}</div><div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(annualTotal)}</div><div style={{fontSize:12,color:T.textSub,marginTop:4}}>ממוצע חודשי: {fmt(annualAvg)}</div></Card>
+          <Card><div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>הוצאות לאורך {year}</div><div style={{display:"flex",alignItems:"flex-end",gap:5,height:130}}>{annualData.map((d,i)=>(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><div style={{fontSize:8,color:d.mi===month?T.navy:T.textSub,fontWeight:d.mi===month?700:400,textAlign:"center",writingMode:"vertical-rl"}}>{d.v>0?`₪${Math.round(d.v/1000)}K`:""}</div><div style={{width:"100%",background:T.bg,borderRadius:4,height:90,display:"flex",alignItems:"flex-end",overflow:"hidden",border:`1px solid ${T.border}`}}><div style={{width:"100%",height:`${(d.v/maxA)*100}%`,background:d.mi===month?T.navy:"#c3d4e8",transition:"height .7s"}}/></div><span style={{fontSize:8,color:d.mi===month?T.navy:T.textSub,fontWeight:d.mi===month?700:400}}>{d.label}</span></div>))}</div></Card>
+          <Card><div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חודש לפי חודש</div>{annualData.filter(d=>d.v>0).sort((a,b)=>b.v-a.v).map((d,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:28,height:28,borderRadius:8,background:d.mi===month?T.navy:T.bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:d.mi===month?"#fff":T.textMid}}>{d.label.slice(0,2)}</div><span style={{fontSize:13,color:T.text,fontWeight:d.mi===month?600:400}}>{MONTHS[d.mi]}</span></div><div style={{textAlign:"left"}}><div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(d.v)}</div><div style={{fontSize:10,color:T.textSub}}>{((d.v/annualTotal)*100).toFixed(0)}%</div></div></div>))}</Card>
+        </>)}
+        {reportTab==="split"&&(<>
+          <Card>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חלוקה — {MONTHS[month]}</div>
+            {[["אדיר","א"],["ספיר","ס"]].map(([name,who])=>{const amt=monthExpenses.filter(e=>e.who===who).reduce((s,e)=>s+e.amount,0);const pct=((amt/(totalSpent||1))*100).toFixed(0);return(<div key={who} style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,fontWeight:600,color:T.text}}>{name}</span><span style={{fontSize:14,fontWeight:600,color:T.navy}}>{fmt(amt)} <span style={{fontSize:11,color:T.textSub,fontWeight:400}}>({pct}%)</span></span></div><PBar value={amt} max={totalSpent||1} color={T.navy} h={6}/></div>);})}
+            {Math.abs(monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)-monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0))>5&&(<div style={{marginTop:8,background:T.navyLight,borderRadius:10,padding:12,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:12,fontWeight:600,color:T.navy}}>{monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)>monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0)?"ספיר חייבת לאדיר":"אדיר חייב לספיר"}: {fmt(Math.abs(monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)-monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0))/2)}</div></div>)}
+          </Card>
+          <Card>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>חלוקה — 6 חודשים</div>
+            <div style={{display:"flex",alignItems:"flex-end",gap:8,height:120}}>{splitTrend.map((t,i)=>{const maxV=Math.max(...splitTrend.map(x=>x.a+x.s),1);return(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><div style={{width:"100%",height:90,display:"flex",alignItems:"flex-end",gap:2}}><div style={{flex:1,background:T.navy,borderRadius:"3px 3px 0 0",height:`${(t.a/maxV)*90}px`,transition:"height .7s",opacity:t.current?1:.6}}/><div style={{flex:1,background:"#be185d",borderRadius:"3px 3px 0 0",height:`${(t.s/maxV)*90}px`,transition:"height .7s",opacity:t.current?1:.6}}/></div><span style={{fontSize:10,color:t.current?T.navy:T.textSub,fontWeight:t.current?700:400}}>{t.label}</span></div>);})}</div>
+            <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:T.textSub}}><div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:T.navy}}/> אדיר</div><div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:"#be185d"}}/> ספיר</div></div>
+          </Card>
+        </>)}
+        {reportTab==="insights"&&(<>
+          <Card>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}><Icon name="insights" size={15} color={T.navy}/><div style={{fontSize:14,fontWeight:600,color:T.text}}>תובנות חכמות — {MONTHS[month]}</div></div>
+            {insights.map((ins,i)=>(<div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:8,background:ins.type==="warn"?T.dangerBg:ins.type==="good"?T.successBg:T.navyLight,border:`1px solid ${ins.type==="warn"?T.dangerBorder:ins.type==="good"?"#bbf7d0":T.navyBorder}`}}><span style={{fontSize:14}}>{ins.type==="warn"?"⚠️":ins.type==="good"?"✓":"→"}</span><span style={{fontSize:13,color:T.text,lineHeight:1.5}}>{ins.text}</span></div>))}
+            {insights.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:20,fontSize:13}}>אין תובנות לחודש זה</div>}
+          </Card>
+          <Card>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>קטגוריות עם חריגות חוזרות</div>
+            {cats.map(c=>{const overMonths=Array.from({length:6},(_,i)=>{const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;const sp=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.catId===c.id;}).reduce((s,e)=>s+e.amount,0);return sp>c.budget;}).filter(Boolean).length;if(overMonths<2)return null;return(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${T.border}`}}><CatIcon icon={c.icon} color={c.color} size={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.text}}>{c.label}</div><div style={{fontSize:11,color:T.danger}}>חריגה ב-{overMonths} מתוך 6 חודשים אחרונים</div></div><div style={{fontSize:12,color:T.textSub}}>תקציב {fmt(c.budget)}</div></div>);})}
+            {cats.every(c=>Array.from({length:6},(_,i)=>{const mi=(month-5+i+12)%12;const yi=month-5+i<0?year-1:year;return expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===mi&&d.getFullYear()===yi&&e.catId===c.id;}).reduce((s,e)=>s+e.amount,0)>c.budget;}).filter(Boolean).length<2)&&<div style={{textAlign:"center",color:T.textSub,padding:16,fontSize:13}}>אין חריגות חוזרות</div>}
+          </Card>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
 function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuConceptsList,setMenuConceptsList}){
   const [tab,setTab]=useState("system");
   const [calConnected,setCalConnected]=useState(false);
@@ -2474,9 +2209,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
     <div style={{padding:"0 0 40px"}}>
       {confirmCatId&&<ConfirmModal message="למחוק קטגוריה זו?" onConfirm={()=>{setCats(cats.filter(c=>c.id!==confirmCatId));setConfirmCatId(null);}} onCancel={()=>setConfirmCatId(null)}/>}
       <div style={{padding:"16px 16px 0",display:"flex",gap:6}}>
-        {[["system","מערכת"],["db","נתונים"]].map(([id,l])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{padding:"8px 18px",borderRadius:99,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${tab===id?T.navy:T.border}`,background:tab===id?T.navy:"transparent",color:tab===id?"#fff":T.textSub}}>{l}</button>
-        ))}
+        {[["system","מערכת"],["db","נתונים"]].map(([id,l])=>(<button key={id} onClick={()=>setTab(id)} style={{padding:"8px 18px",borderRadius:99,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${tab===id?T.navy:T.border}`,background:tab===id?T.navy:"transparent",color:tab===id?"#fff":T.textSub}}>{l}</button>))}
       </div>
       <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
         {tab==="system"&&(<>
@@ -2485,17 +2218,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
               <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="wallet" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>תקציב חודשי כולל</div></div>
               <button onClick={()=>{setEditBudget(v=>!v);setBudgetInput(String(cats.reduce((s,c)=>s+c.budget,0)));}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12,color:T.textMid,fontFamily:T.font,fontWeight:600}}>{editBudget?"סגור":"עריכה"}</button>
             </div>
-            {editBudget?(
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                <div style={{fontSize:12,color:T.textMid,marginBottom:4}}>הזן תקציב חודשי כולל — יחולק שווה בין הקטגוריות</div>
-                <div style={{display:"flex",gap:8}}>
-                  <Inp type="number" placeholder="תקציב ₪" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} style={{flex:1}}/>
-                  <Btn onClick={()=>{const total=+budgetInput||0;if(!total||cats.length===0)return;const share=Math.round(total/cats.length);setCats(cats.map(c=>({...c,budget:share})));setEditBudget(false);}} style={{padding:"10px 16px"}}>חלק</Btn>
-                </div>
-              </div>
-            ):(
-              <div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>
-            )}
+            {editBudget?(<div style={{display:"flex",flexDirection:"column",gap:8}}><div style={{fontSize:12,color:T.textMid,marginBottom:4}}>הזן תקציב חודשי כולל — יחולק שווה בין הקטגוריות</div><div style={{display:"flex",gap:8}}><Inp type="number" placeholder="תקציב ₪" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} style={{flex:1}}/><Btn onClick={()=>{const total=+budgetInput||0;if(!total||cats.length===0)return;const share=Math.round(total/cats.length);setCats(cats.map(c=>({...c,budget:share})));setEditBudget(false);}} style={{padding:"10px 16px"}}>חלק</Btn></div></div>):(<div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>)}
           </Card>
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -2516,29 +2239,17 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
                 </div>
               </div>
             )}
-            {cats.map(c=>(
-              <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${T.border}`}}>
-                <CatIcon icon={c.icon} color={c.color} size={36}/>
-                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:T.text}}>{c.label}</div><div style={{fontSize:11,color:T.textSub}}>תקציב: {fmt(c.budget)}</div></div>
-                <ActionBtns onEdit={()=>startEdit(c)} onDelete={()=>cats.length>1?setConfirmCatId(c.id):null}/>
-              </div>
-            ))}
+            {cats.map(c=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${T.border}`}}><CatIcon icon={c.icon} color={c.color} size={36}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:T.text}}>{c.label}</div><div style={{fontSize:11,color:T.textSub}}>תקציב: {fmt(c.budget)}</div></div><ActionBtns onEdit={()=>startEdit(c)} onDelete={()=>cats.length>1?setConfirmCatId(c.id):null}/></div>))}
           </Card>
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>קטגוריות הוצאות מיוחדות</div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{specialCatsList.map(c=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:4,background:T.bg,border:`1px solid ${T.border}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.text}}>{c.label}</span><button onClick={()=>setSpecialCatsList(specialCatsList.filter(x=>x.id!==c.id))} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
-            <div style={{display:"flex",gap:8}}>
-              <Inp placeholder="קטגוריה חדשה" value={newSpecialCat} onChange={e=>setNewSpecialCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newSpecialCat.trim()){setSpecialCatsList([...specialCatsList,{id:"sc"+uid(),label:newSpecialCat.trim()}]);setNewSpecialCat("");}}}/>
-              <Btn onClick={()=>{if(newSpecialCat.trim()){setSpecialCatsList([...specialCatsList,{id:"sc"+uid(),label:newSpecialCat.trim()}]);setNewSpecialCat("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn>
-            </div>
+            <div style={{display:"flex",gap:8}}><Inp placeholder="קטגוריה חדשה" value={newSpecialCat} onChange={e=>setNewSpecialCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newSpecialCat.trim()){setSpecialCatsList([...specialCatsList,{id:"sc"+uid(),label:newSpecialCat.trim()}]);setNewSpecialCat("");}}}/><Btn onClick={()=>{if(newSpecialCat.trim()){setSpecialCatsList([...specialCatsList,{id:"sc"+uid(),label:newSpecialCat.trim()}]);setNewSpecialCat("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
           </Card>
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>סגנונות תפריטים</div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{menuConceptsList.map((c,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.navy}}>{c}</span><button onClick={()=>setMenuConceptsList(menuConceptsList.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:T.navyMid,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
-            <div style={{display:"flex",gap:8}}>
-              <Inp placeholder="סגנון חדש" value={newConcept} onChange={e=>setNewConcept(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newConcept.trim()){setMenuConceptsList([...menuConceptsList,newConcept.trim()]);setNewConcept("");}}}/>
-              <Btn onClick={()=>{if(newConcept.trim()){setMenuConceptsList([...menuConceptsList,newConcept.trim()]);setNewConcept("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn>
-            </div>
+            <div style={{display:"flex",gap:8}}><Inp placeholder="סגנון חדש" value={newConcept} onChange={e=>setNewConcept(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newConcept.trim()){setMenuConceptsList([...menuConceptsList,newConcept.trim()]);setNewConcept("");}}}/><Btn onClick={()=>{if(newConcept.trim()){setMenuConceptsList([...menuConceptsList,newConcept.trim()]);setNewConcept("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
           </Card>
         </>)}
         {tab==="db"&&(<>
@@ -2552,14 +2263,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><Icon name="calendar" size={18} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>חיבור ל-Google Calendar</div></div>
             <div style={{fontSize:12,color:T.textMid,lineHeight:1.7,marginBottom:14,background:T.navyLight,borderRadius:10,padding:12,border:`1px solid ${T.navyBorder}`}}>יאפשר ייצוא חופשות ישירות ל-Calendar</div>
-            {calConnected?(
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:T.successBg,borderRadius:10,border:"1px solid #bbf7d0"}}>
-                <span style={{fontSize:13}}>✓</span><span style={{fontSize:13,color:T.success,fontWeight:600}}>מחובר בהצלחה</span>
-                <button onClick={()=>setCalConnected(false)} style={{marginRight:"auto",background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>ניתוק</button>
-              </div>
-            ):(
-              <Btn style={{width:"100%",padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:8}} onClick={()=>setCalConnected(true)}><Icon name="calendar" size={14} color="#fff"/>התחבר ל-Google Calendar</Btn>
-            )}
+            {calConnected?(<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:T.successBg,borderRadius:10,border:"1px solid #bbf7d0"}}><span style={{fontSize:13}}>✓</span><span style={{fontSize:13,color:T.success,fontWeight:600}}>מחובר בהצלחה</span><button onClick={()=>setCalConnected(false)} style={{marginRight:"auto",background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>ניתוק</button></div>):(<Btn style={{width:"100%",padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:8}} onClick={()=>setCalConnected(true)}><Icon name="calendar" size={14} color="#fff"/>התחבר ל-Google Calendar</Btn>)}
           </Card>
         </>)}
       </div>
@@ -2567,7 +2271,6 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   );
 }
 
-// ─── SECTIONS & TABS ─────────────────────────────────────────────────────────
 const SECTIONS=[
   {id:"home",    label:"הבית שלנו",    icon:"home"},
   {id:"trips",   label:"חופשות", icon:"plane"},
@@ -2575,7 +2278,6 @@ const SECTIONS=[
   {id:"reports", label:"דוחות",        icon:"insights"},
   {id:"settings",label:"הגדרות",       icon:"settings"},
 ];
-// ─── הוצאות שוטפות ומיוחדות אוחדו תחת "הוצאות"
 const HOME_TABS=[
   {id:"expenses",label:"הוצאות"},
   {id:"grocery", label:"רשימת קניות"},
@@ -2583,7 +2285,6 @@ const HOME_TABS=[
   {id:"notes",   label:"פתקים"},
 ];
 
-// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
   const [authed,setAuthed]=useState(()=>{try{return sessionStorage.getItem("sinario_auth")==="1";}catch{return false;}});
   const [cats,             setCats]             =useStorage("sp-cats",         DEFAULT_CATS);
@@ -2595,16 +2296,12 @@ export default function App(){
   const [homeTab,  setHomeTab] =useState("expenses");
   const [month,    setMonth]   =useState(new Date().getMonth());
   const [year,     setYear]    =useState(2026);
-
   const monthExp=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===month&&d.getFullYear()===year;});
   const monthSpecialTotal=special.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;}).reduce((s,i)=>s+toILS(i),0);
-
   if(!authed)return <PinScreen onUnlock={()=>setAuthed(true)}/>;
-
   return(
     <div style={{background:T.bg,minHeight:"100vh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text}}>
       <style>{globalCss}</style>
-      {/* Header */}
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"12px 20px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
         <div style={{maxWidth:720,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 14px",fontSize:12,color:T.navy,fontWeight:600,flexShrink:0}}>{MONTHS[month]} {year}</div>
@@ -2616,42 +2313,15 @@ export default function App(){
           </div>
         </div>
       </div>
-      {/* Section nav */}
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}>
         <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>
-          {SECTIONS.map(s=>(
-            <button key={s.id} onClick={()=>setSection(s.id)} style={{padding:"13px 14px",border:"none",background:"transparent",color:section===s.id?T.navy:T.textSub,fontFamily:T.font,fontSize:13,fontWeight:section===s.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:section===s.id?`2px solid ${T.navy}`:"2px solid transparent",marginBottom:-1,transition:"color .15s",display:"flex",alignItems:"center",gap:5}}>
-              <Icon name={s.icon} size={13} color={section===s.id?T.navy:T.textSub}/>{s.label}
-            </button>
-          ))}
+          {SECTIONS.map(s=>(<button key={s.id} onClick={()=>setSection(s.id)} style={{padding:"13px 14px",border:"none",background:"transparent",color:section===s.id?T.navy:T.textSub,fontFamily:T.font,fontSize:13,fontWeight:section===s.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:section===s.id?`2px solid ${T.navy}`:"2px solid transparent",marginBottom:-1,transition:"color .15s",display:"flex",alignItems:"center",gap:5}}><Icon name={s.icon} size={13} color={section===s.id?T.navy:T.textSub}/>{s.label}</button>))}
         </div>
       </div>
-      {/* Home sub-tabs */}
-      {section==="home"&&(
-        <div style={{background:T.bg,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}>
-          <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>
-            {HOME_TABS.map(t=>(
-              <button key={t.id} onClick={()=>setHomeTab(t.id)} style={{padding:"9px 14px",border:"none",background:homeTab===t.id?T.surface:"transparent",color:homeTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:12,fontWeight:homeTab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:homeTab===t.id?`2px solid ${T.navy}`:"2px solid transparent",marginBottom:-1,transition:"all .15s"}}>{t.label}</button>
-            ))}
-          </div>
-        </div>
-      )}
-      {/* Period picker */}
-      {section==="home"&&(
-        <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}>
-          <div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div>
-        </div>
-      )}
-      {/* Content */}
+      {section==="home"&&(<div style={{background:T.bg,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{padding:"9px 14px",border:"none",background:homeTab===t.id?T.surface:"transparent",color:homeTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:12,fontWeight:homeTab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:homeTab===t.id?`2px solid ${T.navy}`:"2px solid transparent",marginBottom:-1,transition:"all .15s"}}>{t.label}</button>))}</div></div>)}
+      {section==="home"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
       <div style={{maxWidth:720,margin:"0 auto",padding:"16px 16px 40px"}}>
-        {section==="home"&&homeTab==="expenses"&&
-          <ExpensesTab
-            expenses={monthExp} setExpenses={setExpenses}
-            cats={cats} month={month} year={year}
-            specialItems={special} setSpecialItems={setSpecial}
-            specialCatsList={specialCatsList}
-            monthSpecialTotal={monthSpecialTotal}
-          />}
+        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab menuConceptsList={menuConceptsList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab/>}

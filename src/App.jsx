@@ -1066,28 +1066,26 @@ const fetchPrices=async()=>{
       ...watchlist
     ])];
     if(!allTickers.length)return;
-    setPricesLoading(true);setPricesError("");
-
-    const result={};
-    const cryptoIds={BTC:"bitcoin",ETH:"ethereum",SOL:"solana",BNB:"binancecoin",ADA:"cardano",XRP:"ripple",DOGE:"dogecoin",DOT:"polkadot",MATIC:"matic-network",AVAX:"avalanche-2"};
-    const cryptoTickers=allTickers.filter(t=>cryptoIds[t]);
-    const stockTickers=allTickers.filter(t=>!cryptoIds[t]);
+    setPricesLoading(true);
+    setPricesError("");
 
     try{
-      // ── קריפטו דרך CoinGecko (עובד מ-browser) ──
+      const cryptoIds={BTC:"bitcoin",ETH:"ethereum",SOL:"solana",BNB:"binancecoin",ADA:"cardano",XRP:"ripple",DOGE:"dogecoin",DOT:"polkadot",MATIC:"matic-network",AVAX:"avalanche-2"};
+      const cryptoTickers=allTickers.filter(t=>cryptoIds[t]);
+      const stockTickers=allTickers.filter(t=>!cryptoIds[t]);
+      const result={};
+
       if(cryptoTickers.length){
         const ids=cryptoTickers.map(t=>cryptoIds[t]).join(",");
         const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
         if(r.ok){
           const d=await r.json();
           cryptoTickers.forEach(t=>{
-            const id=cryptoIds[t];
-            if(d[id]?.usd)result[t]=d[id].usd;
+            if(d[cryptoIds[t]]?.usd) result[t]=d[cryptoIds[t]].usd;
           });
         }
       }
 
-      // ── מניות דרך serverless function ──
       if(stockTickers.length){
         const r=await fetch("/api/prices",{
           method:"POST",
@@ -1106,7 +1104,8 @@ const fetchPrices=async()=>{
       } else {
         setPricesError("לא ניתן לקבל מחירים כרגע");
       }
-    }catch{
+    }catch(e){
+      console.error("fetchPrices error:",e);
       setPricesError("שגיאת חיבור");
     }
 

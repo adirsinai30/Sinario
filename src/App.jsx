@@ -11,7 +11,7 @@ const T = {
   navy:"#1e3a5f", navyMid:"#2d5282", navyLight:"#ebf0f7", navyBorder:"#c3d4e8",
   danger:"#c0392b", dangerBg:"#fdf2f2", dangerBorder:"#f5c6c2",
   success:"#1a6b3c", successBg:"#f0faf4",
-  font:"'DM Sans', system-ui", display:"'DM Serif Display', serif",
+  font:"'system-ui', system-ui", display:"'system-ui', system-ui",
 };
 
 const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
@@ -200,7 +200,7 @@ const globalCss=`
   @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
   @keyframes pinPop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .rte-editor{outline:none;min-height:70px;width:100%;font-family:'DM Sans',system-ui;font-size:13px;color:#1c1917;line-height:1.7;direction:rtl;text-align:right;}
+  .rte-editor{outline:none;min-height:70px;width:100%;font-family:'system-ui',system-ui;font-size:13px;color:#1c1917;line-height:1.7;direction:rtl;text-align:right;}
   .rte-editor b,.rte-editor strong{font-weight:700;}
   .rte-editor i,.rte-editor em{font-style:italic;}
   .rte-editor u{text-decoration:underline;}
@@ -520,7 +520,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
             <div>
-              <div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>סה״כ הוצאות</div>
+              <div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>סה"כ הוצאות</div>
               <div style={{fontSize:34,fontWeight:400,color:T.text,fontFamily:T.display,letterSpacing:-1}}>{fmt(combinedTotal)}</div>
               <div style={{fontSize:12,color:T.textSub,marginTop:4}}>מתוך {fmt(totalBudget)} תקציב</div>
               {liveSpecialTotal>0&&<div style={{fontSize:11,color:T.navyMid,marginTop:3}}>כולל {fmt(liveSpecialTotal)} הוצאות מיוחדות</div>}
@@ -1333,17 +1333,30 @@ const fetchPrices=async()=>{
           })()}
           {activeAssets.length>1&&portfolioView==="active"&&!searchQ&&(
             <Card style={{padding:16}}>
-              <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:12}}>הקצאת תיק</div>
-              <div style={{display:"flex",gap:14,alignItems:"center"}}>
+              <div style={{display:"flex",gap:16,alignItems:"center"}}>
+              <div style={{flex:1}}>
+          {activeAssets.map((a,i)=>{
+                    const pct=((currentValILS(a)/totalPortfolio)*100).toFixed(1);
+                    const colors=[T.navy,"#2563ab","#7c3aed","#be185d","#1a6b3c","#6b5c3e"];
+                    const color=colors[i%6];
+                    return(
+                      <div key={a.id} style={{marginBottom:11}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+                            <CatDot color={color} size={8}/>
+                            <span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.security}</span>
+                          </div>
+                          <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                            <span style={{fontSize:12,color:T.textSub}}>{fmt(currentValILS(a))}</span>
+                            <span style={{fontSize:12,color:color,fontWeight:700}}>{pct}%</span>
+                          </div>
+                        </div>
+                        <PBar value={currentValILS(a)} max={totalPortfolio} color={color} h={4}/>
+                      </div>
+                    );
+                  })}
+              </div>
                 <Donut slices={activeAssets.map((a,i)=>({val:currentValILS(a),color:[T.navy,"#2563ab","#7c3aed","#be185d","#1a6b3c","#6b5c3e"][i%6]}))} size={120}/>
-                <div style={{flex:1}}>
-                  {activeAssets.map((a,i)=>{const pct=((currentValILS(a)/totalPortfolio)*100).toFixed(1);const colors=[T.navy,"#2563ab","#7c3aed","#be185d","#1a6b3c","#6b5c3e"];return(
-                    <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}><CatDot color={colors[i%6]} size={8}/><span style={{fontSize:12,color:T.textMid,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:130}}>{a.security}</span></div>
-                      <span style={{fontSize:12,color:T.text,fontWeight:700}}>{pct}%</span>
-                    </div>
-                  );})}
-                </div>
               </div>
             </Card>
           )}
@@ -1407,7 +1420,7 @@ const fetchPrices=async()=>{
                     )}
                     <div style={{marginTop:12}}>
                       <div style={{fontSize:11,fontWeight:700,color:"#1a6b3c",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span style={{cursor:"pointer",userSelect:"none"}} onClick={()=>toggleSection(a.id,"d")}>{isOpen(a.id,"d")?"▾":"▸"} 💰 דיבידנדים ({assetDividends(a.id).length}) · סה״כ {fmt(totalDividendsILS(a))}</span>
+                        <span style={{cursor:"pointer",userSelect:"none"}} onClick={()=>toggleSection(a.id,"d")}>{isOpen(a.id,"d")?"▾":"▸"} 💰 דיבידנדים ({assetDividends(a.id).length}) · סה"כ {fmt(totalDividendsILS(a))}</span>
                         <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm(blankDividend);}} style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.success,fontFamily:T.font,fontWeight:600}}>+ דיבידנד</button>
                       </div>
                       {isOpen(a.id,"d")&&addDividendId===a.id&&(
@@ -1612,7 +1625,7 @@ function exportMenuPDF(menu){
   const w=window.open("","_blank");if(!w)return;
   const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
   const cats=(menu.categories||[menu.category]).filter(Boolean);const concepts=(menu.concepts||[]);
-  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'DM Sans',sans-serif;color:#1c1917;background:#fff;padding:48px 56px;direction:rtl;}.header{border-bottom:2px solid #1e3a5f;padding-bottom:20px;margin-bottom:28px;}.title{font-family:'DM Serif Display',serif;font-size:32px;font-weight:400;color:#1e3a5f;letter-spacing:-0.5px;margin-bottom:8px;}.tags{display:flex;gap:8px;flex-wrap:wrap;}.tag{background:#ebf0f7;color:#1e3a5f;border:1px solid #c3d4e8;border-radius:99px;padding:4px 14px;font-size:12px;font-weight:600;}.section{margin-bottom:28px;}.section-title{font-size:11px;font-weight:700;color:#a8a29e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e6e2db;}.dish{padding:9px 0;border-bottom:1px solid #f7f6f3;font-size:14px;color:#1c1917;display:flex;align-items:center;gap:8px;}.dish:last-child{border-bottom:none;}.dish-bullet{width:6px;height:6px;border-radius:50%;background:#1e3a5f;flex-shrink:0;}.notes-box{background:#f7f6f3;border:1px solid #e6e2db;border-radius:10px;padding:16px;margin-top:8px;}.footer{margin-top:40px;text-align:center;font-size:10px;color:#a8a29e;}@media print{body{padding:32px 40px;}}</style></head><body><div class="header"><div class="title">${menu.name}</div><div class="tags">${cats.map(c=>`<span class="tag">${c}</span>`).join("")}${menu.servings?`<span class="tag">${menu.servings} אנשים</span>`:""}${concepts.map(c=>`<span class="tag">${c}</span>`).join("")}</div></div>${sections.length>0?sections.map(sec=>`<div class="section"><div class="section-title">${sec.title||""}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}</div>`).join(""):""}<div class="footer">Sinario · ${new Date().toLocaleDateString("he-IL")}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'system-ui',sans-system-ui;color:#1c1917;background:#fff;padding:48px 56px;direction:rtl;}.header{border-bottom:2px solid #1e3a5f;padding-bottom:20px;margin-bottom:28px;}.title{font-family:'system-ui',system-ui;font-size:32px;font-weight:400;color:#1e3a5f;letter-spacing:-0.5px;margin-bottom:8px;}.tags{display:flex;gap:8px;flex-wrap:wrap;}.tag{background:#ebf0f7;color:#1e3a5f;border:1px solid #c3d4e8;border-radius:99px;padding:4px 14px;font-size:12px;font-weight:600;}.section{margin-bottom:28px;}.section-title{font-size:11px;font-weight:700;color:#a8a29e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e6e2db;}.dish{padding:9px 0;border-bottom:1px solid #f7f6f3;font-size:14px;color:#1c1917;display:flex;align-items:center;gap:8px;}.dish:last-child{border-bottom:none;}.dish-bullet{width:6px;height:6px;border-radius:50%;background:#1e3a5f;flex-shrink:0;}.notes-box{background:#f7f6f3;border:1px solid #e6e2db;border-radius:10px;padding:16px;margin-top:8px;}.footer{margin-top:40px;text-align:center;font-size:10px;color:#a8a29e;}@media print{body{padding:32px 40px;}}</style></head><body><div class="header"><div class="title">${menu.name}</div><div class="tags">${cats.map(c=>`<span class="tag">${c}</span>`).join("")}${menu.servings?`<span class="tag">${menu.servings} אנשים</span>`:""}${concepts.map(c=>`<span class="tag">${c}</span>`).join("")}</div></div>${sections.length>0?sections.map(sec=>`<div class="section"><div class="section-title">${sec.title||""}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}</div>`).join(""):""}<div class="footer">Sinario · ${new Date().toLocaleDateString("he-IL")}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
   w.document.close();
 }
 
@@ -2000,7 +2013,7 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
         {reportTab==="monthly"&&(<>
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
-              <div><div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה״כ {MONTHS[month]}</div><div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(grandTotal)}</div><div style={{fontSize:12,color:T.textSub,marginTop:4}}>מתוך {fmt(totalBudget)}</div></div>
+              <div><div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה"כ {MONTHS[month]}</div><div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(grandTotal)}</div><div style={{fontSize:12,color:T.textSub,marginTop:4}}>מתוך {fmt(totalBudget)}</div></div>
               <button onClick={exportCSV} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.textMid}/>CSV</button>
             </div>
             <PBar value={grandTotal} max={totalBudget} h={6}/>
@@ -2050,7 +2063,7 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
           </Card>
         </>)}
         {reportTab==="annual"&&(<>
-          <Card><div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה״כ {year}</div><div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(annualTotal)}</div><div style={{fontSize:12,color:T.textSub,marginTop:4}}>ממוצע חודשי: {fmt(annualAvg)}</div></Card>
+          <Card><div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4}}>סה"כ {year}</div><div style={{fontSize:32,fontWeight:300,fontFamily:T.display,color:T.text,letterSpacing:-1}}>{fmt(annualTotal)}</div><div style={{fontSize:12,color:T.textSub,marginTop:4}}>ממוצע חודשי: {fmt(annualAvg)}</div></Card>
           <Card><div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>הוצאות לאורך {year}</div><div style={{display:"flex",alignItems:"flex-end",gap:5,height:130}}>{annualData.map((d,i)=>(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><div style={{fontSize:8,color:d.mi===month?T.navy:T.textSub,fontWeight:d.mi===month?700:400,textAlign:"center",writingMode:"vertical-rl"}}>{d.v>0?`₪${Math.round(d.v/1000)}K`:""}</div><div style={{width:"100%",background:T.bg,borderRadius:4,height:90,display:"flex",alignItems:"flex-end",overflow:"hidden",border:`1px solid ${T.border}`}}><div style={{width:"100%",height:`${(d.v/maxA)*100}%`,background:d.mi===month?T.navy:"#c3d4e8",transition:"height .7s"}}/></div><span style={{fontSize:8,color:d.mi===month?T.navy:T.textSub,fontWeight:d.mi===month?700:400}}>{d.label}</span></div>))}</div></Card>
           <Card><div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חודש לפי חודש</div>{annualData.filter(d=>d.v>0).sort((a,b)=>b.v-a.v).map((d,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:28,height:28,borderRadius:8,background:d.mi===month?T.navy:T.bg,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:d.mi===month?"#fff":T.textMid}}>{d.label.slice(0,2)}</div><span style={{fontSize:13,color:T.text,fontWeight:d.mi===month?600:400}}>{MONTHS[d.mi]}</span></div><div style={{textAlign:"left"}}><div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(d.v)}</div><div style={{fontSize:10,color:T.textSub}}>{((d.v/annualTotal)*100).toFixed(0)}%</div></div></div>))}</Card>
         </>)}

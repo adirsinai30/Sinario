@@ -2,9 +2,14 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
-  const apiKey = process.env.GEMINI_API_KEY;
+  const isOCR = req.body.messages?.[0]?.content?.some?.(
+    c => c.type === "image" || c.type === "document"
+  );
+  const apiKey = isOCR
+    ? process.env.GEMINI_KEY_OCR
+    : process.env.GEMINI_KEY_AGENT;
   if (!apiKey) {
-    return res.status(500).json({ error: "GEMINI_API_KEY not set" });
+    return res.status(500).json({ error: "Gemini API key not set" });
   }
   try {
     const { messages, max_tokens, system } = req.body;

@@ -1,23 +1,25 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { ticker, companyName, articles } = req.body;
-  if (!articles?.length) return res.json({ summary: null });
+  const { groups } = req.body;
+  if (!groups?.length) return res.json({ summaries: {} });
 
   const apiKey = process.env.GEMINI_API_KEY;
 
-  const titlesText = articles
-    .map((a, i) => `${i + 1}. ${a.title} (${a.source || ""}, ${a.pubDate ? new Date(a.pubDate).toLocaleDateString("he-IL") : ""})`)
-    .join("\n");
+  // בנה prompt אחד עם כל הניירות
+  const sections = groups.map(g => {
+    const titles = g.articles
+      .slice(0, 5)
+      .map((a, i) => `  ${i+1}. ${a.title}`)
+      .join("\n");
+    return `### ${g.label} (${g.ticker})\n${titles}`;
+  }).join("\n\n");
 
-  const prompt = `אתה אנליסט פיננסי. סכם את החדשות הבאות על ${companyName} (${ticker}) בעברית.
-
-כתוב 2-3 משפטים בלבד — תמציתי, ממוקד, מקצועי.
+  const prompt = `אתה אנליסט פיננסי. סכם את החדשות הבאות בעברית — לכל נייר ערך 2-3 משפטים תמציתיים.
 ציין אם המגמה חיובית, שלילית או ניטרלית.
-אל תכתוב כותרת — רק את הסיכום ישירות.
+החזר JSON בלבד בפורמט: {"TICKER": "סיכום...", ...}
 
-כתבות:
-${titlesText}`;
+${sections}`;
 
   try {
     const r = await fetch(
@@ -27,16 +29,26 @@ ${titlesText}`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 300, temperature: 0.3 }
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.3 }
         })
       }
     );
+
     const data = await r.json();
-    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
-    console.log("Gemini response:", JSON.stringify(data).slice(0, 500));
-    console.log("Summary:", summary);
-    res.json({ summary, debug: data });
+    
+    if (data.error) {
+      console.error("Gemini error:", data.error.message);
+      return res.json({ summaries: {} });
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "{}";
+    const clean = text.replace(/```json|```/g, "").trim();
+    const match = clean.match(/\{[\s\S]*\}/);
+    const summaries = match ? JSON.parse(match[0]) : {};
+
+    res.json({ summaries });
   } catch (err) {
-    res.json({ summary: null });
+    console.error("Summarize error:", err);
+    res.json({ summaries: {} });
   }
 }

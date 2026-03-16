@@ -33,7 +33,9 @@ ${titlesText}`;
     );
     const data = await r.json();
     const summary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
-    res.json({ summary });
+    console.log("Gemini response:", JSON.stringify(data).slice(0, 500));
+    console.log("Summary:", summary);
+    res.json({ summary, debug: data });
   } catch (err) {
     res.json({ summary: null });
   }

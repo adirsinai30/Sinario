@@ -1148,8 +1148,20 @@ const fetchNews = async (force=false) => {
       ];
 
       // ── שלב 1: משוך את כל החדשות במקביל ──
-      const newsResults = await Promise.all(
-        queries.map(async q => {
+// בקשות סדרתיות עם delay — מונע חסימה
+      const newsResults = [];
+      for (const q of queries) {
+        try {
+          const r = await fetch(`/api/news?q=${encodeURIComponent(q.ticker)}`);
+          if (!r.ok) { newsResults.push({ ...q, articles: [] }); continue; }
+          const data = await r.json();
+          newsResults.push({ ...q, articles: data.items || [] });
+        } catch {
+          newsResults.push({ ...q, articles: [] });
+        }
+        // delay קטן בין בקשות
+        await new Promise(r => setTimeout(r, 300));
+      }
           try {
             const r = await fetch(`/api/news?q=${encodeURIComponent(q.ticker)}`);
             if (!r.ok) return { ...q, articles: [] };

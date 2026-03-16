@@ -1129,59 +1129,68 @@ function InvestSection({ tab, setTab }) {
     if(tab==="news" && newsItems.length===0) fetchNews();
   },[tab]);
 
-  const fetchNews = async (force=false) => {
-    // cache — אל תרענן אם עדכנת לאחרונה
+const fetchNews = async (force=false) => {
     if(!force && newsLastFetch) {
       const minSince = (Date.now() - newsLastFetch.getTime()) / 60000;
-      if(minSince < NEWS_CACHE_MIN) {
-        return; // עדיין טרי
-      }
+      if(minSince < NEWS_CACHE_MIN) return;
     }
     setNewsLoading(true);
     setNewsError("");
     try {
-      const tickers = assets.map(a => extractTicker(a.security));
       const queries = [
-        // שאילתות ספציפיות לתיק
-        ...tickers.map(t => ({ q: t, label: t, type: "stock" })),
-        // שאילתות שוק כלליות
-        { q: "stock market today", label: "שוק כללי", type: "market" },
-        { q: "S&P 500 nasdaq", label: "מדדים", type: "market" },
+        ...assets.map(a => ({
+          ticker: extractTicker(a.security),
+          label: a.security,
+          type: "stock"
+        })),
+        { ticker: "SPY", label: "S&P 500", type: "market" },
+        { ticker: "stock market", label: "שוק כללי", type: "market" },
       ];
 
       const results = [];
 
       for (const query of queries) {
         try {
-          const r = await fetch(`/api/news?q=${encodeURIComponent(query.q)}`);
+          // משוך כתבות
+          const r = await fetch(`/api/news?q=${encodeURIComponent(query.ticker)}`);
           if (!r.ok) continue;
           const data = await r.json();
           if (!data.items?.length) continue;
 
-          // תרגם כותרות
-          const titles = data.items.map(i => i.title);
-          const tr = await fetch("/api/translate", {
+          // סכם עם Gemini
+          const sr = await fetch("/api/summarize", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ texts: titles })
+            body: JSON.stringify({
+              ticker: query.ticker,
+              companyName: query.label,
+              articles: data.items
+            })
           });
-          const trData = await tr.json();
-          const translations = trData.translations || titles;
+          const sData = await sr.json();
+
+          // זהה מגמה מהסיכום
+          const summary = sData.summary || null;
+          const trend = !summary ? "neutral"
+            : /עלי|חיובי|זינוק|שיא|התחזק|גבוה|צמיח/.test(summary) ? "positive"
+            : /יריד|שלילי|צניח|הפסד|לחץ|חשש|ירד/.test(summary) ? "negative"
+            : "neutral";
 
           results.push({
+            ticker: query.ticker,
             label: query.label,
             type: query.type,
-            items: data.items.map((item, i) => ({
-              ...item,
-              titleHe: translations[i] || item.title
-            }))
+            summary,
+            trend,
+            articles: data.items,
+            updatedAt: new Date()
           });
         } catch {}
       }
 
       setNewsItems(results);
       setNewsLastFetch(new Date());
-    } catch (err) {
+    } catch {
       setNewsError("שגיאה בטעינת חדשות");
     }
     setNewsLoading(false);
@@ -1538,87 +1547,142 @@ function InvestSection({ tab, setTab }) {
 {tab==="news"&&(
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
 
-          {/* כפתור רענון */}
+          {/* Header */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontSize:22,fontWeight:300,fontFamily:T.display,color:T.text}}>חדשות שוק</div>
-              {newsLastFetch&&<div style={{fontSize:11,color:T.textSub,marginTop:2}}>עודכן: {newsLastFetch.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}</div>}
+              {newsLastFetch&&<div style={{fontSize:11,color:T.textSub,marginTop:2}}>
+                עודכן: {newsLastFetch.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}
+              </div>}
             </div>
-            <button onClick={fetchNews} disabled={newsLoading}
+            <button onClick={()=>fetchNews(true)} disabled={newsLoading}
               style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,
                 border:`1px solid ${T.navyBorder}`,background:T.navy,color:"#fff",
                 fontSize:12,fontFamily:T.font,fontWeight:600,cursor:newsLoading?"wait":"pointer"}}>
               {newsLoading
-                ?<div style={{width:13,height:13,borderRadius:"50%",border:"2px solid #fff",borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>
+                ?<div style={{width:13,height:13,borderRadius:"50%",border:"2px solid #fff",
+                    borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>
                 :<Icon name="insights" size={13} color="#fff"/>}
-              {newsLoading?"טוען…":"רענן חדשות"}
+              {newsLoading?"מנתח…":"רענן חדשות"}
             </button>
           </div>
 
-          {newsError&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:10,padding:"10px 14px",fontSize:12,color:T.danger}}>{newsError}</div>}
+          {newsError&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,
+            borderRadius:10,padding:"10px 14px",fontSize:12,color:T.danger}}>{newsError}</div>}
 
           {/* מצב ריק */}
           {!newsLoading&&newsItems.length===0&&(
             <Card style={{padding:40,textAlign:"center"}}>
               <Icon name="insights" size={32} color={T.textSub}/>
-              <div style={{fontSize:14,color:T.textSub,marginTop:14,lineHeight:1.8}}>
-                לחץ "רענן חדשות" לקבלת עדכונים<br/>
-                <span style={{fontSize:12}}>חדשות על המניות שלך + עדכוני שוק כלליים</span>
+              <div style={{fontSize:14,color:T.textSub,marginTop:14,lineHeight:1.9}}>
+                לחץ "רענן חדשות" לקבלת תמצית מנותחת<br/>
+                <span style={{fontSize:12}}>AI מסכם חדשות לכל מניה בתיק + עדכוני שוק</span>
               </div>
             </Card>
           )}
 
-          {/* spinner כשטוען */}
+          {/* loading */}
           {newsLoading&&(
             <Card style={{padding:40,textAlign:"center"}}>
-              <div style={{width:28,height:28,borderRadius:"50%",border:`3px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite",margin:"0 auto 14px"}}/>
-              <div style={{fontSize:13,color:T.textSub}}>מושך ומתרגם חדשות…</div>
+              <div style={{width:28,height:28,borderRadius:"50%",border:`3px solid ${T.navy}`,
+                borderTopColor:"transparent",animation:"spin 1s linear infinite",margin:"0 auto 14px"}}/>
+              <div style={{fontSize:13,color:T.textSub,marginBottom:4}}>מנתח חדשות עם AI…</div>
+              <div style={{fontSize:11,color:T.textSub}}>מושך וסוכם כתבות לכל נייר ערך</div>
             </Card>
           )}
 
-          {/* קבוצות חדשות */}
-          {newsItems.map((group,gi)=>(
-            <div key={gi}>
-              {/* כותרת קבוצה */}
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,marginTop:gi>0?8:0}}>
-                <div style={{height:1,flex:1,background:T.border}}/>
-                <div style={{
-                  fontSize:11,fontWeight:700,letterSpacing:1,
-                  color:group.type==="stock"?T.navy:T.textMid,
-                  background:group.type==="stock"?T.navyLight:T.bg,
-                  border:`1px solid ${group.type==="stock"?T.navyBorder:T.border}`,
-                  borderRadius:99,padding:"3px 12px"
-                }}>{group.label}</div>
-                <div style={{height:1,flex:1,background:T.border}}/>
-              </div>
+          {/* כרטיסי סיכום */}
+          {newsItems.map((group,gi)=>{
+            const trendColor = group.trend==="positive"?T.success
+              :group.trend==="negative"?T.danger:T.textSub;
+            const trendBg = group.trend==="positive"?T.successBg
+              :group.trend==="negative"?T.dangerBg:T.bg;
+            const trendBorder = group.trend==="positive"?"#bbf7d0"
+              :group.trend==="negative"?T.dangerBorder:T.border;
+            const trendIcon = group.trend==="positive"?"📈"
+              :group.trend==="negative"?"📉":"📊";
 
-              {/* כתבות */}
-              {group.items.map((item,ii)=>(
-                <Card key={ii} style={{padding:14,marginBottom:8}}>
-                  {/* כותרת בעברית */}
-                  <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4,lineHeight:1.5,direction:"rtl"}}>
-                    {item.link
-                      ?<a href={item.link} target="_blank" rel="noopener noreferrer"
-                          style={{color:T.text,textDecoration:"none"}}>
-                          {item.titleHe} ↗
+            return(
+              <Card key={gi} style={{padding:16}}>
+                {/* שורת כותרת */}
+                <div style={{display:"flex",justifyContent:"space-between",
+                  alignItems:"center",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:18}}>{trendIcon}</span>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:700,color:T.text}}>{group.label}</div>
+                      {group.type==="stock"&&(
+                        <div style={{fontSize:11,color:T.textSub}}>{group.ticker}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {/* מחיר נוכחי אם קיים */}
+                    {prices[group.ticker]&&(
+                      <div style={{fontSize:12,fontWeight:700,color:T.navy,
+                        background:T.navyLight,border:`1px solid ${T.navyBorder}`,
+                        borderRadius:99,padding:"3px 10px"}}>
+                        ${Number(prices[group.ticker]).toLocaleString()}
+                      </div>
+                    )}
+                    <div style={{fontSize:11,fontWeight:700,color:trendColor,
+                      background:trendBg,border:`1px solid ${trendBorder}`,
+                      borderRadius:99,padding:"3px 10px"}}>
+                      {group.trend==="positive"?"חיובי"
+                        :group.trend==="negative"?"שלילי":"ניטרלי"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* סיכום AI */}
+                {group.summary?(
+                  <div style={{fontSize:13,color:T.text,lineHeight:1.8,
+                    direction:"rtl",padding:"10px 12px",
+                    background:T.bg,borderRadius:10,
+                    border:`1px solid ${T.border}`}}>
+                    {group.summary}
+                  </div>
+                ):(
+                  <div style={{fontSize:12,color:T.textSub,fontStyle:"italic"}}>
+                    לא נמצאו כתבות רלוונטיות
+                  </div>
+                )}
+
+                {/* כתבות מקור — מכווצות */}
+                {group.articles?.length>0&&(
+                  <details style={{marginTop:10}}>
+                    <summary style={{fontSize:11,color:T.textSub,cursor:"pointer",
+                      userSelect:"none",listStyle:"none",display:"flex",
+                      alignItems:"center",gap:4}}>
+                      <span>▸</span>
+                      <span>{group.articles.length} כתבות מקור</span>
+                    </summary>
+                    <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
+                      {group.articles.map((a,ai)=>(
+                        <a key={ai} href={a.link} target="_blank" rel="noopener noreferrer"
+                          style={{fontSize:11,color:T.navyMid,textDecoration:"none",
+                            display:"flex",justifyContent:"space-between",
+                            alignItems:"flex-start",gap:8,padding:"6px 0",
+                            borderBottom:ai<group.articles.length-1
+                              ?`1px solid ${T.border}`:"none"}}>
+                          <span style={{flex:1,lineHeight:1.5}}>{a.title} ↗</span>
+                          {a.source&&<span style={{fontSize:10,color:T.textSub,
+                            flexShrink:0,fontWeight:600}}>{a.source}</span>}
                         </a>
-                      :item.titleHe}
-                  </div>
-                  {/* כותרת מקורית */}
-                  <div style={{fontSize:11,color:T.textSub,marginBottom:6,direction:"ltr",textAlign:"left"}}>
-                    {item.title}
-                  </div>
-                  {/* מקור + תאריך */}
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    {item.source&&<span style={{fontSize:10,fontWeight:600,color:T.navyMid,background:T.navyLight,borderRadius:99,padding:"2px 8px",border:`1px solid ${T.navyBorder}`}}>{item.source}</span>}
-                    {item.pubDate&&<span style={{fontSize:10,color:T.textSub}}>{new Date(item.pubDate).toLocaleDateString("he-IL")}</span>}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ))}
+                      ))}
+                    </div>
+                  </details>
+                )}
 
-          {/* התראות מחיר — נשאר כמו שהיה */}
+                {/* תאריך עדכון */}
+                <div style={{fontSize:10,color:T.textSub,marginTop:8,textAlign:"left"}}>
+                  {group.updatedAt?.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}
+                </div>
+              </Card>
+            );
+          })}
+
+          {/* התראות מחיר */}
           {priceAlerts.length>0&&(
             <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,padding:16}}>
               <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10}}>
@@ -1626,31 +1690,36 @@ function InvestSection({ tab, setTab }) {
                 <span style={{fontSize:13,fontWeight:700,color:T.navy}}>התראות מחיר פעילות</span>
               </div>
               {priceAlerts.map(a=>(
-                <div key={a.ticker} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.navyBorder}`}}>
+                <div key={a.ticker} style={{display:"flex",justifyContent:"space-between",
+                  alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.navyBorder}`}}>
                   <span style={{fontSize:13,fontWeight:600,color:T.navy}}>⚡ {a.security}</span>
-                  <span style={{fontSize:13,fontWeight:700,color:a.changePct>=0?T.success:T.danger}}>
+                  <span style={{fontSize:13,fontWeight:700,
+                    color:a.changePct>=0?T.success:T.danger}}>
                     {a.changePct>=0?"+":""}{a.changePct.toFixed(1)}% ממחיר קנייה
                   </span>
                 </div>
               ))}
               <div style={{fontSize:11,color:T.textSub,marginTop:8}}>
-                * עדכן מחירים כדי לרענן התראות
+                עדכן מחירים כדי לרענן התראות
               </div>
             </Card>
           )}
 
-          {/* הגדרות התראה */}
+          {/* סף התראה */}
           <Card style={{padding:16}}>
             <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:12}}>
               <Icon name="settings" size={14} color={T.textMid}/>
               <span style={{fontSize:13,fontWeight:700,color:T.text}}>סף התראת מחיר</span>
             </div>
-            <div style={{fontSize:12,color:T.textSub,marginBottom:10}}>הצג התראה כשמחיר משתנה ב-X% ממחיר הקנייה</div>
+            <div style={{fontSize:12,color:T.textSub,marginBottom:10}}>
+              הצג התראה כשמחיר משתנה ב-X% ממחיר הקנייה
+            </div>
             <div style={{display:"flex",gap:8}}>
               {[2,3,5,10].map(v=>(
                 <button key={v} onClick={()=>setAlertThresh(v)}
-                  style={{flex:1,padding:"8px",borderRadius:10,fontFamily:T.font,fontSize:13,fontWeight:700,
-                    cursor:"pointer",border:`1px solid ${alertThresh===v?T.navy:T.border}`,
+                  style={{flex:1,padding:"8px",borderRadius:10,fontFamily:T.font,
+                    fontSize:13,fontWeight:700,cursor:"pointer",
+                    border:`1px solid ${alertThresh===v?T.navy:T.border}`,
                     background:alertThresh===v?T.navy:"transparent",
                     color:alertThresh===v?"#fff":T.textSub}}>
                   {v}%
@@ -1661,7 +1730,6 @@ function InvestSection({ tab, setTab }) {
 
         </div>
       )}
-
       {tab==="agent"&&(
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <Card style={{background:`linear-gradient(135deg,#1e3a5f 0%,#2d5282 100%)`,border:"none",padding:18}}>

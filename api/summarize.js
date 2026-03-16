@@ -9,13 +9,14 @@ export default async function handler(req, res) {
   // בנה prompt אחד עם כל הניירות
   const sections = groups.map(g => {
     const titles = g.articles
-      .slice(0, 3)
+      .slice(0, 4)
       .map((a, i) => `${i+1}. ${a.title}`)
       .join("\n");
-    return `${g.ticker}:\n${titles}`;
+    return `${g.ticker} (${g.label}):\n${titles}`;
   }).join("\n\n");
 
-  const prompt = `סכם בעברית — משפט אחד לכל נייר ערך. JSON בלבד: {"TICKER":"סיכום"}
+  const prompt = `אתה אנליסט פיננסי. סכם בעברית — 3 משפטים לכל נייר ערך. ציין מגמה. JSON בלבד ללא טקסט נוסף:
+{"TICKER":"סיכום..."}
 
 ${sections}`;
 
@@ -27,7 +28,7 @@ ${sections}`;
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 2000, temperature: 0.3 }
+          generationConfig: { maxOutputTokens: 3000, temperature: 0.3 }
         })
       }
     );

@@ -1147,8 +1147,7 @@ const fetchNews = async (force=false) => {
         { ticker: "stock market today", label: "שוק כללי", type: "market" },
       ];
 
-      // ── שלב 1: משוך את כל החדשות במקביל ──
-// בקשות סדרתיות עם delay — מונע חסימה
+// ── שלב 1: משוך חדשות סדרתית עם delay ──
       const newsResults = [];
       for (const q of queries) {
         try {
@@ -1159,19 +1158,8 @@ const fetchNews = async (force=false) => {
         } catch {
           newsResults.push({ ...q, articles: [] });
         }
-        // delay קטן בין בקשות
         await new Promise(r => setTimeout(r, 300));
       }
-          try {
-            const r = await fetch(`/api/news?q=${encodeURIComponent(q.ticker)}`);
-            if (!r.ok) return { ...q, articles: [] };
-            const data = await r.json();
-            return { ...q, articles: data.items || [] };
-          } catch {
-            return { ...q, articles: [] };
-          }
-        })
-      );
 
       // ── שלב 2: בקשת סיכום אחת לכל הניירות ──
       const withArticles = newsResults.filter(g => g.articles.length > 0);

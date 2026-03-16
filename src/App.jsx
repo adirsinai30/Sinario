@@ -1270,8 +1270,10 @@ const fetchNews = async (force=false) => {
       ? newsItems.map(g => `${g.label}: ${g.summary||"אין סיכום"}`).join("\n")
       : "לא נמשכו חדשות";
 
-    const systemPrompt = `אתה סוכן השקעות אישי בשם סינריו. עונה בעברית בלבד.
-כללים: תשובות ספציפיות עם מספרים מהתיק. תמציתי (3-5 משפטים). אל תמליץ על קנייה/מכירה חד-משמעית — הצג שיקולים. אם אין מחירים — ציין.
+    const isFirstMessage = agentHistory.length === 0;
+    const systemPrompt = `אתה סוכן השקעות אישי בשם סינריו - סוכן השקעות. עונה בעברית בלבד.
+    כללים: תשובות ספציפיות עם מספרים מהתיק. תמציתי (3-5 משפטים). אל תמליץ על קנייה/מכירה חד-משמעית — הצג שיקולים. אם אין מחירים — ציין.
+    ${isFirstMessage ? 'בפתיחת שיחה — הצג את עצמך במשפט אחד קצר.' : 'אל תציג את עצמך שוב — המשך את השיחה ישירות.'}
 
 תיק:
 ${portfolioLines || "ריק"}
@@ -1290,7 +1292,7 @@ ${newsContext}`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          max_tokens: 1000,
+          max_tokens: 2000,
           system: systemPrompt,
           messages: [...conversationHistory, { role: "user", content: question }]
         })

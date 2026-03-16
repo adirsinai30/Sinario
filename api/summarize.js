@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   const { groups } = req.body;
   if (!groups?.length) return res.json({ summaries: {} });
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_KEY_NEWS;
 
   // בנה prompt אחד עם כל הניירות
   const sections = groups.map(g => {

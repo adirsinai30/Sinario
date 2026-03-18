@@ -1050,12 +1050,14 @@ function InvestSection({ tab, setTab }) {
   const [editAssetId,setEditAssetId]=useState(null);
   const [addPurchaseId,setAddPurchaseId]=useState(null);
   const [addSaleId,setAddSaleId]=useState(null);
-  const [confirmAsset,setConfirmAsset]=useState(null);
+  const [confirmAsset,  setConfirmAsset]  = useState(null);
+  const [confirmPurch,  setConfirmPurch]  = useState(null);
+  const [confirmSale,   setConfirmSale]   = useState(null);
+  const [confirmDiv,    setConfirmDiv]    = useState(null);
   const [editPurch,     setEditPurch]     = useState(null); // {assetId, purchase}
   const [editSale,      setEditSale]      = useState(null); // {assetId, sale}
   const [editDiv,       setEditDiv]       = useState(null); // {assetId, dividend}
   const [addDividendId,setAddDividendId]=useState(null);
-  const [confirmDiv,setConfirmDiv]=useState(null);
   // ── סעיף 7א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
   const [prices,setPrices]=useState({});

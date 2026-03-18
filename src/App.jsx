@@ -1005,7 +1005,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
           <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({currency})</div><Inp type="number" placeholder="0" value={form.commission} onChange={e=>setForm({...form,commission:e.target.value})}/></div>
           {!isBuy&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס רווח הון (%)</div><Inp type="number" placeholder="25" value={form.taxRate??25} onChange={e=>setForm({...form,taxRate:e.target.value})}/></div>}
           <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
-          {!isBuy&&currency!=="ILS"&&(
+          {currency!=="ILS"&&(
             <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder={String(+form.rateUsed||3.68)} value={form.rateUsed} onChange={e=>setForm({...form,rateUsed:e.target.value})}/></div>
           )}
         </div>
@@ -1075,7 +1075,7 @@ function InvestSection({ tab, setTab }) {
   const blankAsset={security:"",shares:"",price:"",commission:"0",date:today(),currency:"USD",rateUsed:"3.68"};
   const blankPurchase={shares:"",price:"",commission:"0",date:today()};
   const blankSale     = { shares:"", price:"", commission:"0", date:today(), taxRate:"25", rateUsed:"0" };
-  const blankDividend = { amount:"", currency:"USD", rateUsed:"3.68", date:today(), notes:"", taxRate:"25" };
+  const blankDividend = { amount:"", currency:"USD", rateUsed:"3.68", date:today(), taxRate:"25" };
   const [assetForm,setAssetForm]=useState(blankAsset);
   const [purchaseForm,setPurchaseForm]=useState(blankPurchase);
   const [saleForm,setSaleForm]=useState(blankSale);
@@ -1154,9 +1154,10 @@ function InvestSection({ tab, setTab }) {
   };
   const deletePurchase=({assetId,purchaseId})=>{setAssets(assets.map(a=>a.id===assetId?{...a,purchases:a.purchases.filter(p=>p.id!==purchaseId)}:a));setConfirmPurch(null);};
   const deleteSale=({assetId,saleId})=>{setAssets(assets.map(a=>a.id===assetId?{...a,sales:(a.sales||[]).filter(s=>s.id!==saleId)}:a));setConfirmSale(null);};
-  const saveDividend=(assetId)=>{
+const saveDividend=(assetId)=>{
     if(!dividendForm.amount)return;
-    const d={id:uid(),assetId,amount:+dividendForm.amount,currency:dividendForm.currency,rateUsed:+dividendForm.rateUsed||1,date:dividendForm.date,notes:dividendForm.notes};
+    const asset=assets.find(x=>x.id===assetId);
+    const d={id:uid(),assetId,amount:+dividendForm.amount,currency:asset?.currency||"ILS",rateUsed:+dividendForm.rateUsed||+asset?.rateUsed||1,date:dividendForm.date,taxRate:+dividendForm.taxRate||25};
     setDividends([...dividends,d]);setAddDividendId(null);setDividendForm(blankDividend);
   };
   const deleteDividend=(id)=>{setDividends(dividends.filter(d=>d.id!==id));setConfirmDiv(null);};
@@ -1533,7 +1534,7 @@ ${newsContext}`;
                         </div>
                       </div>
                     )}
-                    {isOpen(a.id,"p")&&addPurchaseId===a.id&&<TradeForm mode="buy" form={{...purchaseForm,rateUsed:String(a.rateUsed)}} setForm={f=>setPurchaseForm({...f})} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency}/>}
+                    {addPurchaseId===a.id&&<TradeForm mode="buy" form={{...purchaseForm,rateUsed:String(a.rateUsed)}} setForm={f=>setPurchaseForm({...f})} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency}/>}
                     {((a.sales||[]).length>0||portfolioView==="active")&&(
                       <div style={{marginTop:12}}>
                         <div style={{fontSize:11,fontWeight:700,color:T.danger,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1578,7 +1579,7 @@ ${newsContext}`;
                             </div>
                           </div>
                         )}
-                        {isOpen(a.id,"s")&&addSaleId===a.id&&<TradeForm mode="sell" form={{...saleForm,rateUsed:String(a.rateUsed)}} setForm={f=>setSaleForm({...f})} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency}/>}
+                        {addSaleId===a.id&&<TradeForm mode="sell" form={{...saleForm,rateUsed:String(a.rateUsed)}} setForm={f=>setSaleForm({...f})} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency}/>}
                       </div>
                     )}
                     <div style={{marginTop:12}}>
@@ -1589,15 +1590,17 @@ ${newsContext}`;
                         </span>
                         <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm(blankDividend);}} style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.success,fontFamily:T.font,fontWeight:600}}>+ דיבידנד</button>
                       </div>
-                      {isOpen(a.id,"d")&&addDividendId===a.id&&(
+                      {addDividendId===a.id&&(
                         <div style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:12,padding:14,marginBottom:8}}>
                           <div style={{fontSize:12,fontWeight:700,color:T.success,marginBottom:10}}>➕ הוספת דיבידנד</div>
                           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                            <div style={{display:"flex",gap:8}}><div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>סכום ({a.currency})</div><Inp type="number" placeholder="0.00" value={dividendForm.amount} onChange={e=>setDividendForm({...dividendForm,amount:e.target.value})}/></div><div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={dividendForm.date} onChange={e=>setDividendForm({...dividendForm,date:e.target.value})}/></div></div>
-                            {a.currency!=="ILS"&&<div><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder="3.68" value={dividendForm.rateUsed} onChange={e=>setDividendForm({...dividendForm,rateUsed:e.target.value})}/></div>}
                             <div style={{display:"flex",gap:8}}>
-                              <div style={{flex:2}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>הערה (אופציונלי)</div><Inp placeholder="למשל: דיבידנד Q1 2026" value={dividendForm.notes} onChange={e=>setDividendForm({...dividendForm,notes:e.target.value})}/></div>
-                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס (%)</div><Inp type="number" placeholder="25" value={dividendForm.taxRate} onChange={e=>setDividendForm({...dividendForm,taxRate:e.target.value})}/></div>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>סכום ({a.currency})</div><Inp type="number" placeholder="0.00" value={dividendForm.amount} onChange={e=>setDividendForm({...dividendForm,amount:e.target.value})}/></div>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס רווח הון (%)</div><Inp type="number" placeholder="25" value={dividendForm.taxRate} onChange={e=>setDividendForm({...dividendForm,taxRate:e.target.value})}/></div>
+                            </div>
+                            <div style={{display:"flex",gap:8}}>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder="3.68" value={dividendForm.rateUsed} onChange={e=>setDividendForm({...dividendForm,rateUsed:e.target.value})}/></div>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={dividendForm.date} onChange={e=>setDividendForm({...dividendForm,date:e.target.value})}/></div>
                             </div>
                             {+dividendForm.amount>0&&<DividendPreview
                               amount={+dividendForm.amount}

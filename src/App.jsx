@@ -986,7 +986,10 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
   const rate=currency!=="ILS"?+form.rateUsed||3.68:1;
   const subtotal=(+form.shares||0)*(+form.price||0);
   const commission=+form.commission||0;
+  const taxRate=!isBuy?(+form.taxRate||25)/100:0;
   const totalForeign=isBuy?subtotal+commission:subtotal-commission;
+  const taxAmount=!isBuy?totalForeign*rate*taxRate:0;
+  const totalAfterTax=totalForeign*rate-taxAmount;
   const totalILS=totalForeign*rate;
   const effectivePricePerShare=+form.shares>0?subtotal/+form.shares:0;
   const fmtForeign=(n,cur)=>{const sym=CURRENCIES.find(c=>c.code===cur)?.symbol||cur;return`${sym}${Number(n).toLocaleString(undefined,{maximumFractionDigits:4})}`;};
@@ -1000,13 +1003,18 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
         </div>
         <div style={{display:"flex",gap:8}}>
           <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({currency})</div><Inp type="number" placeholder="0" value={form.commission} onChange={e=>setForm({...form,commission:e.target.value})}/></div>
+          {!isBuy&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס רווח הון (%)</div><Inp type="number" placeholder="25" value={form.taxRate??25} onChange={e=>setForm({...form,taxRate:e.target.value})}/></div>}
           <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
         </div>
         {(+form.shares>0&&+form.price>0)&&(
           <div style={{background:isBuy?"#fff":"#fff8f8",border:`1px solid ${isBuy?T.navyBorder:T.dangerBorder}`,borderRadius:10,padding:"10px 14px"}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.textMid}}>מחיר אפקטיבי ליחידה</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>{fmtForeign(effectivePricePerShare,currency)}</span></div>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:T.textMid}}>סך ב-{currency}</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>{fmtForeign(totalForeign,currency)}</span></div>
-            <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.border}`,paddingTop:4,marginTop:4}}><span style={{fontSize:11,color:T.textMid}}>מחיר סופי בש״ח</span><span style={{fontSize:13,fontWeight:700,color:isBuy?T.navy:T.danger}}>{fmt(totalILS)}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.border}`,paddingTop:4,marginTop:4}}><span style={{fontSize:11,color:T.textMid}}>ברוטו בש״ח</span><span style={{fontSize:13,fontWeight:700,color:isBuy?T.navy:T.danger}}>{fmt(totalILS)}</span></div>
+              {!isBuy&&taxAmount>0&&<>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}><span style={{fontSize:11,color:T.danger}}>מס ({form.taxRate||25}%)</span><span style={{fontSize:12,fontWeight:600,color:T.danger}}>-{fmt(taxAmount)}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:4,paddingTop:4,borderTop:`1px solid ${T.border}`}}><span style={{fontSize:12,color:T.textMid,fontWeight:700}}>נטו בש״ח</span><span style={{fontSize:14,fontWeight:700,color:T.success}}>{fmt(totalAfterTax)}</span></div>
+              </>}
           </div>
         )}
         <div style={{display:"flex",gap:8}}>
@@ -1061,7 +1069,7 @@ function InvestSection({ tab, setTab }) {
   const blankAsset={security:"",shares:"",price:"",commission:"0",date:today(),currency:"USD",rateUsed:"3.68"};
   const blankPurchase={shares:"",price:"",commission:"0",date:today()};
   const blankSale={shares:"",price:"",commission:"0",date:today()};
-  const blankDividend={amount:"",currency:"USD",rateUsed:"3.68",date:today(),notes:""};
+  const blankDividend = { amount:"", currency:"USD", rateUsed:"3.68", date:today(), notes:"", taxRate:"25" };
   const [assetForm,setAssetForm]=useState(blankAsset);
   const [purchaseForm,setPurchaseForm]=useState(blankPurchase);
   const [saleForm,setSaleForm]=useState(blankSale);
@@ -1130,6 +1138,8 @@ const fetchNews = async (force=false) => {
       if(minSince < NEWS_CACHE_MIN) return;
     }
     setNewsLoading(true);
+    // טען מחירים אוטומטית עם החדשות
+    fetchPrices().catch(()=>{});
     setNewsError("");
     try {
       const tickers = assets.map(a => extractTicker(a.security)).join(", ");
@@ -1321,7 +1331,7 @@ ${newsContext}`;
           <div style={{color:"rgba(255,255,255,.55)",fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>שווי תיק</div>
           <div style={{fontSize:40,fontWeight:300,fontFamily:T.display,color:"#fff",letterSpacing:-2,marginBottom:4}}>{fmt(totalPortfolio)}</div>
           <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}>
-            {[["רווח/הפסד שוטף",totalPnL,totalPnL>=0],["רווח ממומש",totalRealized,totalRealized>=0],["רווח דיבידנדים",allDividendsTotal,allDividendsTotal>=0]].map(([label,val,pos])=>(
+            {[["רווח ממומש",totalRealized,totalRealized>=0],["רווח דיבידנדים",allDividendsTotal,allDividendsTotal>=0],["רווח/הפסד שוטף",totalPnL,totalPnL>=0]].map(([label,val,pos])=>(
               <div key={label} style={{flex:1,minWidth:100,background:"rgba(255,255,255,.1)",borderRadius:12,padding:"10px 12px",border:"1px solid rgba(255,255,255,.13)"}}>
                 <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontWeight:600,marginBottom:3}}>{label}</div>
                 <div style={{fontSize:16,fontWeight:700,color:pos?"#86efac":"#fca5a5",fontFamily:T.display}}>{val>=0?"+":""}{fmt(val)}</div>
@@ -1332,7 +1342,7 @@ ${newsContext}`;
             <div style={{marginTop:12,borderTop:"1px solid rgba(255,255,255,.15)",paddingTop:10}}>
               {priceAlerts.map(a=>(
                 <div key={a.ticker} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                  <span style={{fontSize:11,color:"rgba(255,255,255,.7)",fontWeight:600}}>⚡ {a.security}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}><Icon name="trending" size={11} color="rgba(255,255,255,.7)"/><span style={{fontSize:11,color:"rgba(255,255,255,.7)",fontWeight:600}}>{a.security}</span></div>
                   <span style={{fontSize:12,fontWeight:700,color:a.changePct>=0?"#86efac":"#fca5a5"}}>{a.changePct>=0?"+":""}{a.changePct.toFixed(1)}% לעומת שער קנייה</span>
                 </div>
               ))}
@@ -1493,8 +1503,21 @@ ${newsContext}`;
                           <div style={{display:"flex",flexDirection:"column",gap:8}}>
                             <div style={{display:"flex",gap:8}}><div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>סכום ({a.currency})</div><Inp type="number" placeholder="0.00" value={dividendForm.amount} onChange={e=>setDividendForm({...dividendForm,amount:e.target.value})}/></div><div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={dividendForm.date} onChange={e=>setDividendForm({...dividendForm,date:e.target.value})}/></div></div>
                             {a.currency!=="ILS"&&<div><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder="3.68" value={dividendForm.rateUsed} onChange={e=>setDividendForm({...dividendForm,rateUsed:e.target.value})}/></div>}
-                            <div><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>הערה (אופציונלי)</div><Inp placeholder="למשל: דיבידנד Q1 2026" value={dividendForm.notes} onChange={e=>setDividendForm({...dividendForm,notes:e.target.value})}/></div>
-                            {+dividendForm.amount>0&&<div style={{background:"#fff",border:"1px solid #bbf7d0",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>שווי בש״ח</span><span style={{fontSize:13,fontWeight:700,color:T.success}}>{fmt((+dividendForm.amount)*(+dividendForm.rateUsed||+a.rateUsed||1))}</span></div>}
+                            <div style={{display:"flex",gap:8}}>
+                              <div style={{flex:2}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>הערה (אופציונלי)</div><Inp placeholder="למשל: דיבידנד Q1 2026" value={dividendForm.notes} onChange={e=>setDividendForm({...dividendForm,notes:e.target.value})}/></div>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס (%)</div><Inp type="number" placeholder="25" value={dividendForm.taxRate} onChange={e=>setDividendForm({...dividendForm,taxRate:e.target.value})}/></div>
+                            </div>
+                            {+dividendForm.amount>0&&(()=>{
+                              const gross=(+dividendForm.amount)*(+dividendForm.rateUsed||+a.rateUsed||1);
+                              const tax=gross*(+dividendForm.taxRate||25)/100;
+                              return(
+                                <div style={{background:"#fff",border:"1px solid #bbf7d0",borderRadius:10,padding:"8px 12px"}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:T.textMid}}>ברוטו</span><span style={{fontSize:12,fontWeight:600,color:T.success}}>{fmt(gross)}</span></div>
+                                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:T.danger}}>מס ({dividendForm.taxRate||25}%)</span><span style={{fontSize:12,color:T.danger}}>-{fmt(tax)}</span></div>
+                                  <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid #bbf7d0`,paddingTop:3}}><span style={{fontSize:12,fontWeight:700,color:T.textMid}}>נטו</span><span style={{fontSize:13,fontWeight:700,color:T.success}}>{fmt(gross-tax)}</span></div>
+                                </div>
+                              );
+                            })()}
                             <div style={{display:"flex",gap:8}}><Btn onClick={()=>saveDividend(a.id)} style={{flex:1,padding:"9px",background:T.success}}>שמירה</Btn><Btn variant="secondary" onClick={()=>setAddDividendId(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn></div>
                           </div>
                         </div>
@@ -1674,7 +1697,7 @@ ${newsContext}`;
               {priceAlerts.map(a=>(
                 <div key={a.ticker} style={{display:"flex",justifyContent:"space-between",
                   alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.navyBorder}`}}>
-                  <span style={{fontSize:13,fontWeight:600,color:T.navy}}>⚡ {a.security}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}><Icon name="trending" size={13} color={T.navy}/><span style={{fontSize:13,fontWeight:600,color:T.navy}}>{a.security}</span></div>
                   <span style={{fontSize:13,fontWeight:700,
                     color:a.changePct>=0?T.success:T.danger}}>
                     {a.changePct>=0?"+":""}{a.changePct.toFixed(1)}% ממחיר קנייה

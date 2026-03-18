@@ -1074,7 +1074,7 @@ function InvestSection({ tab, setTab }) {
   const NEWS_CACHE_MIN = 30; // דקות בין רענונים
   const blankAsset={security:"",shares:"",price:"",commission:"0",date:today(),currency:"USD",rateUsed:"3.68"};
   const blankPurchase={shares:"",price:"",commission:"0",date:today()};
-  const blankSale     = { shares:"", price:"", commission:"0", date:today(), taxRate:"25", rateUsed:"" };
+  const blankSale     = { shares:"", price:"", commission:"0", date:today(), taxRate:"25", rateUsed:"0" };
   const blankDividend = { amount:"", currency:"USD", rateUsed:"3.68", date:today(), notes:"", taxRate:"25" };
   const [assetForm,setAssetForm]=useState(blankAsset);
   const [purchaseForm,setPurchaseForm]=useState(blankPurchase);
@@ -1499,8 +1499,8 @@ ${newsContext}`;
                 {isExpanded&&(
                   <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:14}}>
                     <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"p")}>
-                        <Icon name={isOpen(a.id,"p")?"trending":"chart"} size={13} color={T.navy}/>
+                  <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"p")}>
+                        <Icon name={isOpen(a.id,"p")?"trending":"plus"} size={13} color={T.textMid}/>
                         קניות ({a.purchases.length})
                       </span>
                       <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm(blankPurchase);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.navy,fontFamily:T.font,fontWeight:600}}>+ קנייה נוספת</button>
@@ -1508,8 +1508,10 @@ ${newsContext}`;
                     {isOpen(a.id,"p")&&a.purchases.map(p=>{const totalFx=+p.shares*+p.price+(+p.commission||0);const totalIls=totalFx*rate;return(
                       <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
                         <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{p.shares} יחידות × {fmtForeign(p.price,a.currency)}</div><div style={{fontSize:10,color:T.textSub}}>{new Date(p.date).toLocaleDateString("he-IL")}{p.commission>0&&` · עמלה ${fmtForeign(p.commission,a.currency)}`}</div></div>
-                        <button onClick={()=>setEditPurch({assetId:a.id,purchase:{...p}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center",marginLeft:4}}><Icon name="pencil" size={11} color={T.textMid}/></button>
-                            <button onClick={()=>setConfirmPurch({assetId:a.id,purchaseId:p.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
+                            <div style={{display:"flex",gap:4}}>
+                              <button onClick={()=>setEditPurch({assetId:a.id,purchase:{...p}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="pencil" size={11} color={T.textMid}/></button>
+                              <button onClick={()=>setConfirmPurch({assetId:a.id,purchaseId:p.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
+                            </div>
                       </div>
                     );})}
                     {editPurch?.assetId===a.id&&(
@@ -1535,8 +1537,8 @@ ${newsContext}`;
                     {((a.sales||[]).length>0||portfolioView==="active")&&(
                       <div style={{marginTop:12}}>
                         <div style={{fontSize:11,fontWeight:700,color:T.danger,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"s")}>
-                            <Icon name={isOpen(a.id,"s")?"download":"chart"} size={13} color={T.danger}/>
+                      <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"s")}>
+                            <Icon name={isOpen(a.id,"s")?"download":"minus"} size={13} color={T.textMid}/>
                             מכירות ({(a.sales||[]).length})
                           </span>
                           {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm(blankSale);}} style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.danger,fontFamily:T.font,fontWeight:600}}>+ מכירה</button>}
@@ -1544,8 +1546,12 @@ ${newsContext}`;
                         {isOpen(a.id,"s")&&(a.sales||[]).map(s=>{const avgCost=avgBuyPrice(a);const revenue=+s.shares*+s.price-(+s.commission||0);const costOfSale=+s.shares*avgCost;const salePnl=(revenue-costOfSale)*rate;const pnlPos=salePnl>=0;return(
                           <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
                             <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{s.shares} יחידות × {fmtForeign(s.price,a.currency)}</div><div style={{fontSize:10,color:T.textSub}}>{new Date(s.date).toLocaleDateString("he-IL")}{s.commission>0&&` · עמלה ${fmtForeign(s.commission,a.currency)}`}</div></div>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:11,fontWeight:700,color:pnlPos?T.success:T.danger}}>{pnlPos?"+":""}{fmt(salePnl)}</div><div style={{fontSize:10,color:T.textSub}}>רווח/הפסד</div></div><button onClick={()=>setEditSale({assetId:a.id,sale:{...s}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center",marginLeft:4}}><Icon name="pencil" size={11} color={T.textMid}/></button>
-                                <button onClick={()=>setConfirmSale({assetId:a.id,saleId:s.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button></div>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:11,fontWeight:700,color:pnlPos?T.success:T.danger}}>{pnlPos?"+":""}{fmt(salePnl)}</div><div style={{fontSize:10,color:T.textSub}}>רווח/הפסד</div></div>
+                            <div style={{display:"flex",gap:4}}>
+                                  <button onClick={()=>setEditSale({assetId:a.id,sale:{...s}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="pencil" size={11} color={T.textMid}/></button>
+                                  <button onClick={()=>setConfirmSale({assetId:a.id,saleId:s.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
+                                </div>
+                             </div>
                           </div>
                         );})}
                         {isOpen(a.id,"s")&&(a.sales||[]).length===0&&<div style={{fontSize:11,color:T.textSub,fontStyle:"italic"}}>אין מכירות עדיין</div>}
@@ -1577,8 +1583,8 @@ ${newsContext}`;
                     )}
                     <div style={{marginTop:12}}>
                       <div style={{fontSize:11,fontWeight:700,color:"#1a6b3c",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"d")}>
-                          <Icon name={isOpen(a.id,"d")?"wallet":"chart"} size={13} color={T.success}/>
+                      <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"d")}>
+                          <Icon name={isOpen(a.id,"d")?"wallet":"currency"} size={13} color={T.textMid}/>
                           דיבידנדים ({assetDividends(a.id).length}) · סה״כ {fmt(totalDividendsILS(a))}
                         </span>
                         <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm(blankDividend);}} style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.success,fontFamily:T.font,fontWeight:600}}>+ דיבידנד</button>
@@ -1598,13 +1604,6 @@ ${newsContext}`;
                               rateUsed={+dividendForm.rateUsed||+a.rateUsed||1}
                               taxRate={+dividendForm.taxRate||25}
                             />}
-                                <div style={{background:"#fff",border:"1px solid #bbf7d0",borderRadius:10,padding:"8px 12px"}}>
-                                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:T.textMid}}>ברוטו</span><span style={{fontSize:12,fontWeight:600,color:T.success}}>{fmt(gross)}</span></div>
-                                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:T.danger}}>מס ({dividendForm.taxRate||25}%)</span><span style={{fontSize:12,color:T.danger}}>-{fmt(tax)}</span></div>
-                                  <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid #bbf7d0`,paddingTop:3}}><span style={{fontSize:12,fontWeight:700,color:T.textMid}}>נטו</span><span style={{fontSize:13,fontWeight:700,color:T.success}}>{fmt(gross-tax)}</span></div>
-                                </div>
-                              );
-                            })()}
                             <div style={{display:"flex",gap:8}}><Btn onClick={()=>saveDividend(a.id)} style={{flex:1,padding:"9px",background:T.success}}>שמירה</Btn><Btn variant="secondary" onClick={()=>setAddDividendId(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn></div>
                           </div>
                         </div>
@@ -1634,8 +1633,12 @@ ${newsContext}`;
                           {assetDividends(a.id).sort((x,y)=>new Date(y.date)-new Date(x.date)).map((d,di)=>(
                             <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:di<assetDividends(a.id).length-1?"1px solid #dcfce7":"none",background:di%2===0?"#f0faf4":"#fff"}}>
                               <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{new Date(d.date).toLocaleDateString("he-IL")}</div>{d.notes&&<div style={{fontSize:10,color:T.textSub}}>{d.notes}</div>}</div>
-                              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.success}}>+{fmt((+d.amount)*(+d.rateUsed||1))}</div>{a.currency!=="ILS"&&<div style={{fontSize:10,color:T.textSub}}>{d.amount} {a.currency}</div>}</div><button onClick={()=>setEditDiv({assetId:a.id,dividend:{...d}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center",marginLeft:4}}><Icon name="pencil" size={11} color={T.textMid}/></button>
-                              <button onClick={()=>setConfirmDiv(d.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button></div>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.success}}>+{fmt((+d.amount)*(+d.rateUsed||1))}</div>{a.currency!=="ILS"&&<div style={{fontSize:10,color:T.textSub}}>{d.amount} {a.currency}</div>}</div>
+                              <div style={{display:"flex",gap:4}}>
+                                <button onClick={()=>setEditDiv({assetId:a.id,dividend:{...d}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="pencil" size={11} color={T.textMid}/></button>
+                                <button onClick={()=>setConfirmDiv(d.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>

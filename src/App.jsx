@@ -1591,10 +1591,11 @@ ${newsContext}`;
                               <div style={{flex:2}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>הערה (אופציונלי)</div><Inp placeholder="למשל: דיבידנד Q1 2026" value={dividendForm.notes} onChange={e=>setDividendForm({...dividendForm,notes:e.target.value})}/></div>
                               <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס (%)</div><Inp type="number" placeholder="25" value={dividendForm.taxRate} onChange={e=>setDividendForm({...dividendForm,taxRate:e.target.value})}/></div>
                             </div>
-                            {+dividendForm.amount>0&&(()=>{
-                              const gross=(+dividendForm.amount)*(+dividendForm.rateUsed||+a.rateUsed||1);
-                              const tax=gross*(+dividendForm.taxRate||25)/100;
-                              return(
+                            {+dividendForm.amount>0&&<DividendPreview
+                              amount={+dividendForm.amount}
+                              rateUsed={+dividendForm.rateUsed||+a.rateUsed||1}
+                              taxRate={+dividendForm.taxRate||25}
+                            />}
                                 <div style={{background:"#fff",border:"1px solid #bbf7d0",borderRadius:10,padding:"8px 12px"}}>
                                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:T.textMid}}>ברוטו</span><span style={{fontSize:12,fontWeight:600,color:T.success}}>{fmt(gross)}</span></div>
                                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:11,color:T.danger}}>מס ({dividendForm.taxRate||25}%)</span><span style={{fontSize:12,color:T.danger}}>-{fmt(tax)}</span></div>

@@ -1007,24 +1007,18 @@ function DividendPreview({amount, rateUsed, taxRate}){
 
 function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
   const isBuy=mode==="buy";
+  const curSym=CURRENCIES.find(c=>c.code===currency)?.symbol||currency;
   const r=currency!=="ILS"?(+form.rateUsed||3.68):1;
   const shares=+form.shares||0;
   const price=+form.price||0;
   const commission=+form.commission||0;
-  const taxRate=(+form.taxRate||0)/100;
+  const taxPct=+form.taxRate||0;
   const subtotal=shares*price;
   const totalForeign=subtotal-commission;
   const totalILS=totalForeign*r;
-  const taxAmount=!isBuy&&totalForeign>0?Math.max(0,totalForeign*r*taxRate):0;
+  const taxAmount=!isBuy&&totalForeign>0?Math.max(0,totalILS*(taxPct/100)):0;
   const netILS=totalILS-taxAmount;
   const effectivePrice=shares>0?subtotal/shares:0;
-
-  const Field=({label,children})=>(
-    <div style={{display:"flex",flexDirection:"column",gap:4}}>
-      <div style={{fontSize:10,color:T.textMid,fontWeight:600}}>{label}</div>
-      {children}
-    </div>
-  );
 
   return(
     <div style={{background:isBuy?T.navyLight:T.dangerBg,border:`1px solid ${isBuy?T.navyBorder:T.dangerBorder}`,borderRadius:12,padding:14,marginTop:8}}>
@@ -1033,46 +1027,52 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         {/* שורה 1: כמות + שער */}
-        <div style={{display:"flex",gap:8}}>
-          <Field label="כמות יחידות">
-            <Inp type="number" placeholder="0" value={form.shares} onChange={e=>setForm({...form,shares:e.target.value})} style={{fontSize:13}}/>
-          </Field>
-          <Field label={isBuy?"שער קנייה":"שער מכירה"}>
-            <Inp type="number" placeholder="0" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} style={{fontSize:13}}/>
-          </Field>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <div style={{flex:"1 1 120px"}}>
+            <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>כמות יחידות</div>
+            <Inp type="number" placeholder="0" value={form.shares} onChange={e=>setForm({...form,shares:e.target.value})}/>
+          </div>
+          <div style={{flex:"1 1 120px"}}>
+            <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>{isBuy?"שער קנייה":"שער מכירה"} ({curSym})</div>
+            <Inp type="number" placeholder="0" value={form.price} onChange={e=>setForm({...form,price:e.target.value})}/>
+          </div>
         </div>
-        {/* שורה 2: עמלה + מס (מכירה בלבד) */}
-        <div style={{display:"flex",gap:8}}>
-          <Field label="עמלה">
-            <Inp type="number" placeholder="0" value={form.commission} onChange={e=>setForm({...form,commission:e.target.value})} style={{fontSize:13}}/>
-          </Field>
+        {/* שורה 2: עמלה + מס */}
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <div style={{flex:"1 1 120px"}}>
+            <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({curSym})</div>
+            <Inp type="number" placeholder="0" value={form.commission} onChange={e=>setForm({...form,commission:e.target.value})}/>
+          </div>
           {!isBuy&&(
-            <Field label="מס רווח הון (%)">
-              <Inp type="number" placeholder="25" value={form.taxRate??25} onChange={e=>setForm({...form,taxRate:e.target.value})} style={{fontSize:13}}/>
-            </Field>
+            <div style={{flex:"1 1 120px"}}>
+              <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס רווח הון (%)</div>
+              <Inp type="number" placeholder="25" value={form.taxRate??""} onChange={e=>setForm({...form,taxRate:e.target.value})}/>
+            </div>
           )}
         </div>
         {/* שורה 3: שער המרה + תאריך */}
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           {currency!=="ILS"&&(
-            <Field label="שער המרה לש״ח">
-              <Inp type="number" placeholder="3.68" value={form.rateUsed} onChange={e=>setForm({...form,rateUsed:e.target.value})} style={{fontSize:13}}/>
-            </Field>
+            <div style={{flex:"1 1 120px"}}>
+              <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה ל-₪</div>
+              <Inp type="number" placeholder="3.68" value={form.rateUsed} onChange={e=>setForm({...form,rateUsed:e.target.value})}/>
+            </div>
           )}
-          <Field label="תאריך">
-            <Inp type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} style={{fontSize:13}}/>
-          </Field>
+          <div style={{flex:"1 1 120px"}}>
+            <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div>
+            <Inp type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/>
+          </div>
         </div>
-        {/* סיכום חישוב */}
+        {/* סיכום */}
         {shares>0&&price>0&&(
           <div style={{background:isBuy?"#fff":"#fff8f8",border:`1px solid ${isBuy?T.navyBorder:T.dangerBorder}`,borderRadius:10,padding:"10px 14px",display:"flex",flexDirection:"column",gap:4}}>
             <div style={{display:"flex",justifyContent:"space-between"}}>
               <span style={{fontSize:11,color:T.textMid}}>מחיר ליחידה</span>
-              <span style={{fontSize:12,fontWeight:600,color:T.text}}>{fmtNum(effectivePrice)} {currency}</span>
+              <span style={{fontSize:12,fontWeight:600,color:T.text}}>{curSym}{fmtNum(effectivePrice)}</span>
             </div>
             <div style={{display:"flex",justifyContent:"space-between"}}>
-              <span style={{fontSize:11,color:T.textMid}}>סה״כ {currency}</span>
-              <span style={{fontSize:12,fontWeight:600,color:T.text}}>{fmtNum(totalForeign)} {currency}</span>
+              <span style={{fontSize:11,color:T.textMid}}>סה״כ {curSym}</span>
+              <span style={{fontSize:12,fontWeight:600,color:T.text}}>{curSym}{fmtNum(totalForeign)}</span>
             </div>
             {currency!=="ILS"&&(
               <div style={{display:"flex",justifyContent:"space-between"}}>
@@ -1082,12 +1082,12 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
             )}
             {!isBuy&&taxAmount>0&&(
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:11,color:T.danger}}>מס ({form.taxRate||25}%)</span>
+                <span style={{fontSize:11,color:T.danger}}>מס ({taxPct}%)</span>
                 <span style={{fontSize:12,color:T.danger}}>-₪{fmtNum(taxAmount)}</span>
               </div>
             )}
             <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${isBuy?T.navyBorder:T.dangerBorder}`,paddingTop:4,marginTop:2}}>
-              <span style={{fontSize:12,fontWeight:700,color:T.textMid}}>{isBuy?"עלות סופית":"נטו לאחר מס"}</span>
+              <span style={{fontSize:12,fontWeight:700,color:T.textMid}}>{isBuy?"עלות סופית":"נטו"}</span>
               <span style={{fontSize:13,fontWeight:700,color:isBuy?T.navy:T.success}}>₪{fmtNum(isBuy?totalILS:netILS)}</span>
             </div>
           </div>
@@ -1099,13 +1099,6 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
       </div>
     </div>
   );
-}
-function fmtNum(n) {
-  if (n === null || n === undefined || isNaN(n)) return "0";
-  const rounded = Math.round(n * 1000) / 1000;
-  if (Number.isInteger(rounded)) return rounded.toLocaleString("he-IL");
-  const str = rounded.toFixed(3).replace(/\.?0+$/, "");
-  return Number(str).toLocaleString("he-IL");
 }
 
 function InvestSection({ tab, setTab }) {
@@ -1583,7 +1576,7 @@ ${newsContext}`;
                         <Icon name={isOpen(a.id,"p")?"trending":"plus"} size={13} color={T.textMid}/>
                         קניות ({a.purchases.length})
                       </span>
-                      <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm(blankPurchase);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.navy,fontFamily:T.font,fontWeight:600}}>+ קנייה נוספת</button>
+                      <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(a.rateUsed)});}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.navy,fontFamily:T.font,fontWeight:600}}>+ קנייה נוספת</button>
                     </div>
                     {isOpen(a.id,"p")&&a.purchases.map(p=>{const totalFx=+p.shares*+p.price+(+p.commission||0);const totalIls=totalFx*rate;return(
                       <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
@@ -1606,6 +1599,20 @@ ${newsContext}`;
                             <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה</div><Inp type="number" value={editPurch.purchase.commission||0} onChange={e=>setEditPurch(ep=>({...ep,purchase:{...ep.purchase,commission:e.target.value}}))}/></div>
                             <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={editPurch.purchase.date} onChange={e=>setEditPurch(ep=>({...ep,purchase:{...ep.purchase,date:e.target.value}}))}/></div>
                           </div>
+{(()=>{
+                            const curSym=CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency;
+                            const r=a.currency!=="ILS"?+(editPurch.purchase.rateUsed||a.rateUsed):1;
+                            const sub=(+editPurch.purchase.shares||0)*(+editPurch.purchase.price||0);
+                            const comm=+editPurch.purchase.commission||0;
+                            const total=(sub-comm)*r;
+                            return +editPurch.purchase.shares>0&&+editPurch.purchase.price>0?(
+                              <div style={{background:"#fff",border:`1px solid ${T.navyBorder}`,borderRadius:10,padding:"10px 14px",display:"flex",flexDirection:"column",gap:4}}>
+                                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>מחיר ליחידה</span><span style={{fontSize:12,fontWeight:600}}>{curSym}{fmtNum(sub/(+editPurch.purchase.shares||1))}</span></div>
+                                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>סה״כ {curSym}</span><span style={{fontSize:12,fontWeight:600}}>{curSym}{fmtNum(sub-comm)}</span></div>
+                                <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.navyBorder}`,paddingTop:4,marginTop:2}}><span style={{fontSize:12,fontWeight:700,color:T.textMid}}>עלות סופית</span><span style={{fontSize:13,fontWeight:700,color:T.navy}}>₪{fmtNum(total)}</span></div>
+                              </div>
+                            ):null;
+                          })()}
                           <div style={{display:"flex",gap:8}}>
                             <Btn onClick={()=>updatePurchase({assetId:a.id,purchase:{...editPurch.purchase,shares:+editPurch.purchase.shares,price:+editPurch.purchase.price,commission:+editPurch.purchase.commission||0}})} style={{flex:1,padding:"9px"}}>שמירה</Btn>
                             <Btn variant="secondary" onClick={()=>setEditPurch(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn>
@@ -1613,7 +1620,7 @@ ${newsContext}`;
                         </div>
                       </div>
                     )}
-                    {addPurchaseId===a.id&&<TradeForm mode="buy" form={{...purchaseForm,rateUsed:String(a.rateUsed)}} setForm={f=>setPurchaseForm({...f})} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency}/>}
+                    {addPurchaseId===a.id&&<TradeForm mode="buy" form={purchaseForm} setForm={setPurchaseForm} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency}/>}
                     {((a.sales||[]).length>0||portfolioView==="active")&&(
                       <div style={{marginTop:12}}>
                         <div style={{fontSize:11,fontWeight:700,color:T.danger,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1621,7 +1628,7 @@ ${newsContext}`;
                             <Icon name={isOpen(a.id,"s")?"download":"minus"} size={13} color={T.textMid}/>
                             מכירות ({(a.sales||[]).length})
                           </span>
-                          {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm(blankSale);}} style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.danger,fontFamily:T.font,fontWeight:600}}>+ מכירה</button>}
+                          {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(a.rateUsed)});}} style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.danger,fontFamily:T.font,fontWeight:600}}>+ מכירה</button>}
                         </div>
                         {isOpen(a.id,"s")&&(a.sales||[]).map(s=>{const avgCost=avgBuyPrice(a);const revenue=+s.shares*+s.price-(+s.commission||0);const costOfSale=+s.shares*avgCost;const salePnl=(revenue-costOfSale)*rate;const pnlPos=salePnl>=0;return(
                           <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
@@ -1651,6 +1658,23 @@ ${newsContext}`;
                                 <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={editSale.sale.date} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,date:e.target.value}}))}/></div>
                                 {a.currency!=="ILS"&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה</div><Inp type="number" value={editSale.sale.rateUsed||a.rateUsed} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,rateUsed:e.target.value}}))}/></div>}
                               </div>
+{(()=>{
+                                const curSym=CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency;
+                                const r=a.currency!=="ILS"?+(editSale.sale.rateUsed||a.rateUsed):1;
+                                const sub=(+editSale.sale.shares||0)*(+editSale.sale.price||0);
+                                const comm=+editSale.sale.commission||0;
+                                const taxPct=+editSale.sale.taxRate||0;
+                                const totalILS=(sub-comm)*r;
+                                const tax=Math.max(0,totalILS*taxPct/100);
+                                return +editSale.sale.shares>0&&+editSale.sale.price>0?(
+                                  <div style={{background:"#fff8f8",border:`1px solid ${T.dangerBorder}`,borderRadius:10,padding:"10px 14px",display:"flex",flexDirection:"column",gap:4}}>
+                                    <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>סה״כ {curSym}</span><span style={{fontSize:12,fontWeight:600}}>{curSym}{fmtNum(sub-comm)}</span></div>
+                                    {a.currency!=="ILS"&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>סה״כ ₪</span><span style={{fontSize:12,fontWeight:600}}>₪{fmtNum(totalILS)}</span></div>}
+                                    {tax>0&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.danger}}>מס ({taxPct}%)</span><span style={{fontSize:12,color:T.danger}}>-₪{fmtNum(tax)}</span></div>}
+                                    <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.dangerBorder}`,paddingTop:4,marginTop:2}}><span style={{fontSize:12,fontWeight:700,color:T.textMid}}>נטו</span><span style={{fontSize:13,fontWeight:700,color:T.success}}>₪{fmtNum(totalILS-tax)}</span></div>
+                                  </div>
+                                ):null;
+                              })()}
                               <div style={{display:"flex",gap:8}}>
                                 <Btn onClick={()=>updateSale({assetId:a.id,sale:{...editSale.sale,shares:+editSale.sale.shares,price:+editSale.sale.price,commission:+editSale.sale.commission||0,taxRate:+editSale.sale.taxRate||25,rateUsed:+editSale.sale.rateUsed||+a.rateUsed}})} style={{flex:1,padding:"9px",background:T.danger}}>שמירה</Btn>
                                 <Btn variant="secondary" onClick={()=>setEditSale(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn>
@@ -1658,7 +1682,7 @@ ${newsContext}`;
                             </div>
                           </div>
                         )}
-                        {addSaleId===a.id&&<TradeForm mode="sell" form={{...saleForm,rateUsed:String(a.rateUsed)}} setForm={f=>setSaleForm({...f})} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency}/>}
+                        {addSaleId===a.id&&<TradeForm mode="sell" form={saleForm} setForm={setSaleForm} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency}/>}
                       </div>
                     )}
                     <div style={{marginTop:12}}>

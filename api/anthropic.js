@@ -66,6 +66,11 @@ const apiKey = process.env.GEMINI_KEY_AGENT;
     }
 
     const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    console.log("Status:", response.status);
+    console.log("Text length:", text.length);
+    console.log("Text preview:", text.slice(0, 200));
+    console.log("Full response keys:", Object.keys(geminiData));
+    if(geminiData.candidates?.[0]) console.log("Finish reason:", geminiData.candidates[0].finishReason);
     res.json({ content: [{ type: "text", text }] });
 
   } catch (err) {

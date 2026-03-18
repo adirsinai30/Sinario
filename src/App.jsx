@@ -1147,7 +1147,7 @@ const fetchNews = async (force=false) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          max_tokens: 2000,
+          max_tokens: 8192,
           useSearch: true,
           messages: [{ role: "user", content: question }]
         })

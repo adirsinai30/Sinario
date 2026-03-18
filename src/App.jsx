@@ -1132,57 +1132,50 @@ const fetchNews = async (force=false) => {
     setNewsLoading(true);
     setNewsError("");
     try {
-      const queries = [
-        ...assets.map(a => ({
-          ticker: extractTicker(a.security),
-          label: a.security,
-          type: "stock"
-        })),
-        { ticker: "SPY", label: "S&P 500", type: "market" },
-        { ticker: "stock market today", label: "שוק כללי", type: "market" },
-      ];
+      const tickers = assets.map(a => extractTicker(a.security)).join(", ");
+      const question = `תן לי סיכום חדשות פיננסיות עדכניות בעברית על: ${tickers}, ועל השוק הכללי (S&P 500, נאסד"ק).
+פורמט JSON בלבד ללא טקסט נוסף:
+{
+  "items": [
+    {"ticker": "AAPL", "label": "Apple", "summary": "...", "trend": "positive/negative/neutral"},
+    {"ticker": "MARKET", "label": "שוק כללי", "summary": "...", "trend": "positive/negative/neutral"}
+  ]
+}
+2-3 משפטים לכל נייר. מגמה חיובית/שלילית/ניטרלית.`;
 
-// ── שלב 1: משוך חדשות סדרתית עם delay ──
-      const newsResults = [];
-      for (const q of queries) {
-        try {
-          const r = await fetch(`/api/news?q=${encodeURIComponent(q.ticker)}`);
-          if (!r.ok) { newsResults.push({ ...q, articles: [] }); continue; }
-          const data = await r.json();
-          newsResults.push({ ...q, articles: data.items || [] });
-        } catch {
-          newsResults.push({ ...q, articles: [] });
-        }
-        await new Promise(r => setTimeout(r, 300));
-      }
-
-      // ── שלב 2: בקשת סיכום אחת לכל הניירות ──
-      const withArticles = newsResults.filter(g => g.articles.length > 0);
-      
-      let summaries = {};
-      if (withArticles.length > 0) {
-        try {
-          const r = await fetch("/api/summarize", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ groups: withArticles })
-          });
-          if (r.ok) {
-            const data = await r.json();
-            summaries = data.summaries || {};
-          }
-        } catch {}
-      }
-
-      // ── שלב 3: שלב תוצאות ──
-      const results = newsResults.map(group => {
-        const summary = summaries[group.ticker] || null;
-        const trend = !summary ? "neutral"
-          : /עלי|חיובי|זינוק|שיא|התחזק|גבוה|צמיח/.test(summary) ? "positive"
-          : /יריד|שלילי|צניח|הפסד|לחץ|חשש|ירד/.test(summary) ? "negative"
-          : "neutral";
-        return { ...group, summary, trend, updatedAt: new Date() };
+      const resp = await fetch("/api/anthropic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          max_tokens: 2000,
+          useSearch: true,
+          messages: [{ role: "user", content: question }]
+        })
       });
+
+      const data = await resp.json();
+      const text = (data.content||[]).map(b=>b.text||"").join("").trim();
+
+      // פרסור JSON
+      let parsed = [];
+      try {
+        const clean = text.replace(/```json\n?|```/g, "").trim();
+        const match = clean.match(/\{[\s\S]*\}/);
+        if (match) {
+          const json = JSON.parse(match[0]);
+          parsed = json.items || [];
+        }
+      } catch {}
+
+      const results = parsed.map(item => ({
+        ticker: item.ticker,
+        label: item.label,
+        type: item.ticker === "MARKET" ? "market" : "stock",
+        summary: item.summary,
+        trend: item.trend || "neutral",
+        articles: [],
+        updatedAt: new Date()
+      }));
 
       setNewsItems(results);
       setNewsLastFetch(new Date());
@@ -1292,7 +1285,7 @@ ${newsContext}`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          max_tokens: 2000,
+          max_tokens: 8192,
           system: systemPrompt,
           messages: [...conversationHistory, { role: "user", content: question }]
         })

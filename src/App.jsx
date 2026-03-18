@@ -983,7 +983,7 @@ const handleReceiptUpload=async e=>{
 
 function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
   const isBuy=mode==="buy";
-  const rate=currency!=="ILS"?+form.rateUsed||3.68:1;
+  const rate=currency!=="ILS"?(+form.rateUsed||3.68):1;
   const subtotal=(+form.shares||0)*(+form.price||0);
   const commission=+form.commission||0;
   const taxRate=!isBuy?(+form.taxRate||25)/100:0;
@@ -1005,6 +1005,9 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
           <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({currency})</div><Inp type="number" placeholder="0" value={form.commission} onChange={e=>setForm({...form,commission:e.target.value})}/></div>
           {!isBuy&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס רווח הון (%)</div><Inp type="number" placeholder="25" value={form.taxRate??25} onChange={e=>setForm({...form,taxRate:e.target.value})}/></div>}
           <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></div>
+          {!isBuy&&currency!=="ILS"&&(
+            <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder={String(+form.rateUsed||3.68)} value={form.rateUsed} onChange={e=>setForm({...form,rateUsed:e.target.value})}/></div>
+          )}
         </div>
         {(+form.shares>0&&+form.price>0)&&(
           <div style={{background:isBuy?"#fff":"#fff8f8",border:`1px solid ${isBuy?T.navyBorder:T.dangerBorder}`,borderRadius:10,padding:"10px 14px"}}>
@@ -1048,8 +1051,9 @@ function InvestSection({ tab, setTab }) {
   const [addPurchaseId,setAddPurchaseId]=useState(null);
   const [addSaleId,setAddSaleId]=useState(null);
   const [confirmAsset,setConfirmAsset]=useState(null);
-  const [confirmPurch,setConfirmPurch]=useState(null);
-  const [confirmSale,setConfirmSale]=useState(null);
+  const [editPurch,     setEditPurch]     = useState(null); // {assetId, purchase}
+  const [editSale,      setEditSale]      = useState(null); // {assetId, sale}
+  const [editDiv,       setEditDiv]       = useState(null); // {assetId, dividend}
   const [addDividendId,setAddDividendId]=useState(null);
   const [confirmDiv,setConfirmDiv]=useState(null);
   // ── סעיף 7א: searchQ ──
@@ -1068,7 +1072,7 @@ function InvestSection({ tab, setTab }) {
   const NEWS_CACHE_MIN = 30; // דקות בין רענונים
   const blankAsset={security:"",shares:"",price:"",commission:"0",date:today(),currency:"USD",rateUsed:"3.68"};
   const blankPurchase={shares:"",price:"",commission:"0",date:today()};
-  const blankSale={shares:"",price:"",commission:"0",date:today()};
+  const blankSale     = { shares:"", price:"", commission:"0", date:today(), taxRate:"25", rateUsed:"" };
   const blankDividend = { amount:"", currency:"USD", rateUsed:"3.68", date:today(), notes:"", taxRate:"25" };
   const [assetForm,setAssetForm]=useState(blankAsset);
   const [purchaseForm,setPurchaseForm]=useState(blankPurchase);
@@ -1085,10 +1089,25 @@ function InvestSection({ tab, setTab }) {
   const currentValILS=a=>{const price=currentPriceFor(a);const rate=a.currency!=="ILS"?+a.rateUsed:1;const shrs=totalShares(a);return price?price*shrs*rate:avgBuyPrice(a)*shrs*rate;};
   const soldCostILS=a=>{const rate=a.currency!=="ILS"?+a.rateUsed:1;const avg=avgBuyPrice(a);return(a.sales||[]).reduce((s,p)=>s+ +p.shares*avg*rate,0);};
   const unrealizedPnLILS=a=>currentValILS(a)-(costBasisILS(a)-soldCostILS(a));
-  const realizedPnLILS=a=>{const rate=a.currency!=="ILS"?+a.rateUsed:1;const avg=avgBuyPrice(a);return(a.sales||[]).reduce((s,p)=>{const rev=(+p.shares*+p.price-(+p.commission||0))*rate;const cost=+p.shares*avg*rate;return s+rev-cost;},0);};
+  const realizedPnLILS=a=>{
+    const avg=avgBuyPrice(a);
+    return(a.sales||[]).reduce((s,p)=>{
+      const saleRate=p.rateUsed?+p.rateUsed:(a.currency!=="ILS"?+a.rateUsed:1);
+      const rev=(+p.shares*+p.price-(+p.commission||0))*saleRate;
+      const cost=+p.shares*avg*saleRate;
+      const grossPnL=rev-cost;
+      const taxRate=(+p.taxRate||0)/100;
+      const tax=grossPnL>0?grossPnL*taxRate:0;
+      return s+grossPnL-tax;
+    },0);
+  };
   const isSoldOut=a=>totalShares(a)<=0.000001;
   const assetDividends=assetId=>(dividends||[]).filter(d=>d.assetId===assetId);
-  const totalDividendsILS=a=>assetDividends(a.id).reduce((s,d)=>s+(+d.amount)*(+d.rateUsed||1),0);
+  const totalDividendsILS=a=>assetDividends(a.id).reduce((s,d)=>{
+    const gross=(+d.amount)*(+d.rateUsed||1);
+    const tax=gross*(+d.taxRate||0)/100;
+    return s+gross-tax;
+  },0);
   const allDividendsTotal=assets.reduce((s,a)=>s+totalDividendsILS(a),0);
   const activeAssets=assets.filter(a=>!isSoldOut(a));
   const soldAssets=assets.filter(a=>isSoldOut(a));
@@ -1118,6 +1137,18 @@ function InvestSection({ tab, setTab }) {
     const s={id:uid(),shares:+saleForm.shares,price:+saleForm.price,commission:+saleForm.commission||0,date:saleForm.date};
     setAssets(assets.map(a=>a.id===assetId?{...a,sales:[...(a.sales||[]),s]}:a));
     setAddSaleId(null);setSaleForm(blankSale);
+  };
+  const updatePurchase=({assetId,purchase})=>{
+    setAssets(assets.map(a=>a.id===assetId?{...a,purchases:a.purchases.map(p=>p.id===purchase.id?purchase:p)}:a));
+    setEditPurch(null);
+  };
+  const updateSale=({assetId,sale})=>{
+    setAssets(assets.map(a=>a.id===assetId?{...a,sales:(a.sales||[]).map(s=>s.id===sale.id?sale:s)}:a));
+    setEditSale(null);
+  };
+  const updateDividend=(dividend)=>{
+    setDividends(dividends.map(d=>d.id===dividend.id?dividend:d));
+    setEditDiv(null);
   };
   const deletePurchase=({assetId,purchaseId})=>{setAssets(assets.map(a=>a.id===assetId?{...a,purchases:a.purchases.filter(p=>p.id!==purchaseId)}:a));setConfirmPurch(null);};
   const deleteSale=({assetId,saleId})=>{setAssets(assets.map(a=>a.id===assetId?{...a,sales:(a.sales||[]).filter(s=>s.id!==saleId)}:a));setConfirmSale(null);};
@@ -1466,35 +1497,88 @@ ${newsContext}`;
                 {isExpanded&&(
                   <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:14}}>
                     <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{cursor:"pointer",userSelect:"none"}} onClick={()=>toggleSection(a.id,"p")}>{isOpen(a.id,"p")?"▾":"▸"} 📥 קניות ({a.purchases.length})</span>
+                      <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"p")}>
+                        <Icon name={isOpen(a.id,"p")?"trending":"chart"} size={13} color={T.navy}/>
+                        קניות ({a.purchases.length})
+                      </span>
                       <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm(blankPurchase);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.navy,fontFamily:T.font,fontWeight:600}}>+ קנייה נוספת</button>
                     </div>
                     {isOpen(a.id,"p")&&a.purchases.map(p=>{const totalFx=+p.shares*+p.price+(+p.commission||0);const totalIls=totalFx*rate;return(
                       <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
                         <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{p.shares} יחידות × {fmtForeign(p.price,a.currency)}</div><div style={{fontSize:10,color:T.textSub}}>{new Date(p.date).toLocaleDateString("he-IL")}{p.commission>0&&` · עמלה ${fmtForeign(p.commission,a.currency)}`}</div></div>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.navy}}>{fmt(totalIls)}</div><div style={{fontSize:10,color:T.textSub}}>{fmtForeign(totalFx,a.currency)}</div></div><button onClick={()=>setConfirmPurch({assetId:a.id,purchaseId:p.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button></div>
+                        <button onClick={()=>setEditPurch({assetId:a.id,purchase:{...p}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center",marginLeft:4}}><Icon name="pencil" size={11} color={T.textMid}/></button>
+                            <button onClick={()=>setConfirmPurch({assetId:a.id,purchaseId:p.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
                       </div>
                     );})}
+                    {editPurch?.assetId===a.id&&(
+                      <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:12,padding:14,marginTop:8}}>
+                        <div style={{fontSize:12,fontWeight:700,color:T.navy,marginBottom:10}}>✏️ עריכת קנייה</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                          <div style={{display:"flex",gap:8}}>
+                            <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>כמות</div><Inp type="number" value={editPurch.purchase.shares} onChange={e=>setEditPurch(ep=>({...ep,purchase:{...ep.purchase,shares:e.target.value}}))}/></div>
+                            <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער קנייה</div><Inp type="number" value={editPurch.purchase.price} onChange={e=>setEditPurch(ep=>({...ep,purchase:{...ep.purchase,price:e.target.value}}))}/></div>
+                          </div>
+                          <div style={{display:"flex",gap:8}}>
+                            <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה</div><Inp type="number" value={editPurch.purchase.commission||0} onChange={e=>setEditPurch(ep=>({...ep,purchase:{...ep.purchase,commission:e.target.value}}))}/></div>
+                            <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={editPurch.purchase.date} onChange={e=>setEditPurch(ep=>({...ep,purchase:{...ep.purchase,date:e.target.value}}))}/></div>
+                          </div>
+                          <div style={{display:"flex",gap:8}}>
+                            <Btn onClick={()=>updatePurchase({assetId:a.id,purchase:{...editPurch.purchase,shares:+editPurch.purchase.shares,price:+editPurch.purchase.price,commission:+editPurch.purchase.commission||0}})} style={{flex:1,padding:"9px"}}>שמירה</Btn>
+                            <Btn variant="secondary" onClick={()=>setEditPurch(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {isOpen(a.id,"p")&&addPurchaseId===a.id&&<TradeForm mode="buy" form={{...purchaseForm,rateUsed:String(a.rateUsed)}} setForm={f=>setPurchaseForm({...f})} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency}/>}
                     {((a.sales||[]).length>0||portfolioView==="active")&&(
                       <div style={{marginTop:12}}>
                         <div style={{fontSize:11,fontWeight:700,color:T.danger,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span style={{cursor:"pointer",userSelect:"none"}} onClick={()=>toggleSection(a.id,"s")}>{isOpen(a.id,"s")?"▾":"▸"} 📤 מכירות ({(a.sales||[]).length})</span>
+                          <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"s")}>
+                            <Icon name={isOpen(a.id,"s")?"download":"chart"} size={13} color={T.danger}/>
+                            מכירות ({(a.sales||[]).length})
+                          </span>
                           {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm(blankSale);}} style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.danger,fontFamily:T.font,fontWeight:600}}>+ מכירה</button>}
                         </div>
                         {isOpen(a.id,"s")&&(a.sales||[]).map(s=>{const avgCost=avgBuyPrice(a);const revenue=+s.shares*+s.price-(+s.commission||0);const costOfSale=+s.shares*avgCost;const salePnl=(revenue-costOfSale)*rate;const pnlPos=salePnl>=0;return(
                           <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
                             <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{s.shares} יחידות × {fmtForeign(s.price,a.currency)}</div><div style={{fontSize:10,color:T.textSub}}>{new Date(s.date).toLocaleDateString("he-IL")}{s.commission>0&&` · עמלה ${fmtForeign(s.commission,a.currency)}`}</div></div>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:11,fontWeight:700,color:pnlPos?T.success:T.danger}}>{pnlPos?"+":""}{fmt(salePnl)}</div><div style={{fontSize:10,color:T.textSub}}>רווח/הפסד</div></div><button onClick={()=>setConfirmSale({assetId:a.id,saleId:s.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button></div>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:11,fontWeight:700,color:pnlPos?T.success:T.danger}}>{pnlPos?"+":""}{fmt(salePnl)}</div><div style={{fontSize:10,color:T.textSub}}>רווח/הפסד</div></div><button onClick={()=>setEditSale({assetId:a.id,sale:{...s}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center",marginLeft:4}}><Icon name="pencil" size={11} color={T.textMid}/></button>
+                                <button onClick={()=>setConfirmSale({assetId:a.id,saleId:s.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button></div>
                           </div>
                         );})}
                         {isOpen(a.id,"s")&&(a.sales||[]).length===0&&<div style={{fontSize:11,color:T.textSub,fontStyle:"italic"}}>אין מכירות עדיין</div>}
+                        {editSale?.assetId===a.id&&(
+                          <div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:12,padding:14,marginTop:8}}>
+                            <div style={{fontSize:12,fontWeight:700,color:T.danger,marginBottom:10}}>✏️ עריכת מכירה</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                              <div style={{display:"flex",gap:8}}>
+                                <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>כמות</div><Inp type="number" value={editSale.sale.shares} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,shares:e.target.value}}))}/></div>
+                                <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער מכירה</div><Inp type="number" value={editSale.sale.price} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,price:e.target.value}}))}/></div>
+                              </div>
+                              <div style={{display:"flex",gap:8}}>
+                                <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה</div><Inp type="number" value={editSale.sale.commission||0} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,commission:e.target.value}}))}/></div>
+                                <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס (%)</div><Inp type="number" value={editSale.sale.taxRate||25} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,taxRate:e.target.value}}))}/></div>
+                              </div>
+                              <div style={{display:"flex",gap:8}}>
+                                <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={editSale.sale.date} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,date:e.target.value}}))}/></div>
+                                {a.currency!=="ILS"&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה</div><Inp type="number" value={editSale.sale.rateUsed||a.rateUsed} onChange={e=>setEditSale(es=>({...es,sale:{...es.sale,rateUsed:e.target.value}}))}/></div>}
+                              </div>
+                              <div style={{display:"flex",gap:8}}>
+                                <Btn onClick={()=>updateSale({assetId:a.id,sale:{...editSale.sale,shares:+editSale.sale.shares,price:+editSale.sale.price,commission:+editSale.sale.commission||0,taxRate:+editSale.sale.taxRate||25,rateUsed:+editSale.sale.rateUsed||+a.rateUsed}})} style={{flex:1,padding:"9px",background:T.danger}}>שמירה</Btn>
+                                <Btn variant="secondary" onClick={()=>setEditSale(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         {isOpen(a.id,"s")&&addSaleId===a.id&&<TradeForm mode="sell" form={{...saleForm,rateUsed:String(a.rateUsed)}} setForm={f=>setSaleForm({...f})} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency}/>}
                       </div>
                     )}
                     <div style={{marginTop:12}}>
                       <div style={{fontSize:11,fontWeight:700,color:"#1a6b3c",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span style={{cursor:"pointer",userSelect:"none"}} onClick={()=>toggleSection(a.id,"d")}>{isOpen(a.id,"d")?"▾":"▸"} 💰 דיבידנדים ({assetDividends(a.id).length}) · סה"כ {fmt(totalDividendsILS(a))}</span>
+                        <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"d")}>
+                          <Icon name={isOpen(a.id,"d")?"wallet":"chart"} size={13} color={T.success}/>
+                          דיבידנדים ({assetDividends(a.id).length}) · סה״כ {fmt(totalDividendsILS(a))}
+                        </span>
                         <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm(blankDividend);}} style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:T.success,fontFamily:T.font,fontWeight:600}}>+ דיבידנד</button>
                       </div>
                       {isOpen(a.id,"d")&&addDividendId===a.id&&(
@@ -1522,12 +1606,33 @@ ${newsContext}`;
                           </div>
                         </div>
                       )}
+                      {editDiv?.assetId===a.id&&(
+                        <div style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:12,padding:14,marginBottom:8}}>
+                          <div style={{fontSize:12,fontWeight:700,color:T.success,marginBottom:10}}>✏️ עריכת דיבידנד</div>
+                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                            <div style={{display:"flex",gap:8}}>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>סכום ({a.currency})</div><Inp type="number" value={editDiv.dividend.amount} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,amount:e.target.value}}))}/></div>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={editDiv.dividend.date} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,date:e.target.value}}))}/></div>
+                            </div>
+                            <div style={{display:"flex",gap:8}}>
+                              {a.currency!=="ILS"&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה</div><Inp type="number" value={editDiv.dividend.rateUsed} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,rateUsed:e.target.value}}))}/></div>}
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס (%)</div><Inp type="number" value={editDiv.dividend.taxRate||25} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,taxRate:e.target.value}}))}/></div>
+                            </div>
+                            <div><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>הערה</div><Inp value={editDiv.dividend.notes||""} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,notes:e.target.value}}))}/></div>
+                            <div style={{display:"flex",gap:8}}>
+                              <Btn onClick={()=>updateDividend({...editDiv.dividend,amount:+editDiv.dividend.amount,rateUsed:+editDiv.dividend.rateUsed||1,taxRate:+editDiv.dividend.taxRate||25})} style={{flex:1,padding:"9px",background:T.success}}>שמירה</Btn>
+                              <Btn variant="secondary" onClick={()=>setEditDiv(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {isOpen(a.id,"d")&&assetDividends(a.id).length>0&&(
                         <div style={{borderRadius:10,overflow:"hidden",border:"1px solid #bbf7d0"}}>
                           {assetDividends(a.id).sort((x,y)=>new Date(y.date)-new Date(x.date)).map((d,di)=>(
                             <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:di<assetDividends(a.id).length-1?"1px solid #dcfce7":"none",background:di%2===0?"#f0faf4":"#fff"}}>
                               <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{new Date(d.date).toLocaleDateString("he-IL")}</div>{d.notes&&<div style={{fontSize:10,color:T.textSub}}>{d.notes}</div>}</div>
-                              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.success}}>+{fmt((+d.amount)*(+d.rateUsed||1))}</div>{a.currency!=="ILS"&&<div style={{fontSize:10,color:T.textSub}}>{d.amount} {a.currency}</div>}</div><button onClick={()=>setConfirmDiv(d.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button></div>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.success}}>+{fmt((+d.amount)*(+d.rateUsed||1))}</div>{a.currency!=="ILS"&&<div style={{fontSize:10,color:T.textSub}}>{d.amount} {a.currency}</div>}</div><button onClick={()=>setEditDiv({assetId:a.id,dividend:{...d}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center",marginLeft:4}}><Icon name="pencil" size={11} color={T.textMid}/></button>
+                              <button onClick={()=>setConfirmDiv(d.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button></div>
                             </div>
                           ))}
                         </div>

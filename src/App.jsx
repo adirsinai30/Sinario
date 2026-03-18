@@ -1159,7 +1159,11 @@ const fetchNews = async (force=false) => {
       // פרסור JSON
       let parsed = [];
       try {
-        const clean = text.replace(/```json\n?|```/g, "").trim();
+        let clean = text.replace(/```json[\s\S]*?(?=\{)/,"").replace(/```\s*$/,"").trim();
+      if(!clean.startsWith("{")) {
+        const match2 = text.match(/\{[\s\S]*\}/);
+        clean = match2?.[0] || "{}";
+      }
         const match = clean.match(/\{[\s\S]*\}/);
         if (match) {
           const json = JSON.parse(match[0]);

@@ -105,6 +105,13 @@ function SearchBar({ value, onChange, placeholder = "חיפוש…", style = {} 
 
 const fmtDt  = dt  => { const d=new Date(dt); return d.toLocaleDateString("he-IL")+" "+d.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"}); };
 const toILS  = item => item.currency==="ILS" ? +item.amount : (+item.amount)*(+item.rateUsed||1);
+function fmtNum(n) {
+  if (n === null || n === undefined || isNaN(n)) return "0";
+  const rounded = Math.round(n * 1000) / 1000;
+  if (Number.isInteger(rounded)) return rounded.toLocaleString("he-IL");
+  const str = rounded.toFixed(3).replace(/\.?0+$/, "");
+  return Number(str).toLocaleString("he-IL");
+}
 
 // ─── RATE LIMITER (shared across ALL API calls — prevents 429) ─────────────
 const _rlState = { lastCall: 0, queue: Promise.resolve() };

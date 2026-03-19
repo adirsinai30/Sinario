@@ -2638,7 +2638,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
 }
 
 const SECTIONS=[
-  {id:"home",    label:"הבית שלנו", icon:"home"},
+  {id:"home",    label:"בית", icon:"home"},
   {id:"trips",   label:"חופשות",    icon:"plane"},
   {id:"invest",  label:"השקעות",    icon:"chart"},
   {id:"reports", label:"דוחות",     icon:"insights"},

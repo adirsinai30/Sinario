@@ -2642,7 +2642,6 @@ const SECTIONS=[
   {id:"trips",   label:"חופשות",    icon:"plane"},
   {id:"invest",  label:"השקעות",    icon:"chart"},
   {id:"reports", label:"דוחות",     icon:"insights"},
-  {id:"settings",label:"הגדרות",    icon:"settings"},
 ];
 const HOME_TABS=[
   {id:"expenses",label:"הוצאות"},
@@ -2676,9 +2675,24 @@ export default function App(){
       <style>{globalCss}</style>
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"12px 20px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
         <div style={{maxWidth:720,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 14px",fontSize:12,color:T.navy,fontWeight:600,flexShrink:0}}>{MONTHS[month]} {year}</div>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
+  <button
+    onClick={()=>setSection("settings")}
+    // title="הגדרות"
+    style={{
+      background: section==="settings" ? T.navyLight : "transparent",
+      border: `1px solid ${section==="settings" ? T.navyBorder : "transparent"}`,
+      borderRadius: 8,
+      width: 28, height: 28,
+      display:"flex", alignItems:"center", justifyContent:"center",
+      cursor:"pointer", transition:"all .15s", flexShrink:0
+    }}>
+    <Icon name="settings" size={14} color={section==="settings" ? T.navy : T.textMid}/>
+  </button>
+  <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 14px",fontSize:12,color:T.navy,fontWeight:600,flexShrink:0}}>{MONTHS[month]} {year}</div>
+</div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{fontSize:18,fontWeight:700,fontFamily:T.display,color:T.navy,letterSpacing:-.3}}>Sinario</div>
+          <div style={{fontSize:18,fontWeight:700,fontFamily:T.display,color:T.navy,letterSpacing:-.3}}>Sinario</div>
             <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${T.navy}33`}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
             </div>
@@ -2687,13 +2701,13 @@ export default function App(){
       </div>
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}>
         <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>
-          {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{padding:"13px 14px",border:"none",background:"transparent",color:section===s.id?T.navy:T.textSub,fontFamily:T.font,fontSize:13,fontWeight:section===s.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:section===s.id?`2px solid ${T.navy}`:"2px solid transparent",marginBottom:-1,transition:"color .15s",display:"flex",alignItems:"center",gap:5}}><Icon name={s.icon} size={13} color={section===s.id?T.navy:T.textSub}/>{s.label}</button>))}
+          {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{padding:"8px 16px",border:`1px solid ${section===s.id?T.navyBorder:"#e8e4de"}`,background:section===s.id?T.navyLight:"#f5f3f0",color:section===s.id?T.navy:T.textMid,fontFamily:T.font,fontSize:13,fontWeight:section===s.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99,boxShadow:section===s.id?"0 1px 4px rgba(30,58,95,.10)":"0 1px 2px rgba(0,0,0,.04)",transition:"all .15s",display:"flex",alignItems:"center",gap:6,margin:"6px 2px"}}><Icon name={s.icon} size={13} color={section===s.id?T.navy:T.textSub}/>{s.label}</button>))}
         </div>
       </div>
-      {section==="home"&&(<div style={{background:T.bg,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{padding:"9px 14px",border:"none",background:homeTab===t.id?T.surface:"transparent",color:homeTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:12,fontWeight:homeTab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:homeTab===t.id?`2px solid ${T.navy}`:"2px solid transparent",marginBottom:-1,transition:"all .15s"}}>{t.label}</button>))}</div></div>)}
+      {section==="home"&&(<div style={{background:T.bg,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{padding:"6px 14px",border:`1px solid ${homeTab===t.id?T.navyBorder:"#e8e4de"}`,background:homeTab===t.id?T.navyLight:"#f5f3f0",color:homeTab===t.id?T.navy:T.textMid,fontFamily:T.font,fontSize:12,fontWeight:homeTab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99,boxShadow:homeTab===t.id?"0 1px 4px rgba(30,58,95,.10)":"0 1px 2px rgba(0,0,0,.04)",transition:"all .15s",margin:"4px 2px"}}>{t.label}</button>))}</div></div>)}
       {section==="home"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
       {section==="trips"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
-      {section==="invest"&&(<div style={{background:T.bg,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{padding:"9px 14px",border:"none",background:investTab===t.id?T.surface:"transparent",color:investTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:12,fontWeight:investTab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:investTab===t.id?`2px solid ${T.navy}`:"2px solid transparent",marginBottom:-1,transition:"all .15s"}}>{t.label}</button>))}</div></div>)}
+      {section==="invest"&&(<div style={{background:T.bg,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 16px"}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{padding:"6px 14px",border:`1px solid ${investTab===t.id?T.navyBorder:"#e8e4de"}`,background:investTab===t.id?T.navyLight:"#f5f3f0",color:investTab===t.id?T.navy:T.textMid,fontFamily:T.font,fontSize:12,fontWeight:investTab===t.id?700:500,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99,boxShadow:investTab===t.id?"0 1px 4px rgba(30,58,95,.10)":"0 1px 2px rgba(0,0,0,.04)",transition:"all .15s",margin:"4px 2px"}}>{t.label}</button>))}</div></div>)}
       {section==="reports"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
       <div style={{maxWidth:720,margin:"0 auto",padding:"16px 16px 40px"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}

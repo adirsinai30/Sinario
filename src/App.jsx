@@ -2701,12 +2701,10 @@ export default function App(){
 </div>
         </div>
       </div>
-      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}>
-<div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"8px 16px"}}>
-  <div style={{display:"inline-flex",background:"#f0ede8",borderRadius:10,padding:3,gap:2}}>
-  {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{padding:"6px 13px",border:"none",background:section===s.id?T.navy:"transparent",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:12,fontWeight:section===s.id?600:500,cursor:"pointer",whiteSpace:"nowrap",borderRadius:7,transition:"all .15s",display:"flex",alignItems:"center",gap:5}}><Icon name={s.icon} size={13} color={section===s.id?"#fff":T.textSub}/>{s.label}</button>))}
+<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`}}>
+  <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>
+    {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{flex:1,padding:"7px 4px",border:"none",background:section===s.id?T.navy:"transparent",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:section===s.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><Icon name={s.icon} size={15} color={section===s.id?"#fff":T.textSub}/><span>{s.label}</span></button>))}
 </div>
-        </div>
       </div>
       {section==="home"&&(<div style={{background:T.bg,borderBottom:`1px solid ${T.border}`,overflowX:"auto",scrollbarWidth:"none"}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"8px 16px"}}><div style={{display:"inline-flex",background:"#f0ede8",borderRadius:10,padding:3,gap:2}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{padding:"5px 12px",border:"none",background:homeTab===t.id?"#fff":"transparent",color:homeTab===t.id?T.navy:T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",whiteSpace:"nowrap",borderRadius:7,boxShadow:homeTab===t.id?"0 1px 3px rgba(0,0,0,.10)":"none",transition:"all .15s"}}>{t.label}</button>))}</div></div></div>)}
       {section==="home"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}

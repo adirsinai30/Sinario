@@ -2673,45 +2673,33 @@ export default function App(){
   return(
     <div style={{background:T.bg,minHeight:"100vh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text}}>
       <style>{globalCss}</style>
-      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"8px 20px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
-        <div style={{maxWidth:720,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
-  <button
-    onClick={()=>setSection("settings")}
-    style={{
-      background: section==="settings" ? T.navyLight : "transparent",
-      border: `1px solid ${section==="settings" ? T.navyBorder : "transparent"}`,
-      borderRadius: 8,
-      width: 30, height: 30,
-      display:"flex", alignItems:"center", justifyContent:"center",
-      cursor:"pointer", transition:"all .15s", flexShrink:0
-    }}>
-    <Icon name="settings" size={17} color={section==="settings" ? T.navy : T.textMid}/>
-  </button>
-  <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 14px",fontSize:12,color:T.navy,fontWeight:600,flexShrink:0}}>{MONTHS[month]} {year}</div>
-</div>
-<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-  <div style={{opacity:0,width:30,height:30}}/>
-  <div style={{display:"flex",alignItems:"center",gap:8}}>
-    <div style={{fontSize:18,fontWeight:700,fontFamily:T.display,color:T.navy,letterSpacing:-.3}}>Sinario</div>
-    <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${T.navy}33`}}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
+      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"6px 16px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
+  <div style={{maxWidth:720,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <button onClick={()=>setSection("settings")} style={{background:section==="settings"?T.navyLight:"transparent",border:`1px solid ${section==="settings"?T.navyBorder:"transparent"}`,borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",flexShrink:0}}>
+        <Icon name="settings" size={15} color={section==="settings"?T.navy:T.textMid}/>
+      </button>
+      <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",fontSize:12,color:T.navy,fontWeight:600,flexShrink:0}}>{MONTHS[month]} {year}</div>
+    </div>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <div style={{fontSize:16,fontWeight:700,fontFamily:T.display,color:T.navy,letterSpacing:-.3}}>Sinario</div>
+      <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${T.navy}33`}}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
+      </div>
     </div>
   </div>
 </div>
-        </div>
-      </div>
-<div style={{position:"sticky",top:85,zIndex:90,background:T.surface}}>
+<div style={{position:"sticky",top:57,zIndex:90,background:T.surface}}>
   <div>
     <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>
       {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{flex:1,padding:"5px 4px",border:`1px solid ${section===s.id?T.navy:"#e0dbd4"}`,background:section===s.id?T.navy:"#f7f5f2",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:section===s.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5}}><span>{s.label}</span><Icon name={s.icon} size={13} color={section===s.id?"#fff":T.textSub}/></button>))}
     </div>
   </div>
   {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-  {section==="home"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"10px 16px",marginTop:4}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
-  {section==="trips"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"10px 16px",marginTop:4}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
+  {section==="home"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"6px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
+  {section==="trips"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"6px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
   {section==="invest"&&(<div style={{borderBottom:`1px solid ${T.border}`,marginTop:4}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-  {section==="reports"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"10px 16px",marginTop:4}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
+  {section==="reports"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"6px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"16px 16px 40px"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}

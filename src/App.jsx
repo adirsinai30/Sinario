@@ -2673,7 +2673,7 @@ export default function App(){
   return(
     <div style={{background:T.bg,minHeight:"100vh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text}}>
       <style>{globalCss}</style>
-      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"12px 20px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
+      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"8px 20px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
         <div style={{maxWidth:720,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}>
   <button
@@ -2701,16 +2701,18 @@ export default function App(){
 </div>
         </div>
       </div>
-<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`}}>
-  <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>
-    {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{flex:1,padding:"5px 4px",border:`1px solid ${section===s.id?T.navy:"#e0dbd4"}`,background:section===s.id?T.navy:"#f7f5f2",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:section===s.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5}}><span>{s.label}</span><Icon name={s.icon} size={13} color={section===s.id?"#fff":T.textSub}/></button>))}
+<div style={{position:"sticky",top:85,zIndex:90,background:T.surface}}>
+  <div>
+    <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>
+      {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{flex:1,padding:"5px 4px",border:`1px solid ${section===s.id?T.navy:"#e0dbd4"}`,background:section===s.id?T.navy:"#f7f5f2",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:section===s.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5}}><span>{s.label}</span><Icon name={s.icon} size={13} color={section===s.id?"#fff":T.textSub}/></button>))}
+    </div>
+  </div>
+  {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
+  {section==="home"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"10px 16px",marginTop:4}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
+  {section==="trips"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"10px 16px",marginTop:4}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
+  {section==="invest"&&(<div style={{borderBottom:`1px solid ${T.border}`,marginTop:4}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
+  {section==="reports"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"10px 16px",marginTop:4}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
 </div>
-      </div>
-      {section==="home"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-      {section==="home"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
-      {section==="trips"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
-      {section==="invest"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-      {section==="reports"&&(<div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
       <div style={{maxWidth:720,margin:"0 auto",padding:"16px 16px 40px"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab/>}

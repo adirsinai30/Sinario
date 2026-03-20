@@ -522,7 +522,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
       />
       {expMode==="regular"&&(<>
         <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
-          <Btn onClick={()=>setShowAdd(true)} style={{padding:"8px 16px",fontSize:13,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+          <Btn onClick={()=>setShowAdd(true)} style={{padding:"8px 16px",fontSize:13,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
         </div>
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
@@ -588,7 +588,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
       </>)}
       {expMode==="special"&&(<>
         <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
-          <Btn onClick={openAddSp} style={{padding:"8px 16px",display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+          <Btn onClick={openAddSp} style={{padding:"8px 16px",display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
         </div>
         <Card style={{background:"rgb(235, 240, 247)",border:"1px solid rgb(195, 212, 232)",padding:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -881,7 +881,7 @@ const handleReceiptUpload=async e=>{
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>setPreviewItems(null)} style={{flex:1,padding:"11px",borderRadius:10,border:`1px solid ${T.border}`,background:"transparent",color:T.textMid,fontSize:13,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>ביטול</button>
           <Btn onClick={confirmPreview} style={{flex:2,padding:"11px",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            <Icon name="plus" size={13} color="#fff"/>הוספת {previewItems.length} פריטים לרשימה
+            הוספת {previewItems.length} פריטים לרשימה<Icon name="plus" size={13} color="#fff"/>
           </Btn>
         </div>
       </div>
@@ -926,7 +926,7 @@ const handleReceiptUpload=async e=>{
               ביטול בחירה
             </button>
             <button onClick={()=>setConfirmClear(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,color:T.danger,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-              <Icon name="trash" size={13} color={T.danger}/>מחיקה
+              מחיקה<Icon name="trash" size={13} color={T.danger}/>
             </button>
           </div>
         )}
@@ -1478,10 +1478,10 @@ ${newsContext}`;
           <div style={{display:"flex",gap:8,justifyContent:"end",flexShrink:0}}>
             {portfolioView==="active"&&(<>
               <button onClick={fetchPrices} disabled={pricesLoading} style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:pricesLoading?"wait":"pointer"}}>
-                {pricesLoading?<div style={{width:12,height:12,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>:<Icon name="trending" size={13} color={T.navy}/>}
                 {pricesLoading?"טוען…":"מחירים"}
+                {pricesLoading?<div style={{width:12,height:12,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>:<Icon name="trending" size={13} color={T.navy}/>}
               </button>
-              <Btn onClick={openAddAsset} style={{padding:"8px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+              <Btn onClick={openAddAsset} style={{padding:"8px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
             </>)}
           </div>
           {pricesError&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:10,padding:"10px 14px",fontSize:12,color:T.danger}}>{pricesError}</div>}
@@ -1759,8 +1759,8 @@ ${newsContext}`;
                       {isOpen(a.id,"d")&&assetDividends(a.id).length===0&&addDividendId!==a.id&&<div style={{fontSize:11,color:T.textSub,fontStyle:"italic"}}>אין דיבידנדים מתועדים</div>}
                     </div>
                     <div style={{marginTop:12,display:"flex",gap:8}}>
-                      <button onClick={()=>{setEditAssetId(a.id);setAssetForm({security:a.security,shares:"",price:"",commission:"0",date:today(),currency:a.currency,rateUsed:String(a.rateUsed)});setShowAssetForm(a.id);setExpandedId(null);}} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:9,border:`1px solid ${T.border}`,background:"none",cursor:"pointer",fontSize:12,color:T.textMid,fontFamily:T.font,fontWeight:600}}><Icon name="pencil" size={12} color={T.textMid}/>עריכה</button>
-                      <button onClick={()=>setConfirmAsset(a.id)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:9,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,cursor:"pointer",fontSize:12,color:T.danger,fontFamily:T.font,fontWeight:600}}><Icon name="trash" size={12} color={T.danger}/>מחיקה</button>
+                      <button onClick={()=>{setEditAssetId(a.id);setAssetForm({security:a.security,shares:"",price:"",commission:"0",date:today(),currency:a.currency,rateUsed:String(a.rateUsed)});setShowAssetForm(a.id);setExpandedId(null);}} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:9,border:`1px solid ${T.border}`,background:"none",cursor:"pointer",fontSize:12,color:T.textMid,fontFamily:T.font,fontWeight:600}}>עריכה<Icon name="pencil" size={12} color={T.textMid}/></button>
+                      <button onClick={()=>setConfirmAsset(a.id)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:9,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,cursor:"pointer",fontSize:12,color:T.danger,fontFamily:T.font,fontWeight:600}}>מחיקה<Icon name="trash" size={12} color={T.danger}/></button>
                     </div>
                   </div>
                 )}
@@ -1802,11 +1802,11 @@ ${newsContext}`;
               style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,
                 border:`1px solid ${T.navyBorder}`,background:T.navy,color:"#fff",
                 fontSize:12,fontFamily:T.font,fontWeight:600,cursor:newsLoading?"wait":"pointer"}}>
+              {newsLoading?"מנתח…":"רענן חדשות"}
               {newsLoading
                 ?<div style={{width:13,height:13,borderRadius:"50%",border:"2px solid #fff",
                     borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>
                 :<Icon name="insights" size={13} color="#fff"/>}
-              {newsLoading?"מנתח…":"רענן חדשות"}
             </button>
           </div>
 
@@ -2079,8 +2079,7 @@ ${newsContext}`;
 function exportMenuPDF(menu){
   const w=window.open("","_blank");if(!w)return;
   const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
-  const cats=(menu.categories||[menu.category]).filter(Boolean);const concepts=(menu.concepts||[]);
-  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'system-ui',sans-system-ui;color:#1c1917;background:#fff;padding:48px 56px;direction:rtl;}.header{border-bottom:2px solid #1e3a5f;padding-bottom:20px;margin-bottom:28px;}.title{font-family:'system-ui',system-ui;font-size:32px;font-weight:400;color:#1e3a5f;letter-spacing:-0.5px;margin-bottom:8px;}.tags{display:flex;gap:8px;flex-wrap:wrap;}.tag{background:#ebf0f7;color:#1e3a5f;border:1px solid #c3d4e8;border-radius:99px;padding:4px 14px;font-size:12px;font-weight:600;}.section{margin-bottom:28px;}.section-title{font-size:11px;font-weight:700;color:#a8a29e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e6e2db;}.dish{padding:9px 0;border-bottom:1px solid #f7f6f3;font-size:14px;color:#1c1917;display:flex;align-items:center;gap:8px;}.dish:last-child{border-bottom:none;}.dish-bullet{width:6px;height:6px;border-radius:50%;background:#1e3a5f;flex-shrink:0;}.notes-box{background:#f7f6f3;border:1px solid #e6e2db;border-radius:10px;padding:16px;margin-top:8px;}.footer{margin-top:40px;text-align:center;font-size:10px;color:#a8a29e;}@media print{body{padding:32px 40px;}}</style></head><body><div class="header"><div class="title">${menu.name}</div><div class="tags">${cats.map(c=>`<span class="tag">${c}</span>`).join("")}${menu.servings?`<span class="tag">${menu.servings} אנשים</span>`:""}${concepts.map(c=>`<span class="tag">${c}</span>`).join("")}</div></div>${sections.length>0?sections.map(sec=>`<div class="section"><div class="section-title">${sec.title||""}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}</div>`).join(""):""}<div class="footer">Sinario · ${new Date().toLocaleDateString("he-IL")}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;0,9..40,700&family=DM+Serif+Display&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'DM Sans',system-ui,sans-serif;color:#1c1917;background:#fff;padding:56px 64px;direction:rtl;}.logo-area{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:44px;}.logo-box{width:38px;height:38px;background:#1e3a5f;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}.logo-text{font-size:20px;font-weight:700;color:#1e3a5f;letter-spacing:-0.3px;}.menu-title-area{text-align:center;margin-bottom:52px;padding-bottom:36px;border-bottom:1px solid #e8e4df;}.menu-title{font-family:'DM Serif Display',serif;font-size:44px;font-weight:400;color:#1e3a5f;letter-spacing:-0.5px;line-height:1.2;}.section{margin-bottom:36px;}.section-title{font-size:10px;font-weight:700;color:#b8b0a8;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #eeebe6;}.dish{padding:12px 0;border-bottom:1px solid #f4f2ef;font-size:15px;color:#2c2825;line-height:1.5;display:flex;align-items:center;gap:12px;}.dish:last-child{border-bottom:none;}.dish-bullet{width:5px;height:5px;border-radius:50%;background:#1e3a5f;flex-shrink:0;opacity:0.5;}@media print{body{padding:40px 48px;}}</style></head><body><div class="logo-area"><div class="logo-text">Sinario</div><div class="logo-box"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 12L12 3L21 12V21H15V15H9V21H3V12Z" fill="white"/></svg></div></div><div class="menu-title-area"><div class="menu-title">${menu.name}</div></div>${sections.map(sec=>`<div class="section"><div class="section-title">${sec.title||""}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish"><div class="dish-bullet"></div>${d}</div>`).join("")}</div>`).join("")}<script>window.onload=()=>{window.print();}<\/script></body></html>`);
   w.document.close();
 }
 
@@ -2150,7 +2149,7 @@ function RecipesTab({menuConceptsList}){
           {mode==="menu"&&<div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
-            <Btn onClick={openAdd} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+            <Btn onClick={openAdd} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
           </div>
           {showForm&&(
             <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
@@ -2201,7 +2200,7 @@ function RecipesTab({menuConceptsList}){
                   </div>
                 </div>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  {r.type==="menu"&&<button onClick={e=>{e.stopPropagation();exportMenuPDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><Icon name="download" size={12} color={T.navy}/><span style={{fontSize:10,color:T.navy,fontFamily:T.font,fontWeight:600}}>PDF</span></button>}
+                  {r.type==="menu"&&<button onClick={e=>{e.stopPropagation();exportMenuPDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="download" size={12} color={T.navy}/><span style={{fontSize:10,color:T.navy,fontFamily:T.font,fontWeight:600}}></span></button>}
                   <ActionBtns onEdit={()=>openEdit(r)} onDelete={()=>setConfirmId(r.id)}/>
                 </div>
               </div>
@@ -2214,7 +2213,7 @@ function RecipesTab({menuConceptsList}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.navy,cursor:"pointer",fontSize:13,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>← חזרה</button>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              {sel.type==="menu"&&<button onClick={()=>exportMenuPDF(sel)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/>ייצוא PDF</button>}
+              {sel.type==="menu"&&<button onClick={()=>exportMenuPDF(sel)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>ייצוא PDF<Icon name="download" size={13} color={T.navy}/></button>}
               <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>
             </div>
           </div>
@@ -2347,7 +2346,7 @@ function TripsSection({month,year,setMonth,setYear}){
                 <div style={{fontSize:14,fontWeight:600,color:T.text}}>{filteredTrips.length} חופשות</div>
                 <button onClick={()=>setShowAll(v=>!v)} style={{fontSize:11,color:showAll?T.navy:T.textSub,fontFamily:T.font,background:showAll?T.navyLight:"transparent",border:`1px solid ${showAll?T.navyBorder:T.border}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>{showAll?"לפי תקופה":"צפייה בהכל"}</button>
               </div>
-              <Btn onClick={openAddTrip} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+              <Btn onClick={openAddTrip} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
             </div>
             {/* ── סעיף 6ג: SearchBar ── */}
             <SearchBar value={searchQ} onChange={setSearchQ} placeholder="חיפוש חופשה, יעד…" />
@@ -2396,7 +2395,7 @@ function TripsSection({month,year,setMonth,setYear}){
               <PBar value={tripTotal(selTrip)} max={selTrip.budget} h={6}/>
               <div style={{marginTop:8,fontSize:12,fontWeight:600,color:tripTotal(selTrip)>selTrip.budget?T.danger:T.success}}>{tripTotal(selTrip)>selTrip.budget?`חריגה של ${fmt(tripTotal(selTrip)-selTrip.budget)}`:`נותר ${fmt(selTrip.budget-tripTotal(selTrip))}`}</div>
             </Card>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"4px 0 8px"}}><div style={{fontSize:13,fontWeight:600,color:T.text}}>פירוט הוצאות</div><Btn onClick={openAddItem} style={{padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"4px 0 8px"}}><div style={{fontSize:13,fontWeight:600,color:T.text}}>פירוט הוצאות</div><Btn onClick={openAddItem} style={{padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn></div>
             {showItem&&(
               <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,marginBottom:10}}>
                 <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:10}}>{editItemId?"עריכת פריט":"פריט חדש"}</div>
@@ -2589,7 +2588,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <div style={{fontSize:13,fontWeight:700,color:T.navy}}>קטגוריות הוצאות שוטפות</div>
-              <Btn onClick={()=>{setEditId("__new__");setForm(blank);}} style={{padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Icon name="plus" size={13} color="#fff"/>הוספה</Btn>
+              <Btn onClick={()=>{setEditId("__new__");setForm(blank);}} style={{padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
             </div>
             {editId&&(
               <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:12,padding:14,marginBottom:12}}>
@@ -2629,7 +2628,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><Icon name="calendar" size={18} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>חיבור ל-Google Calendar</div></div>
             <div style={{fontSize:12,color:T.textMid,lineHeight:1.7,marginBottom:14,background:T.navyLight,borderRadius:10,padding:12,border:`1px solid ${T.navyBorder}`}}>יאפשר ייצוא חופשות ישירות ל-Calendar</div>
-            {calConnected?(<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:T.successBg,borderRadius:10,border:"1px solid #bbf7d0"}}><span style={{fontSize:13}}>✓</span><span style={{fontSize:13,color:T.success,fontWeight:600}}>מחובר בהצלחה</span><button onClick={()=>setCalConnected(false)} style={{marginRight:"auto",background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>ניתוק</button></div>):(<Btn style={{width:"100%",padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:8}} onClick={()=>setCalConnected(true)}><Icon name="calendar" size={14} color="#fff"/>התחבר ל-Google Calendar</Btn>)}
+            {calConnected?(<div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:T.successBg,borderRadius:10,border:"1px solid #bbf7d0"}}><span style={{fontSize:13}}>✓</span><span style={{fontSize:13,color:T.success,fontWeight:600}}>מחובר בהצלחה</span><button onClick={()=>setCalConnected(false)} style={{marginRight:"auto",background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>ניתוק</button></div>):(<Btn style={{width:"100%",padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:8}} onClick={()=>setCalConnected(true)}>התחבר ל-Google Calendar<Icon name="calendar" size={14} color="#fff"/></Btn>)}
           </Card>
         </>)}
       </div>

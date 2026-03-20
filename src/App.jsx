@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const fontLink = document.createElement("link");
 fontLink.rel = "stylesheet";
-fontLink.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap";
+fontLink.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap";
 document.head.appendChild(fontLink);
 
 const T = {
@@ -427,7 +427,7 @@ function PinScreen({onUnlock}){
         <div style={{width:38,height:38,borderRadius:11,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(0,0,0,.4)",border:"1px solid rgba(255,255,255,.15)"}}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
         </div>
-        <div style={{fontSize:26,fontWeight:700,color:"#fff",fontFamily:T.display,letterSpacing:-.5}}>Sinario</div>
+        <div style={{fontFamily:"system-ui,sans-serif",color:"#fff",letterSpacing:"2px",fontWeight:300,fontSize:"16px",display:"flex",alignItems:"baseline",direction:"ltr"}}>SINARIO</div>
       </div>
       <div style={{background:"rgba(255,255,255,.06)",backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,.1)",borderRadius:28,padding:"32px 28px 36px",width:"100%",maxWidth:320,boxShadow:"0 40px 80px rgba(0,0,0,.5)",animation:"pinPop .5s ease .08s both"}}>
         <div style={{textAlign:"center",marginBottom:24}}>
@@ -2682,7 +2682,7 @@ export default function App(){
       <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",fontSize:12,color:T.navy,fontWeight:600,flexShrink:0}}>{MONTHS[month]} {year}</div>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8}}>
-      <div style={{fontSize:16,fontWeight:700,fontFamily:T.display,color:T.navy,letterSpacing:-.3}}>Sinario</div>
+      <div style={{fontFamily:"system-ui,sans-serif",color:T.navy,letterSpacing:"2px",fontWeight:300,fontSize:"16px",display:"flex",alignItems:"baseline",direction:"ltr"}}>SINARIO</div>
       <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${T.navy}33`}}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
       </div>

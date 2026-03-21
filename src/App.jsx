@@ -200,6 +200,7 @@ function Icon({name,size=16,color="currentColor"}){
 const globalCss=`
   *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;}
   input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;}
+  input,textarea{-webkit-user-modify:read-write-plaintext-only;}
   ::-webkit-scrollbar{width:3px;height:3px;}
   ::-webkit-scrollbar-thumb{background:#d6d0c8;border-radius:4px;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
@@ -223,7 +224,7 @@ function Btn({children,variant="primary",onClick,style={},disabled=false}){
   return <button onClick={onClick} disabled={disabled} style={{fontFamily:T.font,fontSize:13,fontWeight:600,cursor:disabled?"not-allowed":"pointer",borderRadius:10,padding:"9px 18px",border:"none",transition:"all .15s",opacity:disabled?.5:1,...v[variant],...style}}>{children}</button>;
 }
 function Inp({value,onChange,placeholder,type="text",style={},onKeyDown}){
-  return <input type={type} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,width:"100%",...style}}/>;
+  return <input type={type} inputMode="text" value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,width:"100%",...style}}/>;
 }
 function PBar({value,max,color=T.navy,h=5}){
   const pct=Math.min(100,(value/(max||1))*100);
@@ -2717,7 +2718,7 @@ export default function App(){
     </div>
   </div>
 </div>
-<div style={{background:T.surface,paddingTop:"6px"}}>
+<div style={{background:T.surface,paddingTop:"2px"}}>
   <div>
     <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>
       {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{flex:1,padding:"5px 4px",border:`1px solid ${section===s.id?T.navy:"#e0dbd4"}`,background:section===s.id?T.navy:"#f7f5f2",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:section===s.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5}}><span>{s.label}</span><Icon name={s.icon} size={13} color={section===s.id?"#fff":T.textSub}/></button>))}

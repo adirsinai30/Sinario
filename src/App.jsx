@@ -538,7 +538,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
       {confirmId&&<ConfirmModal message="למחוק הוצאה זו?" onConfirm={()=>doDelete(confirmId)} onCancel={()=>setConfirmId(null)}/>}
       {confirmSpecialId&&<ConfirmModal message="למחוק הוצאה מיוחדת זו?" onConfirm={()=>doDeleteSp(confirmSpecialId)} onCancel={()=>setConfirmSpecialId(null)}/>}
       {editExp&&<AddExpenseDrawer cats={cats} initData={editExp} onAdd={doEdit} onClose={()=>setEditExp(null)}/>}
-      <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:3,gap:3}}>
+      <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
         {[["regular","הוצאות שוטפות"],["special","הוצאות מיוחדות"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setExpMode(v);setSearchQ("");}} style={{flex:1,padding:"9px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:expMode===v?T.surface:"transparent",color:expMode===v?T.navy:T.textSub,boxShadow:expMode===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
         ))}
@@ -2162,7 +2162,7 @@ function RecipesTab({menuConceptsList}){
       {!selected?(
         <>
           {/* ── סעיף 4ג: איפוס searchQ בטוגל ── */}
-          <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:3,gap:3}}>
+          <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
             {[["recipe","מתכונים"],["menu","תפריטים"]].map(([v,l])=><button key={v} onClick={()=>{setMode(v);setFilterCat("הכל");setFilterConcept("הכל");setShowForm(false);setSearchQ("");}} style={{flex:1,padding:"8px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:mode===v?T.surface:"transparent",color:mode===v?T.navy:T.textSub,boxShadow:mode===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}
           </div>
           {/* ── סעיף 4ד: SearchBar ── */}
@@ -2673,7 +2673,7 @@ const SECTIONS=[
 const HOME_TABS=[
   {id:"expenses",label:"הוצאות"},
   {id:"grocery", label:"רשימת קניות"},
-  {id:"recipes", label:"מתכונים/תפריטים"},
+  {id:"recipes", label:"ארוחות"},
   {id:"notes",   label:"פתקים"},
 ];
 const INVEST_TABS=[
@@ -2700,7 +2700,8 @@ export default function App(){
   return(
     <div style={{background:T.bg,minHeight:"100dvh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text,overscrollBehavior:"none"}}>
       <style>{globalCss}</style>
-      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px 6px 16px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
+      <div style={{position:"sticky",top:0,zIndex:100,background:T.surface}}>
+      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px 6px 16px",boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
   <div style={{maxWidth:720,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
     <div style={{display:"flex",alignItems:"center",gap:8}}>
       <button onClick={()=>setSection("settings")} style={{background:section==="settings"?T.navyLight:"transparent",border:`1px solid ${section==="settings"?T.navyBorder:"transparent"}`,borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",flexShrink:0}}>
@@ -2716,7 +2717,7 @@ export default function App(){
     </div>
   </div>
 </div>
-<div style={{position:"sticky",top:40,zIndex:90,background:T.surface}}>
+<div style={{background:T.surface,paddingTop:"6px"}}>
   <div>
     <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>
       {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{flex:1,padding:"5px 4px",border:`1px solid ${section===s.id?T.navy:"#e0dbd4"}`,background:section===s.id?T.navy:"#f7f5f2",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:section===s.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5}}><span>{s.label}</span><Icon name={s.icon} size={13} color={section===s.id?"#fff":T.textSub}/></button>))}
@@ -2724,6 +2725,7 @@ export default function App(){
   </div>
   {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
   {section==="invest"&&(<div style={{marginTop:0}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
+</div>
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}

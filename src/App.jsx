@@ -270,16 +270,26 @@ function CurrencyField({currency,setCurrency,rate,setRate,amount}){
 function PeriodPicker({month,year,setMonth,setYear}){
   const [open,setOpen]=useState(false);
   const [pickerYear,setPickerYear]=useState(year);
+  const [popupPos,setPopupPos]=useState({top:0,right:0});
+  const btnRef=useRef(null);
   const SHORT=["ינו","פבר","מרץ","אפר","מאי","יוני","יולי","אוג","ספט","אוק","נוב","דצמ"];
+  function handleOpen(){
+    if(btnRef.current){
+      const r=btnRef.current.getBoundingClientRect();
+      setPopupPos({top:r.bottom+6,right:window.innerWidth-r.right});
+    }
+    setPickerYear(year);
+    setOpen(o=>!o);
+  }
   return(
-    <div style={{position:"relative",display:"inline-block"}}>
-      <button onClick={()=>{setPickerYear(year);setOpen(o=>!o);}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:99,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
-        {MONTHS[month]} {year} <span style={{fontSize:10,opacity:.6}}>▾</span>
+    <>
+      <button ref={btnRef} onClick={handleOpen} style={{display:"flex",alignItems:"center",gap:6,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",fontSize:12,color:T.navy,fontWeight:600,cursor:"pointer",flexShrink:0,fontFamily:T.font}}>
+        {MONTHS[month]} {year} <span style={{fontSize:9,opacity:.7}}>▾</span>
       </button>
       {open&&(
         <>
-          <div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:100}}/>
-          <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,zIndex:101,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:"0 8px 32px rgba(0,0,0,.12)",padding:12,minWidth:220,direction:"rtl"}}>
+          <div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:499}}/>
+          <div style={{position:"fixed",top:popupPos.top,right:popupPos.right,zIndex:500,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:"0 8px 32px rgba(0,0,0,.15)",padding:12,minWidth:220,direction:"rtl"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <button onClick={()=>setPickerYear(y=>y-1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:T.textMid,padding:"2px 6px"}}>‹</button>
               <span style={{fontFamily:T.font,fontSize:13,fontWeight:700,color:T.text}}>{pickerYear}</span>
@@ -296,7 +306,7 @@ function PeriodPicker({month,year,setMonth,setYear}){
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 function Donut({slices,size=140}){
@@ -2697,7 +2707,7 @@ export default function App(){
       <button onClick={()=>setSection("settings")} style={{background:section==="settings"?T.navyLight:"transparent",border:`1px solid ${section==="settings"?T.navyBorder:"transparent"}`,borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",flexShrink:0}}>
         <Icon name="settings" size={15} color={section==="settings"?T.navy:T.textMid}/>
       </button>
-      <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",fontSize:12,color:T.navy,fontWeight:600,flexShrink:0}}>{MONTHS[month]} {year}</div>
+      <PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8}}>
       <div style={{fontFamily:"system-ui,sans-serif",color:T.navy,letterSpacing:"2px",fontWeight:300,fontSize:"16px",display:"flex",alignItems:"baseline",direction:"ltr"}}>SINARIO</div>
@@ -2714,10 +2724,7 @@ export default function App(){
     </div>
   </div>
   {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-  {section==="home"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"6px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
-  {section==="trips"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"6px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
   {section==="invest"&&(<div style={{borderBottom:`1px solid ${T.border}`,marginTop:4}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-  {section==="reports"&&(<div style={{borderBottom:`1px solid ${T.border}`,padding:"6px 16px"}}><div style={{maxWidth:720,margin:"0 auto"}}><PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/></div></div>)}
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}

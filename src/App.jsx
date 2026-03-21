@@ -2725,7 +2725,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="target" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>התראות</div></div>
-              <button onClick={async()=>{if(!("Notification" in window)){alert("הדפדפן לא תומך בהתראות");return;}const perm=await Notification.requestPermission();if(perm==="granted"){new Notification("Sinario",{body:"התראות הופעלו בהצלחה!",icon:"/sinario-192.png"})}else{alert("ההרשאה נדחתה");}}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
+              <button onClick={async()=>{if(!('Notification' in window)){alert('הדפדפן לא תומך בהתראות');return;}const perm=await Notification.requestPermission();if(perm!=='granted'){alert('יש לאשר התראות בהגדרות הדפדפן');return;}const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:'BEE2qENi30F_U3FN4pTE1mdd_9zWvo992w1WtdG3tc_cbYZ5XzNullwLITjWpbh89Pmox61yy8bONIljmK7OU_w'});localStorage.setItem('push_subscription',JSON.stringify(sub));await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)});alert('התראות הופעלו בהצלחה!');}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
             </div>
             <div style={{fontSize:11,color:T.textSub}}>אפשר לאפליקציה לשלוח תזכורות ועדכונים</div>
           </Card>
@@ -2769,6 +2769,18 @@ export default function App(){
   const [year,        setYear]        =useState(2026);
   const monthExp=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===month&&d.getFullYear()===year;});
   const monthSpecialTotal=special.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;}).reduce((s,i)=>s+toILS(i),0);
+  useEffect(()=>{
+    if('serviceWorker' in navigator && 'PushManager' in window){
+      navigator.serviceWorker.register('/sw.js')
+        .then(async reg=>{
+          const existing = await reg.pushManager.getSubscription();
+          if(existing){
+            localStorage.setItem('push_subscription', JSON.stringify(existing));
+          }
+        })
+        .catch(err=>console.error('SW error:',err));
+    }
+  },[]);
   if(!authed)return <PinScreen onUnlock={()=>setAuthed(true)}/>;
   return(
     <div style={{background:T.bg,minHeight:"100dvh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text,overscrollBehavior:"none"}}>

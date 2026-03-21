@@ -586,7 +586,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const sapir=expenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0);
   const diff=Math.abs(adir-sapir)/2;
   const from=adir>sapir?"ספיר":"אדיר";
-  const doDelete=id=>{setExpenses(expenses.filter(e=>e.id!==id));setConfirmId(null);};
+  const doDelete=async id=>{await supabase.from('expenses').delete().eq('id',id);setExpenses(expenses.filter(e=>e.id!==id));setConfirmId(null);};
   const filteredExp = searchQ
     ? expenses.filter(e => {
         const cat = cats.find(c => c.id === e.catId);
@@ -595,7 +595,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
             || String(e.amount).includes(searchQ);
       })
     : expenses.slice(0, 8);
-  const doEdit=u=>setExpenses(expenses.map(e=>e.id===u.id?{...u,amount:+u.amount}:e));
+  const doEdit=async u=>{const dbItem={description:u.desc||u.description||u.desc,amount:+u.amount,currency:u.currency,rate_used:u.rateUsed,cat_id:u.catId,date:u.date};await supabase.from('expenses').update(dbItem).eq('id',u.id);setExpenses(expenses.map(e=>e.id===u.id?{...u,amount:+u.amount}:e));};
   const periodSpecial=showAll?[...specialItems].sort((a,b)=>new Date(b.date)-new Date(a.date)):specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;});
   const specialTotal=periodSpecial.reduce((s,i)=>s+toILS(i),0);
   const openAddSp=()=>{setEditSpecialId(null);setSpForm(blankSp);setShowSpecialForm(true);};
@@ -686,7 +686,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           );})}
           {expenses.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין הוצאות עדיין</div>}
         </Card>
-        {showAdd&&<AddExpenseDrawer cats={cats} onAdd={e=>setExpenses([e,...expenses])} onClose={()=>setShowAdd(false)}/>}
+        {showAdd&&<AddExpenseDrawer cats={cats} onAdd={async e=>{await supabase.from('expenses').insert({id:e.id,description:e.desc,amount:e.amount,currency:e.currency,rate_used:e.rateUsed,cat_id:e.catId,date:e.date});setExpenses([e,...expenses]);}} onClose={()=>setShowAdd(false)}/>}
       </>)}
       {expMode==="special"&&(<>
         <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
@@ -2731,15 +2731,21 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   const ICONS=["basket","car","bolt","sparkle","heart","home","plane","currency","note","book"];
   const COLORS=[T.navy,"#2563ab","#6b5c3e","#7c3aed","#be185d","#1a6b3c","#b45309","#0369a1","#7f1d1d","#374151"];
   const startEdit=c=>{setEditId(c.id);setForm({label:c.label,icon:c.icon,color:c.color,budget:c.budget});};
-  const saveEdit=()=>{
+  const saveEdit=async()=>{
     if(!form.label)return;
-    if(editId==="__new__")setCats([...cats,{...form,id:"c"+uid()}]);
-    else setCats(cats.map(c=>c.id===editId?{...c,...form}:c));
+    if(editId==="__new__"){
+      const newCat={...form,id:"c"+uid()};
+      await supabase.from('categories').insert({id:newCat.id,label:newCat.label,icon:newCat.icon,color:newCat.color,budget:newCat.budget});
+      setCats([...cats,newCat]);
+    } else {
+      await supabase.from('categories').update({label:form.label,icon:form.icon,color:form.color,budget:form.budget}).eq('id',editId);
+      setCats(cats.map(c=>c.id===editId?{...c,...form}:c));
+    }
     setEditId(null);setForm(blank);
   };
   return(
     <div style={{padding:"0 0 40px"}}>
-      {confirmCatId&&<ConfirmModal message="למחוק קטגוריה זו?" onConfirm={()=>{setCats(cats.filter(c=>c.id!==confirmCatId));setConfirmCatId(null);}} onCancel={()=>setConfirmCatId(null)}/>}
+      {confirmCatId&&<ConfirmModal message="למחוק קטגוריה זו?" onConfirm={async()=>{await supabase.from('categories').delete().eq('id',confirmCatId);setCats(cats.filter(c=>c.id!==confirmCatId));setConfirmCatId(null);}} onCancel={()=>setConfirmCatId(null)}/>}
       <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
         {tab==="system"&&(<>
           <Card>
@@ -2747,7 +2753,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
               <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="wallet" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>תקציב חודשי כולל</div></div>
               <button onClick={()=>{setEditBudget(v=>!v);setBudgetInput(String(cats.reduce((s,c)=>s+c.budget,0)));}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12,color:T.textMid,fontFamily:T.font,fontWeight:600}}>{editBudget?"סגור":"עריכה"}</button>
             </div>
-            {editBudget?(<div style={{display:"flex",flexDirection:"column",gap:8}}><div style={{fontSize:12,color:T.textMid,marginBottom:4}}>הזן תקציב חודשי כולל - יחולק שווה בין הקטגוריות</div><div style={{display:"flex",gap:8}}><Inp type="number" placeholder="תקציב ₪" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} style={{flex:1}}/><Btn onClick={()=>{const total=+budgetInput||0;if(!total||cats.length===0)return;const share=Math.round(total/cats.length);setCats(cats.map(c=>({...c,budget:share})));setEditBudget(false);}} style={{padding:"10px 16px"}}>חלק</Btn></div></div>):(<div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>)}
+            {editBudget?(<div style={{display:"flex",flexDirection:"column",gap:8}}><div style={{fontSize:12,color:T.textMid,marginBottom:4}}>הזן תקציב חודשי כולל - יחולק שווה בין הקטגוריות</div><div style={{display:"flex",gap:8}}><Inp type="number" placeholder="תקציב ₪" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} style={{flex:1}}/><Btn onClick={async()=>{const total=+budgetInput||0;if(!total||cats.length===0)return;await supabase.from('settings').upsert({key:'monthly_budget',value:String(total)});setMonthlyBudget(total);const share=Math.round(total/cats.length);setCats(cats.map(c=>({...c,budget:share})));setEditBudget(false);}} style={{padding:"10px 16px"}}>חלק</Btn></div></div>):(<div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>)}
           </Card>
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -2828,8 +2834,10 @@ const INVEST_TABS=[
 export default function App(){
   const [authed,setAuthed]=useState(()=>{try{return sessionStorage.getItem("sinario_auth")==="1";}catch{return false;}});
   const [deviceAuthed,setDeviceAuthed]=useState(()=>localStorage.getItem('device_authorized')==='1');
-  const [cats,             setCats]             =useStorage("sp-cats",         DEFAULT_CATS);
-  const [expenses,         setExpenses]         =useStorage("sp-expenses",     SEED_EXPENSES);
+  const [cats,             setCats]             =useState([]);
+  const [expenses,         setExpenses]         =useState([]);
+  const [monthlyBudget,    setMonthlyBudget]    =useState(8100);
+  const [dataLoading,      setDataLoading]      =useState(true);
   const [special,          setSpecial]          =useStorage("kp-special",      DEFAULT_SPECIAL);
   const [specialCatsList,  setSpecialCatsList]  =useStorage("sp-special-cats", DEFAULT_SPECIAL_CATS);
   const [menuConceptsList, setMenuConceptsList] =useStorage("sp-menu-concepts",DEFAULT_MENU_CONCEPTS);
@@ -2854,8 +2862,31 @@ export default function App(){
         .catch(err=>console.error('SW error:',err));
     }
   },[]);
+  useEffect(()=>{
+    async function loadData(){
+      setDataLoading(true);
+      const [expRes,catRes,budRes]=await Promise.all([
+        supabase.from('expenses').select('*').order('date',{ascending:false}),
+        supabase.from('categories').select('*'),
+        supabase.from('settings').select('*').eq('key','monthly_budget').single()
+      ]);
+      if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency,rateUsed:e.rate_used,catId:e.cat_id,date:e.date})));
+      if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon,color:c.color,budget:c.budget})));
+      if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
+      setDataLoading(false);
+    }
+    if(deviceAuthed&&authed)loadData();
+  },[deviceAuthed,authed]);
   if(!deviceAuthed)return <AccessScreen onAccess={()=>setDeviceAuthed(true)}/>;
   if(!authed)return <PinScreen onUnlock={()=>setAuthed(true)}/>;
+  if(dataLoading)return(
+    <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.font}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{width:40,height:40,border:`3px solid ${T.navyLight}`,borderTop:`3px solid ${T.navy}`,borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 12px"}}/>
+        <div style={{fontSize:13,color:T.textSub}}>טוען נתונים...</div>
+      </div>
+    </div>
+  );
   return(
     <div style={{background:T.bg,minHeight:"100dvh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text,overscrollBehavior:"none"}}>
       <style>{globalCss}</style>

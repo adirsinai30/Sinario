@@ -198,7 +198,8 @@ function Icon({name,size=16,color="currentColor"}){
 }
 
 const globalCss=`
-  *{box-sizing:border-box;margin:0;padding:0;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;}
+  input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;}
   ::-webkit-scrollbar{width:3px;height:3px;}
   ::-webkit-scrollbar-thumb{background:#d6d0c8;border-radius:4px;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
@@ -267,17 +268,34 @@ function CurrencyField({currency,setCurrency,rate,setRate,amount}){
   );
 }
 function PeriodPicker({month,year,setMonth,setYear}){
+  const [open,setOpen]=useState(false);
+  const [pickerYear,setPickerYear]=useState(year);
+  const SHORT=["ינו","פבר","מרץ","אפר","מאי","יוני","יולי","אוג","ספט","אוק","נוב","דצמ"];
   return(
-    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-      <select value={year} onChange={e=>setYear(+e.target.value)} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"6px 12px",color:T.text,fontSize:13,fontFamily:T.font,fontWeight:600,outline:"none",cursor:"pointer"}}>
-        {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
-      </select>
-      <div style={{width:1,height:18,background:T.border}}/>
-      <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none",flex:1}}>
-        {MONTHS.map((m,i)=>(
-          <button key={i} onClick={()=>setMonth(i)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s",border:`1px solid ${month===i?T.navy:T.border}`,background:month===i?T.navy:"transparent",color:month===i?"#fff":T.textSub}}>{m.slice(0,3)}</button>
-        ))}
-      </div>
+    <div style={{position:"relative",display:"inline-block"}}>
+      <button onClick={()=>{setPickerYear(year);setOpen(o=>!o);}} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:99,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
+        {MONTHS[month]} {year} <span style={{fontSize:10,opacity:.6}}>▾</span>
+      </button>
+      {open&&(
+        <>
+          <div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:100}}/>
+          <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,zIndex:101,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:"0 8px 32px rgba(0,0,0,.12)",padding:12,minWidth:220,direction:"rtl"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <button onClick={()=>setPickerYear(y=>y-1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:T.textMid,padding:"2px 6px"}}>‹</button>
+              <span style={{fontFamily:T.font,fontSize:13,fontWeight:700,color:T.text}}>{pickerYear}</span>
+              <button onClick={()=>setPickerYear(y=>y+1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:T.textMid,padding:"2px 6px"}}>›</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
+              {SHORT.map((m,i)=>{
+                const sel=i===month&&pickerYear===year;
+                return(
+                  <button key={i} onClick={()=>{setMonth(i);setYear(pickerYear);setOpen(false);}} style={{padding:"6px 4px",borderRadius:10,border:`1px solid ${sel?T.navy:T.border}`,background:sel?T.navy:"transparent",color:sel?"#fff":T.textMid,fontFamily:T.font,fontSize:12,fontWeight:sel?700:500,cursor:"pointer",transition:"all .15s"}}>{m}</button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -480,7 +480,7 @@ function AccessScreen({onAccess}){
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.75)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
           <div style={{fontSize:16,fontWeight:600,color:"#fff",letterSpacing:-.2}}>כניסה ראשונה</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:4}}>הזן קוד גישה למכשיר זה</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:4}}>נא להזין את קוד הגישה למכשיר זה</div>
         </div>
         <input
           type="password"

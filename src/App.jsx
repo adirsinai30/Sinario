@@ -55,7 +55,7 @@ const DEFAULT_GROCERY = [
   {id:"g3",name:"ביצים",checked:false,qty:"1",price:18},
 ];
 const DEFAULT_TRIPS = [
-  {id:"t1",name:"אילת — קיץ 2026",budget:8000,items:[
+  {id:"t1",name:"אילת - קיץ 2026",budget:8000,items:[
     {id:"ti1",cat:"טיסות",label:"EL AL הלוך חזור",amount:2200,currency:"ILS",rateUsed:1},
     {id:"ti2",cat:"מלון", label:"מלון ישרוטל",   amount:3200,currency:"ILS",rateUsed:1},
   ],dateFrom:"2026-07-10",dateTo:"2026-07-17",color:T.navy},
@@ -113,7 +113,7 @@ function fmtNum(n) {
   return Number(str).toLocaleString("he-IL");
 }
 
-// ─── RATE LIMITER (shared across ALL API calls — prevents 429) ─────────────
+// ─── RATE LIMITER (shared across ALL API calls - prevents 429) ─────────────
 const _rlState = { lastCall: 0, queue: Promise.resolve() };
 async function rateLimitedFetch(body) {
   _rlState.queue = _rlState.queue.then(async () => {
@@ -482,8 +482,8 @@ function PinScreen({onUnlock}){
             </div>
           ))}
         </div>
-        {attempts>0&&!locked&&<div style={{marginTop:14,textAlign:"center",fontSize:12,color:"#fca5a5",fontWeight:500}}>{attempts>=4?"עוד ניסיון אחד לנעילה":"קוד שגוי, נסה שוב"}</div>}
-        {locked&&<div style={{marginTop:14,textAlign:"center",fontSize:12,color:"#fca5a5",fontWeight:500}}>נסה שוב עוד כמה שניות</div>}
+        {attempts>0&&!locked&&<div style={{marginTop:14,textAlign:"center",fontSize:12,color:"#fca5a5",fontWeight:500}}>{attempts>=4?"עוד ניסיון אחד לנעילה":"קוד שגוי, נסו שנית"}</div>}
+        {locked&&<div style={{marginTop:14,textAlign:"center",fontSize:12,color:"#fca5a5",fontWeight:500}}>נסו שנית בעוד כמה רגעים</div>}
       </div>
       <div style={{marginTop:24,fontSize:11,color:"rgba(255,255,255,.2)"}}>Sinario © {new Date().getFullYear()}</div>
     </div>
@@ -688,7 +688,7 @@ async function preprocessImage(file){
       for(let i=0;i<data.length;i+=4){
         // המר לגווני אפור
         const gray=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
-        // threshold — הפוך לשחור/לבן
+        // threshold - הפוך לשחור/לבן
         const bw=gray>128?255:0;
         data[i]=data[i+1]=data[i+2]=bw;
       }
@@ -803,7 +803,7 @@ const handleReceiptUpload=async e=>{
   setScanMsg("מכין תמונה…");
 
   try{
-    // ── שלב 1: Pre-processing — שפר ניגודיות וחדד ──
+    // ── שלב 1: Pre-processing - שפר ניגודיות וחדד ──
     const processedBase64=await preprocessImage(file);
 
     setScanMsg("מזהה טקסט…");
@@ -839,12 +839,12 @@ const handleReceiptUpload=async e=>{
       setPreviewItems(parsed);
       setScanMsg("");
     } else {
-      setScanMsg("לא זוהו פריטים — נסה תמונה ברורה יותר");
+      setScanMsg("לא זוהו פריטים - נסו תמונה ברורה יותר");
       setTimeout(()=>setScanMsg(""),4000);
     }
   }catch(err){
     console.error(err);
-    setScanMsg("שגיאה — נסה שוב");
+    setScanMsg("שגיאה - נסו שוב");
     setTimeout(()=>setScanMsg(""),4000);
   }
   e.target.value="";
@@ -974,7 +974,7 @@ const handleReceiptUpload=async e=>{
       <Card style={{border:`1.5px dashed ${T.border}`,background:T.bg,padding:14,cursor:"pointer"}} onClick={()=>fileRef.current?.click()}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
           <Icon name="photo" size={16} color={T.textSub}/>
-          <span style={{fontSize:13,fontWeight:500,color:T.textSub}}>{scanMsg||"העלאת קבלה — תמונה או PDF"}</span>
+          <span style={{fontSize:13,fontWeight:500,color:T.textSub}}>{scanMsg||"העלאת קבלה - תמונה או PDF"}</span>
           {scanMsg&&!scanMsg.startsWith("✓")&&!scanMsg.startsWith("לא")&&<div style={{width:12,height:12,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>}
         </div>
         {!scanMsg&&<div style={{fontSize:11,color:T.textSub,marginTop:3,textAlign:"center"}}>חילוץ פריטים אוטומטי + תצוגה מקדימה לפני שמירה</div>}
@@ -1420,8 +1420,8 @@ const fetchNews = async (force=false) => {
 
     const isFirstMessage = agentHistory.length === 0;
     const systemPrompt = `אתה סוכן השקעות אישי בשם סינריו - סוכן השקעות. עונה בעברית בלבד.
-    כללים: תשובות ספציפיות עם מספרים מהתיק. תמציתי (3-5 משפטים). אל תמליץ על קנייה/מכירה חד-משמעית — הצג שיקולים. אם אין מחירים — ציין.
-    ${isFirstMessage ? 'בפתיחת שיחה — הצג את עצמך במשפט אחד קצר.' : 'אל תציג את עצמך שוב — המשך את השיחה ישירות.'}
+    כללים: תשובות ספציפיות עם מספרים מהתיק. תמציתי (3-5 משפטים). אל תמליץ על קנייה/מכירה חד-משמעית - הצג שיקולים. אם אין מחירים - ציין.
+    ${isFirstMessage ? 'בפתיחת שיחה - הצג את עצמך במשפט אחד קצר.' : 'אל תציג את עצמך שוב - המשך את השיחה ישירות.'}
 
 תיק:
 ${portfolioLines || "ריק"}
@@ -1446,10 +1446,10 @@ ${newsContext}`;
         })
       });
       const data = await resp.json();
-      const text = (data.content||[]).map(b=>b.text||"").join("") || data.error || "שגיאה — נסה שוב";
+      const text = (data.content||[]).map(b=>b.text||"").join("") || data.error || "שגיאה - נסו שוב";
       setAgentHistory(h => [...h, { id:uid(), q:question, a:text, date:new Date().toISOString() }]);
     } catch {
-      setAgentHistory(h => [...h, { id:uid(), q:question, a:"שגיאה בחיבור. נסה שוב.", date:new Date().toISOString() }]);
+      setAgentHistory(h => [...h, { id:uid(), q:question, a:"שגיאה בחיבור. נסו שוב.", date:new Date().toISOString() }]);
     }
     setAgentLoading(false);
   };
@@ -1596,7 +1596,7 @@ ${newsContext}`;
                         <span style={{fontSize:11,color:T.textSub}}>{fmt(price*rate)}/יח׳</span>
                         {avg>0&&<span style={{fontSize:11,fontWeight:700,color:price>=avg?T.success:T.danger,background:price>=avg?T.successBg:T.dangerBg,border:`1px solid ${price>=avg?"#bbf7d0":T.dangerBorder}`,borderRadius:99,padding:"2px 8px"}}>{price>=avg?"+":""}{(((price-avg)/avg)*100).toFixed(1)}%</span>}
                       </div>
-                    ):<div style={{fontSize:11,color:T.textSub,marginTop:2,fontStyle:"italic"}}>לחץ "מחירים" לעדכון</div>}
+                    ):<div style={{fontSize:11,color:T.textSub,marginTop:2,fontStyle:"italic"}}>לחצו "מחירים" לעדכון</div>}
                   </div>
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
                     {portfolioView==="active"&&<div style={{fontSize:20,fontWeight:600,fontFamily:T.display,color:T.text}}>{fmt(currentValILS(a))}</div>}
@@ -1846,7 +1846,7 @@ ${newsContext}`;
             <Card style={{padding:40,textAlign:"center"}}>
               <Icon name="insights" size={32} color={T.textSub}/>
               <div style={{fontSize:14,color:T.textSub,marginTop:14,lineHeight:1.9}}>
-                לחץ "רענן חדשות" לקבלת תמצית מנותחת<br/>
+                לחצו "רענן חדשות" לקבלת תמצית מנותחת<br/>
                 <span style={{fontSize:12}}>AI מסכם חדשות לכל מניה בתיק + עדכוני שוק</span>
               </div>
             </Card>
@@ -1919,7 +1919,7 @@ ${newsContext}`;
                   </div>
                 )}
 
-                {/* כתבות מקור — מכווצות */}
+                {/* כתבות מקור - מכווצות */}
                 {group.articles?.length>0&&(
                   <details style={{marginTop:10}}>
                     <summary style={{fontSize:11,color:T.textSub,cursor:"pointer",
@@ -2011,7 +2011,7 @@ ${newsContext}`;
               <div style={{flex:1}}>
                 <div style={{fontSize:15,fontWeight:700,color:"#fff"}}>סוכן השקעות</div>
                 <div style={{fontSize:11,color:"rgba(255,255,255,.55)"}}>
-                  {Object.keys(prices).length>0?"מחירים עדכניים ✓":"ללא מחירים — רענן לניתוח מדויק"}
+                  {Object.keys(prices).length>0?"מחירים עדכניים ✓":"ללא מחירים - רענן לניתוח מדויק"}
                 </div>
               </div>
               {agentHistory.length>0&&(
@@ -2065,7 +2065,7 @@ ${newsContext}`;
 
           {agentHistory.length===0&&!agentLoading&&(
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <div style={{fontSize:11,color:T.textSub,fontWeight:700,marginBottom:4,textAlign:"right"}}>שאל את הסוכן</div>
+              <div style={{fontSize:11,color:T.textSub,fontWeight:700,marginBottom:4,textAlign:"right"}}>שאלו את הסוכן</div>
               {[
                 ...activeAssets.slice(0,2).map(a=>`האם כדאי להגדיל את הפוזיציה ב-${extractTicker(a.security)}?`),
                 "מהו הנייר עם הביצועים הגרועים? האם למכור?",
@@ -2074,11 +2074,11 @@ ${newsContext}`;
                 "מה הסיכונים העיקריים בתיק?",
               ].map((s,i)=>(
                 <button key={i} onClick={()=>setAgentQuery(s)}
-                  style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"11px 14px",textAlign:"right",cursor:"pointer",fontFamily:T.font,fontSize:13,color:T.text,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,transition:"border-color .15s"}}
+                  style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"11px 14px",textAlign:"right",cursor:"pointer",fontFamily:T.font,fontSize:13,color:T.text,display:"flex",alignItems:"center",justifyContent:"flex-start",gap:8,transition:"border-color .15s"}}
                   onMouseEnter={e=>e.currentTarget.style.borderColor=T.navy}
                   onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
-                  <Icon name="trending" size={13} color={T.navyMid}/>
                   <span>{s}</span>
+                  <Icon name="trending" size={13} color={T.navyMid}/>
                 </button>
               ))}
             </div>
@@ -2087,16 +2087,15 @@ ${newsContext}`;
           <div style={{position:"sticky",bottom:0,paddingTop:8,background:T.bg}}>
             <div style={{display:"flex",gap:8,alignItems:"flex-end",background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"8px 8px 8px 12px"}}>
               <textarea value={agentQuery} onChange={e=>setAgentQuery(e.target.value)}
-                onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();runAgent();}}}
-                placeholder="שאל שאלה על התיק שלך… (Enter לשליחה)"
+                onKeyDown={e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();runAgent();}}}
+                placeholder="שאלו שאלה על התיק שלכם…"
                 rows={2}
                 style={{flex:1,background:"transparent",border:"none",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,resize:"none",direction:"rtl",lineHeight:1.5}}/>
               <button onClick={runAgent} disabled={agentLoading||!agentQuery.trim()}
                 style={{width:36,height:36,borderRadius:10,flexShrink:0,background:agentQuery.trim()?T.navy:T.border,border:"none",cursor:agentQuery.trim()?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
-                <Icon name="plane" size={15} color="#fff"/>
+                <span style={{transform:"scaleX(-1)",display:"flex"}}><Icon name="plane" size={15} color="#fff"/></span>
               </button>
             </div>
-            <div style={{fontSize:10,color:T.textSub,textAlign:"center",marginTop:4}}>Enter לשליחה · Shift+Enter לשורה חדשה</div>
           </div>
         </div>
       )}
@@ -2108,7 +2107,7 @@ function exportMenuPDF(menu){
   const w=window.open("","_blank");if(!w)return;
   const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
   const hasNotes=(menu.notes||"").replace(/<[^>]+>/g,"").trim().length>0;
-  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Assistant',sans-serif;font-size:16px;color:#1c1917;background:#fff;padding:40px 48px;direction:rtl;text-align:center;min-height:unset;}.frame{border:1px solid #c8c2b8;padding:32px 48px;display:inline-block;width:100%;}.title{font-family:'Playfair Display',serif;font-size:52px;font-weight:400;font-style:italic;color:#1c1917;letter-spacing:1px;margin-bottom:15px;}.section{margin-bottom:16px;}.section:first-of-type{margin-top:32px;}.section-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:12px;}.section-title::before,.notes-title::before{content:"— ";}.section-title::after,.notes-title::after{content:" —";}.dish{font-family:'Playfair Display',serif;font-size:26px;font-weight:400;color:#1c1917;line-height:1.4;margin-bottom:2px;}.section-divider{width:300px;height:1px;background:#c8c2b8;margin:16px auto;}.notes-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:16px;}.notes-content{font-family:'Assistant',sans-serif;font-size:18px;font-weight:300;color:#57534e;line-height:2;}@page{size:A4 portrait;margin:0;}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{padding:24px 32px;width:210mm;min-height:297mm;display:flex;flex-direction:column;justify-content:center;}.frame{flex:1;display:flex;flex-direction:column;justify-content:center;page-break-inside:avoid;break-inside:avoid;}.section{page-break-inside:avoid;break-inside:avoid;}}</style></head><body><div class="frame"><div class="title">${menu.name}</div>${sections.length>0?sections.map((sec,i)=>`<div class="section"><div class="section-title">${(sec.title||"").replace(/^מנות\s*/,"")}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish">${d}</div>`).join("")}</div>${i<sections.length-1?'<div class="section-divider"></div>':""}`).join(""):""}${menu.notes?`<div class="section-divider"></div><div class="notes-title">תוספות</div><div class="notes-content">${menu.notes}</div>`:""}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Assistant',sans-serif;font-size:16px;color:#1c1917;background:#fff;padding:40px 48px;direction:rtl;text-align:center;min-height:unset;}.frame{border:1px solid #c8c2b8;padding:32px 48px;display:inline-block;width:100%;}.title{font-family:'Playfair Display',serif;font-size:52px;font-weight:400;font-style:italic;color:#1c1917;letter-spacing:1px;margin-bottom:15px;}.section{margin-bottom:16px;}.section:first-of-type{margin-top:32px;}.section-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:12px;}.section-title::before,.notes-title::before{content:"- ";}.section-title::after,.notes-title::after{content:" -";}.dish{font-family:'Playfair Display',serif;font-size:26px;font-weight:400;color:#1c1917;line-height:1.4;margin-bottom:2px;}.section-divider{width:300px;height:1px;background:#c8c2b8;margin:16px auto;}.notes-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:16px;}.notes-content{font-family:'Assistant',sans-serif;font-size:18px;font-weight:300;color:#57534e;line-height:2;}@page{size:A4 portrait;margin:0;}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{padding:24px 32px;width:210mm;min-height:297mm;display:flex;flex-direction:column;justify-content:center;}.frame{flex:1;display:flex;flex-direction:column;justify-content:center;page-break-inside:avoid;break-inside:avoid;}.section{page-break-inside:avoid;break-inside:avoid;}}</style></head><body><div class="frame"><div class="title">${menu.name}</div>${sections.length>0?sections.map((sec,i)=>`<div class="section"><div class="section-title">${(sec.title||"").replace(/^מנות\s*/,"")}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish">${d}</div>`).join("")}</div>${i<sections.length-1?'<div class="section-divider"></div>':""}`).join(""):""}${menu.notes?`<div class="section-divider"></div><div class="notes-title">תוספות</div><div class="notes-content">${menu.notes}</div>`:""}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
   w.document.close();
 }
 
@@ -2479,7 +2478,7 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
   const prevMonthTotal=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===prevM&&d.getFullYear()===prevY;}).reduce((s,e)=>s+e.amount,0);
   const insights=[];
   if(grandTotal>totalBudget)insights.push({type:"warn",text:`חרגת ב-${fmt(grandTotal-totalBudget)} מהתקציב החודשי`});
-  else insights.push({type:"good",text:`נותר ${fmt(remaining)} מהתקציב — ${Math.round((remaining/totalBudget)*100)}%`});
+  else insights.push({type:"good",text:`נותר ${fmt(remaining)} מהתקציב - ${Math.round((remaining/totalBudget)*100)}%`});
   if(prevMonthTotal>0){const diff=grandTotal-prevMonthTotal;if(Math.abs(diff)>200)insights.push({type:diff>0?"warn":"good",text:diff>0?`הוצאות גבוהות ב-${fmt(diff)} לעומת ${MONTHS[prevM]}`:`חסכת ${fmt(-diff)} לעומת ${MONTHS[prevM]}`});}
   const topCat=cats.map(c=>({...c,sp:catSpent(c.id)})).sort((a,b)=>b.sp-a.sp)[0];
   if(topCat?.sp>topCat?.budget)insights.push({type:"warn",text:`${topCat.label}: חריגה של ${fmt(topCat.sp-topCat.budget)}`});
@@ -2521,7 +2520,7 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
             </div>
           </Card>
           <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>מגמה — 6 חודשים</div>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>מגמה - 6 חודשים</div>
             <div style={{display:"flex",alignItems:"flex-end",gap:8,height:110}}>
               {trend.map((t,i)=>(
                 <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
@@ -2552,19 +2551,19 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
         </>)}
         {reportTab==="split"&&(<>
           <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חלוקה — {MONTHS[month]}</div>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חלוקה - {MONTHS[month]}</div>
             {[["אדיר","א"],["ספיר","ס"]].map(([name,who])=>{const amt=monthExpenses.filter(e=>e.who===who).reduce((s,e)=>s+e.amount,0);const pct=((amt/(totalSpent||1))*100).toFixed(0);return(<div key={who} style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,fontWeight:600,color:T.text}}>{name}</span><span style={{fontSize:14,fontWeight:600,color:T.navy}}>{fmt(amt)} <span style={{fontSize:11,color:T.textSub,fontWeight:400}}>({pct}%)</span></span></div><PBar value={amt} max={totalSpent||1} color={T.navy} h={6}/></div>);})}
             {Math.abs(monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)-monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0))>5&&(<div style={{marginTop:8,background:T.navyLight,borderRadius:10,padding:12,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:12,fontWeight:600,color:T.navy}}>{monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)>monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0)?"ספיר חייבת לאדיר":"אדיר חייב לספיר"}: {fmt(Math.abs(monthExpenses.filter(e=>e.who==="א").reduce((s,e)=>s+e.amount,0)-monthExpenses.filter(e=>e.who==="ס").reduce((s,e)=>s+e.amount,0))/2)}</div></div>)}
           </Card>
           <Card>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>חלוקה — 6 חודשים</div>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:16}}>חלוקה - 6 חודשים</div>
             <div style={{display:"flex",alignItems:"flex-end",gap:8,height:120}}>{splitTrend.map((t,i)=>{const maxV=Math.max(...splitTrend.map(x=>x.a+x.s),1);return(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><div style={{width:"100%",height:90,display:"flex",alignItems:"flex-end",gap:2}}><div style={{flex:1,background:T.navy,borderRadius:"3px 3px 0 0",height:`${(t.a/maxV)*90}px`,transition:"height .7s",opacity:t.current?1:.6}}/><div style={{flex:1,background:"#be185d",borderRadius:"3px 3px 0 0",height:`${(t.s/maxV)*90}px`,transition:"height .7s",opacity:t.current?1:.6}}/></div><span style={{fontSize:10,color:t.current?T.navy:T.textSub,fontWeight:t.current?700:400}}>{t.label}</span></div>);})}</div>
             <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:T.textSub}}><div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:T.navy}}/> אדיר</div><div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:"#be185d"}}/> ספיר</div></div>
           </Card>
         </>)}
         {reportTab==="insights"&&(<>
           <Card>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}><Icon name="insights" size={15} color={T.navy}/><div style={{fontSize:14,fontWeight:600,color:T.text}}>תובנות חכמות — {MONTHS[month]}</div></div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}><Icon name="insights" size={15} color={T.navy}/><div style={{fontSize:14,fontWeight:600,color:T.text}}>תובנות חכמות - {MONTHS[month]}</div></div>
             {insights.map((ins,i)=>(<div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:8,background:ins.type==="warn"?T.dangerBg:ins.type==="good"?T.successBg:T.navyLight,border:`1px solid ${ins.type==="warn"?T.dangerBorder:ins.type==="good"?"#bbf7d0":T.navyBorder}`}}><span style={{fontSize:14}}>{ins.type==="warn"?"⚠️":ins.type==="good"?"✓":"→"}</span><span style={{fontSize:13,color:T.text,lineHeight:1.5}}>{ins.text}</span></div>))}
             {insights.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:20,fontSize:13}}>אין תובנות לחודש זה</div>}
           </Card>
@@ -2612,7 +2611,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
               <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="wallet" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>תקציב חודשי כולל</div></div>
               <button onClick={()=>{setEditBudget(v=>!v);setBudgetInput(String(cats.reduce((s,c)=>s+c.budget,0)));}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12,color:T.textMid,fontFamily:T.font,fontWeight:600}}>{editBudget?"סגור":"עריכה"}</button>
             </div>
-            {editBudget?(<div style={{display:"flex",flexDirection:"column",gap:8}}><div style={{fontSize:12,color:T.textMid,marginBottom:4}}>הזן תקציב חודשי כולל — יחולק שווה בין הקטגוריות</div><div style={{display:"flex",gap:8}}><Inp type="number" placeholder="תקציב ₪" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} style={{flex:1}}/><Btn onClick={()=>{const total=+budgetInput||0;if(!total||cats.length===0)return;const share=Math.round(total/cats.length);setCats(cats.map(c=>({...c,budget:share})));setEditBudget(false);}} style={{padding:"10px 16px"}}>חלק</Btn></div></div>):(<div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>)}
+            {editBudget?(<div style={{display:"flex",flexDirection:"column",gap:8}}><div style={{fontSize:12,color:T.textMid,marginBottom:4}}>הזן תקציב חודשי כולל - יחולק שווה בין הקטגוריות</div><div style={{display:"flex",gap:8}}><Inp type="number" placeholder="תקציב ₪" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)} style={{flex:1}}/><Btn onClick={()=>{const total=+budgetInput||0;if(!total||cats.length===0)return;const share=Math.round(total/cats.length);setCats(cats.map(c=>({...c,budget:share})));setEditBudget(false);}} style={{padding:"10px 16px"}}>חלק</Btn></div></div>):(<div style={{fontSize:24,fontWeight:300,fontFamily:T.display,color:T.text}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>)}
           </Card>
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -2724,7 +2723,7 @@ export default function App(){
     </div>
   </div>
   {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-  {section==="invest"&&(<div style={{borderBottom:`1px solid ${T.border}`,marginTop:4}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
+  {section==="invest"&&(<div style={{marginTop:0}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}

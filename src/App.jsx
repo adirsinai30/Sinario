@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from './supabase.js';
 
 const fontLink = document.createElement("link");
 fontLink.rel = "stylesheet";
@@ -421,6 +422,77 @@ function AddExpenseDrawer({cats,onAdd,onClose,initData=null}){
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function AccessScreen({onAccess}){
+  const [code,setCode]=useState("");
+  const [error,setError]=useState("");
+  const [attempts,setAttempts]=useState(0);
+  const [locked,setLocked]=useState(false);
+
+  const submit=async()=>{
+    if(locked)return;
+    const res=await fetch('/api/verify-access',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code})
+    });
+    const data=await res.json();
+    if(data.valid){
+      const deviceId=localStorage.getItem('device_id')||crypto.randomUUID();
+      const deviceName=navigator.userAgent.includes('Mobile')?'Mobile':'Desktop';
+      localStorage.setItem('device_id',deviceId);
+      await supabase.from('devices').upsert({
+        device_id:deviceId,
+        device_name:deviceName,
+        last_seen:new Date().toISOString()
+      });
+      localStorage.setItem('device_authorized','1');
+      onAccess();
+    } else {
+      const att=attempts+1;
+      setAttempts(att);
+      if(att>=3){
+        setLocked(true);
+        setError('חסום לאחר 3 ניסיונות כושלים. נסה שוב מאוחר יותר.');
+      } else {
+        setError(`קוד שגוי. נותרו ${3-att} ניסיונות.`);
+      }
+      setCode("");
+    }
+  };
+
+  return(
+    <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#0d1f35 0%,#1e3a5f 55%,#2d5282 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:T.font,direction:"rtl",padding:20}}>
+      <style>{globalCss}</style>
+      <div style={{display:"flex",flexDirection:"row-reverse",alignItems:"center",gap:10,marginBottom:44}}>
+        <div style={{width:38,height:38,borderRadius:11,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(0,0,0,.4)",border:"1px solid rgba(255,255,255,.15)"}}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
+        </div>
+        <div style={{fontFamily:"system-ui,sans-serif",color:"#fff",letterSpacing:"2px",fontWeight:300,fontSize:"16px",direction:"ltr"}}>SINARIO</div>
+      </div>
+      <div style={{background:"rgba(255,255,255,.06)",backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,.1)",borderRadius:28,padding:"32px 28px 36px",width:"100%",maxWidth:320,boxShadow:"0 40px 80px rgba(0,0,0,.5)"}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,.08)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.75)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div style={{fontSize:16,fontWeight:600,color:"#fff",letterSpacing:-.2}}>כניסה ראשונה</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:4}}>הזן קוד גישה למכשיר זה</div>
+        </div>
+        <input
+          type="password"
+          value={code}
+          onChange={e=>setCode(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter")submit();}}
+          placeholder="קוד גישה"
+          disabled={locked}
+          style={{width:"100%",background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.12)",borderRadius:12,padding:"12px 16px",color:"#fff",fontSize:16,textAlign:"center",letterSpacing:4,outline:"none",fontFamily:"monospace",marginBottom:12}}
+        />
+        {error&&<div style={{fontSize:12,color:"#fca5a5",textAlign:"center",marginBottom:12}}>{error}</div>}
+        {!locked&&<button onClick={submit} disabled={!code} style={{width:"100%",padding:"13px",borderRadius:14,background:code?"rgba(255,255,255,.2)":"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.2)",color:"#fff",fontSize:15,fontWeight:600,cursor:code?"pointer":"default",fontFamily:T.font}}>אישור</button>}
       </div>
     </div>
   );
@@ -2755,6 +2827,7 @@ const INVEST_TABS=[
 
 export default function App(){
   const [authed,setAuthed]=useState(()=>{try{return sessionStorage.getItem("sinario_auth")==="1";}catch{return false;}});
+  const [deviceAuthed,setDeviceAuthed]=useState(()=>localStorage.getItem('device_authorized')==='1');
   const [cats,             setCats]             =useStorage("sp-cats",         DEFAULT_CATS);
   const [expenses,         setExpenses]         =useStorage("sp-expenses",     SEED_EXPENSES);
   const [special,          setSpecial]          =useStorage("kp-special",      DEFAULT_SPECIAL);
@@ -2781,6 +2854,7 @@ export default function App(){
         .catch(err=>console.error('SW error:',err));
     }
   },[]);
+  if(!deviceAuthed)return <AccessScreen onAccess={()=>setDeviceAuthed(true)}/>;
   if(!authed)return <PinScreen onUnlock={()=>setAuthed(true)}/>;
   return(
     <div style={{background:T.bg,minHeight:"100dvh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text,overscrollBehavior:"none"}}>

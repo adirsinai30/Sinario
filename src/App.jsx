@@ -2207,8 +2207,7 @@ function exportMenuPDF(menu){
   w.document.close();
 }
 
-function RecipesTab({menuConceptsList}){
-  const [items,setItems]=useStorage("kp-recipes",DEFAULT_RECIPES);
+function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList}){
   const [mode,setMode]=useState("recipe");
   const [filterCat,setFilterCat]=useState("הכל");
   const [filterConcept,setFilterConcept]=useState("הכל");
@@ -2225,19 +2224,27 @@ function RecipesTab({menuConceptsList}){
   const [notesHtml,setNotesHtml]=useState("");
   const openAdd=()=>{setEditId(null);const b=mode==="recipe"?blankR:{...blankM,sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}]};setForm(b);setNotesHtml("");setShowForm(true);};
   const openEdit=item=>{setEditId(item.id);const f={...item,categories:normCats(item),servings:String(item.servings||""),prepTime:String(item.prepTime||""),cookTime:String(item.cookTime||"")};if(item.type==="menu"&&!f.sections){f.sections=[{id:uid(),title:"מנות",dishes:item.dishes||[""]}];}setForm(f);setNotesHtml(item.notes||item.prepNotes||"");setShowForm(true);setSelected(null);};
-  const save=()=>{
+  const save=async()=>{
     if(!form.name)return;
     const saved={...form,id:editId||uid(),servings:+form.servings||0,categories:form.categories||[]};
-    if(form.type==="recipe")saved.prepNotes=notesHtml;if(form.type==="menu")saved.notes=notesHtml;
+    if(form.type==="recipe")saved.prepNotes=notesHtml;
+    if(form.type==="menu")saved.notes=notesHtml;
     delete saved.category;
-    if(editId)setItems(items.map(x=>x.id===editId?saved:x));else setItems([...items,saved]);
-    setShowForm(false);setEditId(null);setNotesHtml("");
+    const dbItem={id:saved.id,type:saved.type,name:saved.name,categories:saved.categories,servings:saved.servings,prep_time:saved.prepTime||0,cook_time:saved.cookTime||0,ingredients:saved.ingredients||[],steps:saved.steps||[],sections:saved.sections||[],notes:saved.notes||'',prep_notes:saved.prepNotes||'',concepts:saved.concepts||[]};
+    if(editId){
+      await supabase.from('recipes').update(dbItem).eq('id',editId);
+      setRecipes(recipes.map(x=>x.id===editId?saved:x));
+    } else {
+      await supabase.from('recipes').insert(dbItem);
+      setRecipes([saved,...recipes]);
+    }
+    setShowForm(false);setEditId(null);setNotesHtml('');
   };
-  const doDelete=id=>{setItems(items.filter(x=>x.id!==id));setConfirmId(null);if(selected===id)setSelected(null);};
+  const doDelete=async id=>{await supabase.from('recipes').delete().eq('id',id);setRecipes(recipes.filter(x=>x.id!==id));setConfirmId(null);if(selected===id)setSelected(null);};
   const toggleC=c=>setForm(f=>({...f,concepts:f.concepts.includes(c)?f.concepts.filter(x=>x!==c):[...f.concepts,c]}));
   const toggleCat=c=>setForm(f=>({...f,categories:(f.categories||[]).includes(c)?(f.categories||[]).filter(x=>x!==c):[...(f.categories||[]),c]}));
   // ── סעיף 4ב: filtered עם matchesSearch ──
-  const filtered=items.filter(r=>{
+  const filtered=recipes.filter(r=>{
     const rc=normCats(r);
     const matchesSearch=!searchQ
       ||r.name.toLowerCase().includes(searchQ.toLowerCase())
@@ -2245,7 +2252,7 @@ function RecipesTab({menuConceptsList}){
       ||(r.sections||[]).some(sec=>sec.dishes?.some(d=>d.toLowerCase().includes(searchQ.toLowerCase())));
     return r.type===mode&&(filterCat==="הכל"||rc.includes(filterCat))&&(filterConcept==="הכל"||(r.concepts||[]).includes(filterConcept))&&matchesSearch;
   });
-  const sel=items.find(r=>r.id===selected);
+  const sel=recipes.find(r=>r.id===selected);
   const addSection=()=>setForm(f=>({...f,sections:[...(f.sections||[]),{id:uid(),title:"",dishes:[""]}]}));
   const removeSection=id=>setForm(f=>({...f,sections:(f.sections||[]).filter(s=>s.id!==id)}));
   const updateSection=(id,key,val)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===id?{...s,[key]:val}:s)}));
@@ -2385,20 +2392,27 @@ function RecipesTab({menuConceptsList}){
   );
 }
 
-function NotesTab(){
-  const [notes,setNotes]=useStorage("kp-notes",DEFAULT_NOTES);
+function NotesTab({notes,setNotes}){
   const [html,setHtml]=useState("");
   const [who,setWho]=useState("א");
   const [editId,setEditId]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
   // ── סעיף 5א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
-  const save=()=>{
-    if(!html.replace(/<[^>]+>/g,"").trim())return;
-    if(editId){setNotes(notes.map(n=>n.id===editId?{...n,text:html,who}:n));setEditId(null);}
-    else{setNotes([{id:uid(),text:html,who,date:new Date().toISOString()},...notes]);}
-    setHtml("");
+  const save=async()=>{
+    if(!html.replace(/<[^>]+>/g,'').trim())return;
+    if(editId){
+      await supabase.from('notes').update({text:html,who}).eq('id',editId);
+      setNotes(notes.map(n=>n.id===editId?{...n,text:html,who}:n));
+      setEditId(null);
+    } else {
+      const newNote={id:uid(),text:html,who,date:new Date().toISOString()};
+      await supabase.from('notes').insert({id:newNote.id,text:newNote.text,who:newNote.who,date:newNote.date});
+      setNotes([newNote,...notes]);
+    }
+    setHtml('');
   };
+  const deleteNote=async id=>{await supabase.from('notes').delete().eq('id',id);setNotes(notes.filter(n=>n.id!==id));setConfirmId(null);};
   const startEdit=note=>{setEditId(note.id);setHtml(note.text);setWho(note.who);};
   // ── סעיף 5ב: filteredNotes ──
   const filteredNotes=searchQ
@@ -2406,7 +2420,7 @@ function NotesTab(){
     :notes;
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
-      {confirmId&&<ConfirmModal message="למחוק פתק זה?" onConfirm={()=>{setNotes(notes.filter(n=>n.id!==confirmId));setConfirmId(null);}} onCancel={()=>setConfirmId(null)}/>}
+      {confirmId&&<ConfirmModal message="למחוק פתק זה?" onConfirm={()=>deleteNote(confirmId)} onCancel={()=>setConfirmId(null)}/>}
               {/* ── סעיף 5ג: SearchBar ── */}
       <SearchBar value={searchQ} onChange={setSearchQ} placeholder="חיפוש בפתקים…" />
       {!editId&&(
@@ -2752,6 +2766,8 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   const startEdit=c=>{setEditId(c.id);setForm({label:c.label,icon:c.icon,color:c.color,budget:c.budget});};
   const addSpecialCat=async label=>{const newCat={id:"sc"+uid(),label:label.trim()};await supabase.from('special_categories').insert({id:newCat.id,label:newCat.label});setSpecialCatsList([...specialCatsList,newCat]);};
   const deleteSpecialCat=async id=>{await supabase.from('special_categories').delete().eq('id',id);setSpecialCatsList(specialCatsList.filter(x=>x.id!==id));};
+  const addConcept=async label=>{const id='mc'+uid();await supabase.from('menu_concepts').insert({id,label:label.trim()});setMenuConceptsList([...menuConceptsList,label.trim()]);};
+  const deleteConcept=async label=>{await supabase.from('menu_concepts').delete().eq('label',label);setMenuConceptsList(menuConceptsList.filter(c=>c!==label));};
   const saveEdit=async()=>{
     if(!form.label)return;
     if(editId==="__new__"){
@@ -2804,8 +2820,8 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           </Card>
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>סגנונות תפריטים</div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{menuConceptsList.map((c,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.navy}}>{c}</span><button onClick={()=>setMenuConceptsList(menuConceptsList.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:T.navyMid,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
-            <div style={{display:"flex",gap:8}}><Inp placeholder="סגנון חדש" value={newConcept} onChange={e=>setNewConcept(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newConcept.trim()){setMenuConceptsList([...menuConceptsList,newConcept.trim()]);setNewConcept("");}}}/><Btn onClick={()=>{if(newConcept.trim()){setMenuConceptsList([...menuConceptsList,newConcept.trim()]);setNewConcept("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{menuConceptsList.map((c,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.navy}}>{c}</span><button onClick={()=>deleteConcept(c)} style={{background:"none",border:"none",color:T.navyMid,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
+            <div style={{display:"flex",gap:8}}><Inp placeholder="סגנון חדש" value={newConcept} onChange={e=>setNewConcept(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newConcept.trim()){addConcept(newConcept);setNewConcept("");}}}/><Btn onClick={()=>{if(newConcept.trim()){addConcept(newConcept);setNewConcept("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
           </Card>
         </>)}
         {tab==="db"&&(<>
@@ -2862,7 +2878,9 @@ export default function App(){
   const [special,          setSpecial]          =useState([]);
   const [specialCatsList,  setSpecialCatsList]  =useState(DEFAULT_SPECIAL_CATS);
   const [trips,            setTrips]            =useState([]);
-  const [menuConceptsList, setMenuConceptsList] =useStorage("sp-menu-concepts",DEFAULT_MENU_CONCEPTS);
+  const [menuConceptsList, setMenuConceptsList] =useState(DEFAULT_MENU_CONCEPTS);
+  const [recipes,          setRecipes]          =useState([]);
+  const [notes,            setNotes]            =useState([]);
   const [section,     setSection]     =useState("home");
   const [homeTab,     setHomeTab]     =useState("expenses");
   const [investTab,   setInvestTab]   =useState("portfolio");
@@ -2887,14 +2905,17 @@ export default function App(){
   useEffect(()=>{
     async function loadData(){
       setDataLoading(true);
-      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes]=await Promise.all([
+      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes]=await Promise.all([
         supabase.from('expenses').select('*').order('date',{ascending:false}),
         supabase.from('categories').select('*'),
         supabase.from('settings').select('*').eq('key','monthly_budget').single(),
         supabase.from('special_expenses').select('*').order('date',{ascending:false}),
         supabase.from('special_categories').select('*'),
         supabase.from('trips').select('*').order('date_from',{ascending:false}),
-        supabase.from('trip_items').select('*')
+        supabase.from('trip_items').select('*'),
+        supabase.from('recipes').select('*').order('created_at',{ascending:false}),
+        supabase.from('notes').select('*').order('date',{ascending:false}),
+        supabase.from('menu_concepts').select('*')
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon,color:c.color,budget:c.budget})));
@@ -2902,6 +2923,9 @@ export default function App(){
       if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
       if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
       if(tripsRes.data){const items=tripItemsRes.data||[];setTrips(tripsRes.data.map(t=>({id:t.id,name:t.name,budget:t.budget,color:t.color||T.navy,dateFrom:t.date_from,dateTo:t.date_to,notes:t.notes||'',items:items.filter(i=>i.trip_id===t.id).map(i=>({id:i.id,cat:i.cat,label:i.label,amount:i.amount,currency:i.currency||'ILS',rateUsed:i.rate_used||1}))})));}
+      if(recipesRes.data)setRecipes(recipesRes.data.map(r=>({id:r.id,type:r.type,name:r.name,categories:r.categories||[],servings:r.servings,prepTime:r.prep_time,cookTime:r.cook_time,ingredients:r.ingredients||[],steps:r.steps||[],sections:r.sections||[],notes:r.notes||'',prepNotes:r.prep_notes||'',concepts:r.concepts||[]})));
+      if(notesRes.data)setNotes(notesRes.data.map(n=>({id:n.id,text:n.text,who:n.who||'א',date:n.date})));
+      if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
       setDataLoading(false);
     }
     if(deviceAuthed&&authed)loadData();
@@ -2951,8 +2975,8 @@ export default function App(){
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab/>}
-        {section==="home"&&homeTab==="recipes"  &&<RecipesTab menuConceptsList={menuConceptsList}/>}
-        {section==="home"&&homeTab==="notes"    &&<NotesTab/>}
+        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList}/>}
+        {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}
         {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab}/>}

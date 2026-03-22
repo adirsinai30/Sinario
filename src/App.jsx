@@ -1230,18 +1230,10 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
   );
 }
 
-function InvestSection({ tab, setTab }) {
-  const [assets, setAssets] = useStorage("inv-assets3", [
-    {id:"a1",security:"Apple (AAPL)",currency:"USD",rateUsed:3.68,purchases:[{id:"p1",shares:10,price:155,commission:5,date:"2025-06-01"},{id:"p2",shares:5,price:170,commission:5,date:"2025-11-15"}],sales:[]},
-    {id:"a2",security:"Vanguard S&P 500 (VOO)",currency:"USD",rateUsed:3.68,purchases:[{id:"p3",shares:5,price:410,commission:8,date:"2025-08-20"}],sales:[]},
-    {id:"a3",security:"Bitcoin (BTC)",currency:"USD",rateUsed:3.68,purchases:[{id:"p4",shares:0.05,price:62000,commission:20,date:"2025-03-10"}],sales:[{id:"s1",shares:0.02,price:71000,commission:15,date:"2026-01-05"}]},
-  ]);
-  const [watchlist,setWatchlist]=useStorage("inv-watchlist",["AAPL","VOO","BTC","NVDA","TSLA"]);
+function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,alertThresh,setAlertThresh}){
   const [customTopics,setCustomTopics]=useStorage("inv-topics",["AI","ריביות","נאסד״ק"]);
-  const [alertThresh,setAlertThresh]=useStorage("inv-alert-thresh",3);
   const [sentimentLog,setSentimentLog]=useStorage("inv-sentiment-log",[]);
   const [agentHistory,setAgentHistory]=useStorage("inv-agent-history",[]);
-  const [dividends,setDividends]=useStorage("inv-dividends",[]);
   const [portfolioView,setPortfolioView]=useState("active");
   const [expandedId,setExpandedId]=useState(null);
   const [collapsed,setCollapsed]=useState({});
@@ -1321,48 +1313,66 @@ function InvestSection({ tab, setTab }) {
   const totalRealized=assets.reduce((s,a)=>s+realizedPnLILS(a),0);
 
   const openAddAsset=()=>{setEditAssetId(null);setAssetForm(blankAsset);setShowAssetForm("new");setExpandedId(null);};
-  const saveAsset=()=>{
+  const saveAsset=async()=>{
     if(!assetForm.security||!assetForm.shares||!assetForm.price)return;
-    const purchase={id:uid(),shares:+assetForm.shares,price:+assetForm.price,commission:+assetForm.commission||0,date:assetForm.date};
-    if(editAssetId){setAssets(assets.map(a=>a.id===editAssetId?{...a,security:assetForm.security,currency:assetForm.currency,rateUsed:+assetForm.rateUsed}:a));}
-    else{setAssets([...assets,{id:uid(),security:assetForm.security,currency:assetForm.currency,rateUsed:+assetForm.rateUsed,purchases:[purchase],sales:[]}]);}
+    const assetId=editAssetId||uid();
+    const dbAsset={id:assetId,security:assetForm.security,label:assetForm.security,currency:assetForm.currency||'USD',rate_used:+assetForm.rateUsed||3.68};
+    if(editAssetId){
+      await supabase.from('assets').update(dbAsset).eq('id',editAssetId);
+      setAssets(assets.map(a=>a.id===editAssetId?{...a,security:assetForm.security,currency:assetForm.currency,rateUsed:+assetForm.rateUsed}:a));
+    } else {
+      const purchase={id:uid(),shares:+assetForm.shares,price:+assetForm.price,commission:+assetForm.commission||0,date:assetForm.date};
+      await supabase.from('assets').insert(dbAsset);
+      await supabase.from('asset_transactions').insert({id:purchase.id,asset_id:assetId,type:'buy',shares:purchase.shares,price:purchase.price,commission:purchase.commission,date:purchase.date,rate_used:+assetForm.rateUsed||3.68});
+      setAssets([...assets,{...dbAsset,rateUsed:+assetForm.rateUsed,purchases:[purchase],sales:[]}]);
+    }
     setShowAssetForm(false);setEditAssetId(null);setAssetForm(blankAsset);
   };
-  const savePurchase=(assetId)=>{
+  const savePurchase=async(assetId)=>{
     if(!purchaseForm.shares||!purchaseForm.price)return;
     const p={id:uid(),shares:+purchaseForm.shares,price:+purchaseForm.price,commission:+purchaseForm.commission||0,date:purchaseForm.date};
+    await supabase.from('asset_transactions').insert({id:p.id,asset_id:assetId,type:'buy',shares:p.shares,price:p.price,commission:p.commission,date:p.date,rate_used:assets.find(a=>a.id===assetId)?.rateUsed||3.68});
     setAssets(assets.map(a=>a.id===assetId?{...a,purchases:[...a.purchases,p]}:a));
     setAddPurchaseId(null);setPurchaseForm(blankPurchase);
   };
-  const saveSale=(assetId)=>{
+  const saveSale=async(assetId)=>{
     if(!saleForm.shares||!saleForm.price)return;
-    const asset=assets.find(a=>a.id===assetId);const avail=totalShares(asset);
-    if(+saleForm.shares>avail)return;
-    const s={id:uid(),shares:+saleForm.shares,price:+saleForm.price,commission:+saleForm.commission||0,date:saleForm.date};
+    const asset=assets.find(a=>a.id===assetId);
+    if(+saleForm.shares>totalShares(asset))return;
+    const s={id:uid(),shares:+saleForm.shares,price:+saleForm.price,commission:+saleForm.commission||0,date:saleForm.date,taxRate:+saleForm.taxRate||25,rateUsed:+saleForm.rateUsed||asset.rateUsed||3.68};
+    await supabase.from('asset_transactions').insert({id:s.id,asset_id:assetId,type:'sell',shares:s.shares,price:s.price,commission:s.commission,date:s.date,tax_rate:s.taxRate,rate_used:s.rateUsed});
     setAssets(assets.map(a=>a.id===assetId?{...a,sales:[...(a.sales||[]),s]}:a));
     setAddSaleId(null);setSaleForm(blankSale);
   };
-  const updatePurchase=({assetId,purchase})=>{
+  const updatePurchase=async({assetId,purchase})=>{
+    await supabase.from('asset_transactions').update({shares:purchase.shares,price:purchase.price,commission:purchase.commission||0,date:purchase.date}).eq('id',purchase.id);
     setAssets(assets.map(a=>a.id===assetId?{...a,purchases:a.purchases.map(p=>p.id===purchase.id?purchase:p)}:a));
     setEditPurch(null);
   };
-  const updateSale=({assetId,sale})=>{
+  const updateSale=async({assetId,sale})=>{
+    await supabase.from('asset_transactions').update({shares:sale.shares,price:sale.price,commission:sale.commission||0,date:sale.date,tax_rate:sale.taxRate||25,rate_used:sale.rateUsed||1}).eq('id',sale.id);
     setAssets(assets.map(a=>a.id===assetId?{...a,sales:(a.sales||[]).map(s=>s.id===sale.id?sale:s)}:a));
     setEditSale(null);
   };
-  const updateDividend=(dividend)=>{
+  const updateDividend=async(dividend)=>{
+    await supabase.from('dividends').update({amount:dividend.amount,rate_used:dividend.rateUsed||1,date:dividend.date,tax_rate:dividend.taxRate||25,notes:dividend.notes||''}).eq('id',dividend.id);
     setDividends(dividends.map(d=>d.id===dividend.id?dividend:d));
     setEditDiv(null);
   };
-  const deletePurchase=({assetId,purchaseId})=>{setAssets(assets.map(a=>a.id===assetId?{...a,purchases:a.purchases.filter(p=>p.id!==purchaseId)}:a));setConfirmPurch(null);};
-  const deleteSale=({assetId,saleId})=>{setAssets(assets.map(a=>a.id===assetId?{...a,sales:(a.sales||[]).filter(s=>s.id!==saleId)}:a));setConfirmSale(null);};
-const saveDividend=(assetId)=>{
+  const deleteAsset=async(id)=>{await supabase.from('assets').delete().eq('id',id);setAssets(assets.filter(a=>a.id!==id));setConfirmAsset(null);};
+  const deletePurchase=async({assetId,purchaseId})=>{await supabase.from('asset_transactions').delete().eq('id',purchaseId);setAssets(assets.map(a=>a.id===assetId?{...a,purchases:a.purchases.filter(p=>p.id!==purchaseId)}:a));setConfirmPurch(null);};
+  const deleteSale=async({assetId,saleId})=>{await supabase.from('asset_transactions').delete().eq('id',saleId);setAssets(assets.map(a=>a.id===assetId?{...a,sales:(a.sales||[]).filter(s=>s.id!==saleId)}:a));setConfirmSale(null);};
+  const saveDividend=async(assetId)=>{
     if(!dividendForm.amount)return;
     const asset=assets.find(x=>x.id===assetId);
-    const d={id:uid(),assetId,amount:+dividendForm.amount,currency:asset?.currency||"ILS",rateUsed:+dividendForm.rateUsed||+asset?.rateUsed||1,date:dividendForm.date,taxRate:+dividendForm.taxRate||25};
+    const d={id:uid(),assetId,amount:+dividendForm.amount,currency:asset?.currency||'USD',rateUsed:+dividendForm.rateUsed||+asset?.rateUsed||1,date:dividendForm.date,taxRate:+dividendForm.taxRate||25};
+    await supabase.from('dividends').insert({id:d.id,asset_id:assetId,amount:d.amount,currency:d.currency,rate_used:d.rateUsed,date:d.date,tax_rate:d.taxRate});
     setDividends([...dividends,d]);setAddDividendId(null);setDividendForm(blankDividend);
   };
-  const deleteDividend=(id)=>{setDividends(dividends.filter(d=>d.id!==id));setConfirmDiv(null);};
+  const deleteDividend=async(id)=>{await supabase.from('dividends').delete().eq('id',id);setDividends(dividends.filter(d=>d.id!==id));setConfirmDiv(null);};
+  const addToWatchlist=async(ticker)=>{if(watchlist.includes(ticker))return;await supabase.from('watchlist').insert({id:uid(),ticker});setWatchlist([...watchlist,ticker]);};
+  const removeFromWatchlist=async(ticker)=>{await supabase.from('watchlist').delete().eq('ticker',ticker);setWatchlist(watchlist.filter(t=>t!==ticker));};
+  const saveAlertThresh=async(val)=>{await supabase.from('settings').upsert({key:'alert_thresh',value:String(val)});setAlertThresh(val);};
 
   useEffect(()=>{
     if(tab==="news" && newsItems.length===0) fetchNews();
@@ -1557,7 +1567,7 @@ ${newsContext}`;
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:0,animation:"fadeUp .25s ease"}}>
-      {confirmAsset&&<ConfirmModal message="למחוק נייר ערך זה לצמיתות?" onConfirm={()=>{setAssets(assets.filter(a=>a.id!==confirmAsset));setConfirmAsset(null);}} onCancel={()=>setConfirmAsset(null)}/>}
+      {confirmAsset&&<ConfirmModal message="למחוק נייר ערך זה לצמיתות?" onConfirm={()=>deleteAsset(confirmAsset)} onCancel={()=>setConfirmAsset(null)}/>}
       {confirmPurch&&<ConfirmModal message="למחוק קנייה זו?" onConfirm={()=>deletePurchase(confirmPurch)} onCancel={()=>setConfirmPurch(null)}/>}
       {confirmSale&&<ConfirmModal message="למחוק מכירה זו?" onConfirm={()=>deleteSale(confirmSale)} onCancel={()=>setConfirmSale(null)}/>}
       {confirmDiv&&<ConfirmModal message="למחוק דיבידנד זה?" onConfirm={()=>deleteDividend(confirmDiv)} onCancel={()=>setConfirmDiv(null)}/>}
@@ -2083,7 +2093,7 @@ ${newsContext}`;
             </div>
             <div style={{display:"flex",gap:8}}>
               {[2,3,5,10].map(v=>(
-                <button key={v} onClick={()=>setAlertThresh(v)}
+                <button key={v} onClick={()=>saveAlertThresh(v)}
                   style={{flex:1,padding:"8px",borderRadius:10,fontFamily:T.font,
                     fontSize:13,fontWeight:700,cursor:"pointer",
                     border:`1px solid ${alertThresh===v?T.navy:T.border}`,
@@ -2878,6 +2888,10 @@ export default function App(){
   const [special,          setSpecial]          =useState([]);
   const [specialCatsList,  setSpecialCatsList]  =useState(DEFAULT_SPECIAL_CATS);
   const [trips,            setTrips]            =useState([]);
+  const [assets,           setAssets]           =useState([]);
+  const [dividends,        setDividends]        =useState([]);
+  const [watchlist,        setWatchlist]        =useState(["AAPL","VOO","BTC","NVDA","TSLA"]);
+  const [alertThresh,      setAlertThresh]      =useState(3);
   const [menuConceptsList, setMenuConceptsList] =useState(DEFAULT_MENU_CONCEPTS);
   const [recipes,          setRecipes]          =useState([]);
   const [notes,            setNotes]            =useState([]);
@@ -2905,7 +2919,7 @@ export default function App(){
   useEffect(()=>{
     async function loadData(){
       setDataLoading(true);
-      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes]=await Promise.all([
+      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes]=await Promise.all([
         supabase.from('expenses').select('*').order('date',{ascending:false}),
         supabase.from('categories').select('*'),
         supabase.from('settings').select('*').eq('key','monthly_budget').single(),
@@ -2915,7 +2929,12 @@ export default function App(){
         supabase.from('trip_items').select('*'),
         supabase.from('recipes').select('*').order('created_at',{ascending:false}),
         supabase.from('notes').select('*').order('date',{ascending:false}),
-        supabase.from('menu_concepts').select('*')
+        supabase.from('menu_concepts').select('*'),
+        supabase.from('assets').select('*'),
+        supabase.from('asset_transactions').select('*').order('date',{ascending:false}),
+        supabase.from('dividends').select('*').order('date',{ascending:false}),
+        supabase.from('watchlist').select('*'),
+        supabase.from('settings').select('*').eq('key','alert_thresh').single()
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon,color:c.color,budget:c.budget})));
@@ -2926,6 +2945,13 @@ export default function App(){
       if(recipesRes.data)setRecipes(recipesRes.data.map(r=>({id:r.id,type:r.type,name:r.name,categories:r.categories||[],servings:r.servings,prepTime:r.prep_time,cookTime:r.cook_time,ingredients:r.ingredients||[],steps:r.steps||[],sections:r.sections||[],notes:r.notes||'',prepNotes:r.prep_notes||'',concepts:r.concepts||[]})));
       if(notesRes.data)setNotes(notesRes.data.map(n=>({id:n.id,text:n.text,who:n.who||'א',date:n.date})));
       if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
+      if(assetsRes.data){
+        const txs=txRes.data||[];const divs=divRes.data||[];
+        setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
+        setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
+      }
+      if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
+      if(alertThreshRes.data)setAlertThresh(Number(alertThreshRes.data.value)||3);
       setDataLoading(false);
     }
     if(deviceAuthed&&authed)loadData();
@@ -2978,7 +3004,7 @@ export default function App(){
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}
-        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab}/>}
+        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} alertThresh={alertThresh} setAlertThresh={setAlertThresh}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} tab={settingsTab} setTab={setSettingsTab}/>}
       </div>

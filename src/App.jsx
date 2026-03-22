@@ -600,13 +600,20 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const specialTotal=periodSpecial.reduce((s,i)=>s+toILS(i),0);
   const openAddSp=()=>{setEditSpecialId(null);setSpForm(blankSp);setShowSpecialForm(true);};
   const openEditSp=item=>{setEditSpecialId(item.id);setSpForm({...item,amount:String(item.amount),rateUsed:String(item.rateUsed||1)});setShowSpecialForm(true);};
-  const saveSp=()=>{
+  const saveSp=async()=>{
     if(!spForm.desc||!spForm.amount)return;
-    if(editSpecialId)setSpecialItems(specialItems.map(x=>x.id===editSpecialId?{...spForm,id:editSpecialId,amount:+spForm.amount,rateUsed:+spForm.rateUsed||1}:x));
-    else setSpecialItems([...specialItems,{...spForm,id:uid(),amount:+spForm.amount,rateUsed:+spForm.rateUsed||1}]);
+    const item={id:editSpecialId||uid(),desc:spForm.desc,catId:spForm.catId,amount:+spForm.amount,currency:spForm.currency||'ILS',rateUsed:+spForm.rateUsed||1,date:spForm.date||today(),who:spForm.who||'א'};
+    const dbItem={id:item.id,description:item.desc,cat_id:item.catId,amount:item.amount,currency:item.currency,rate_used:item.rateUsed,date:item.date,who:item.who};
+    if(editSpecialId){
+      await supabase.from('special_expenses').update(dbItem).eq('id',editSpecialId);
+      setSpecialItems(specialItems.map(x=>x.id===editSpecialId?item:x));
+    } else {
+      await supabase.from('special_expenses').insert(dbItem);
+      setSpecialItems([item,...specialItems]);
+    }
     setSpForm(blankSp);setShowSpecialForm(false);setEditSpecialId(null);
   };
-  const doDeleteSp=id=>{setSpecialItems(specialItems.filter(x=>x.id!==id));setConfirmSpecialId(null);};
+  const doDeleteSp=async id=>{await supabase.from('special_expenses').delete().eq('id',id);setSpecialItems(specialItems.filter(x=>x.id!==id));setConfirmSpecialId(null);};
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
       {confirmId&&<ConfirmModal message="למחוק הוצאה זו?" onConfirm={()=>doDelete(confirmId)} onCancel={()=>setConfirmId(null)}/>}
@@ -2731,6 +2738,8 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   const ICONS=["basket","car","bolt","sparkle","heart","home","plane","currency","note","book"];
   const COLORS=[T.navy,"#2563ab","#6b5c3e","#7c3aed","#be185d","#1a6b3c","#b45309","#0369a1","#7f1d1d","#374151"];
   const startEdit=c=>{setEditId(c.id);setForm({label:c.label,icon:c.icon,color:c.color,budget:c.budget});};
+  const addSpecialCat=async label=>{const newCat={id:"sc"+uid(),label:label.trim()};await supabase.from('special_categories').insert({id:newCat.id,label:newCat.label});setSpecialCatsList([...specialCatsList,newCat]);};
+  const deleteSpecialCat=async id=>{await supabase.from('special_categories').delete().eq('id',id);setSpecialCatsList(specialCatsList.filter(x=>x.id!==id));};
   const saveEdit=async()=>{
     if(!form.label)return;
     if(editId==="__new__"){
@@ -2778,8 +2787,8 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           </Card>
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>קטגוריות הוצאות מיוחדות</div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{specialCatsList.map(c=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:4,background:T.bg,border:`1px solid ${T.border}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.text}}>{c.label}</span><button onClick={()=>setSpecialCatsList(specialCatsList.filter(x=>x.id!==c.id))} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
-            <div style={{display:"flex",gap:8}}><Inp placeholder="קטגוריה חדשה" value={newSpecialCat} onChange={e=>setNewSpecialCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newSpecialCat.trim()){setSpecialCatsList([...specialCatsList,{id:"sc"+uid(),label:newSpecialCat.trim()}]);setNewSpecialCat("");}}}/><Btn onClick={()=>{if(newSpecialCat.trim()){setSpecialCatsList([...specialCatsList,{id:"sc"+uid(),label:newSpecialCat.trim()}]);setNewSpecialCat("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{specialCatsList.map(c=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:4,background:T.bg,border:`1px solid ${T.border}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.text}}>{c.label}</span><button onClick={()=>deleteSpecialCat(c.id)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
+            <div style={{display:"flex",gap:8}}><Inp placeholder="קטגוריה חדשה" value={newSpecialCat} onChange={e=>setNewSpecialCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newSpecialCat.trim()){addSpecialCat(newSpecialCat);setNewSpecialCat("");}}}/><Btn onClick={()=>{if(newSpecialCat.trim()){addSpecialCat(newSpecialCat);setNewSpecialCat("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
           </Card>
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>סגנונות תפריטים</div>
@@ -2838,8 +2847,8 @@ export default function App(){
   const [expenses,         setExpenses]         =useState([]);
   const [monthlyBudget,    setMonthlyBudget]    =useState(8100);
   const [dataLoading,      setDataLoading]      =useState(true);
-  const [special,          setSpecial]          =useStorage("kp-special",      DEFAULT_SPECIAL);
-  const [specialCatsList,  setSpecialCatsList]  =useStorage("sp-special-cats", DEFAULT_SPECIAL_CATS);
+  const [special,          setSpecial]          =useState([]);
+  const [specialCatsList,  setSpecialCatsList]  =useState(DEFAULT_SPECIAL_CATS);
   const [menuConceptsList, setMenuConceptsList] =useStorage("sp-menu-concepts",DEFAULT_MENU_CONCEPTS);
   const [section,     setSection]     =useState("home");
   const [homeTab,     setHomeTab]     =useState("expenses");
@@ -2865,14 +2874,18 @@ export default function App(){
   useEffect(()=>{
     async function loadData(){
       setDataLoading(true);
-      const [expRes,catRes,budRes]=await Promise.all([
+      const [expRes,catRes,budRes,spRes,spCatRes]=await Promise.all([
         supabase.from('expenses').select('*').order('date',{ascending:false}),
         supabase.from('categories').select('*'),
-        supabase.from('settings').select('*').eq('key','monthly_budget').single()
+        supabase.from('settings').select('*').eq('key','monthly_budget').single(),
+        supabase.from('special_expenses').select('*').order('date',{ascending:false}),
+        supabase.from('special_categories').select('*')
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon,color:c.color,budget:c.budget})));
       if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
+      if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
+      if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
       setDataLoading(false);
     }
     if(deviceAuthed&&authed)loadData();

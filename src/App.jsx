@@ -588,14 +588,14 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const from=adir>sapir?"ספיר":"אדיר";
   const doDelete=async id=>{await supabase.from('expenses').delete().eq('id',id);setExpenses(expenses.filter(e=>e.id!==id));setConfirmId(null);};
   const filteredExp = searchQ
-    ? expenses.filter(e => {
+    ? [...expenses].sort((a,b)=>new Date(b.date)-new Date(a.date)).filter(e => {
         const cat = cats.find(c => c.id === e.catId);
         return (e.desc||"").toLowerCase().includes(searchQ.toLowerCase())
             || (cat?.label||"").toLowerCase().includes(searchQ.toLowerCase())
             || String(e.amount).includes(searchQ);
       })
-    : expenses.slice(0, 8);
-  const doEdit=async u=>{const dbItem={description:u.desc||u.description||u.desc,amount:+u.amount,currency:u.currency,rate_used:u.rateUsed,cat_id:u.catId,date:u.date};await supabase.from('expenses').update(dbItem).eq('id',u.id);setExpenses(expenses.map(e=>e.id===u.id?{...u,amount:+u.amount}:e));};
+    : [...expenses].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0, 8);
+  const doEdit=async u=>{const dbItem={description:u.desc||u.description,amount:+u.amount,currency:u.currency||'ILS',rate_used:u.rateUsed||1,cat_id:u.catId,date:u.date,who:u.who||'א'};await supabase.from('expenses').update(dbItem).eq('id',u.id);setExpenses(expenses.map(e=>e.id===u.id?{...u,amount:+u.amount}:e));};
   const periodSpecial=showAll?[...specialItems].sort((a,b)=>new Date(b.date)-new Date(a.date)):specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;});
   const specialTotal=periodSpecial.reduce((s,i)=>s+toILS(i),0);
   const openAddSp=()=>{setEditSpecialId(null);setSpForm(blankSp);setShowSpecialForm(true);};
@@ -658,7 +658,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           <div style={{display:"flex",gap:16,alignItems:"center"}}>
           <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חלוקה לקטגוריות</div>
-              {cats.map(c=>{const sp=catSpent(c.id);return(
+              {[...cats].sort((a,b)=>catSpent(b.id)-catSpent(a.id)).map(c=>{const sp=catSpent(c.id);return(
                 <div key={c.id} style={{marginBottom:11}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}><CatIcon icon={c.icon} color={c.color} size={28}/><span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span></div>
@@ -686,7 +686,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           );})}
           {expenses.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין הוצאות עדיין</div>}
         </Card>
-        {showAdd&&<AddExpenseDrawer cats={cats} onAdd={async e=>{await supabase.from('expenses').insert({id:e.id,description:e.desc,amount:e.amount,currency:e.currency,rate_used:e.rateUsed,cat_id:e.catId,date:e.date});setExpenses([e,...expenses]);}} onClose={()=>setShowAdd(false)}/>}
+        {showAdd&&<AddExpenseDrawer cats={cats} onAdd={async e=>{await supabase.from('expenses').insert({id:e.id,description:e.desc,amount:e.amount,currency:e.currency||'ILS',rate_used:e.rateUsed||1,cat_id:e.catId,date:e.date,who:e.who||'א'});setExpenses([e,...expenses]);}} onClose={()=>setShowAdd(false)}/>}
       </>)}
       {expMode==="special"&&(<>
         <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
@@ -2870,7 +2870,7 @@ export default function App(){
         supabase.from('categories').select('*'),
         supabase.from('settings').select('*').eq('key','monthly_budget').single()
       ]);
-      if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency,rateUsed:e.rate_used,catId:e.cat_id,date:e.date})));
+      if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon,color:c.color,budget:c.budget})));
       if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
       setDataLoading(false);

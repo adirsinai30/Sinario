@@ -513,7 +513,10 @@ function PinScreen({onUnlock}){
   const np=[["1","2","3"],["4","5","6"],["7","8","9"],["⌫","0","✓"]];
   const submit=useCallback((pinVal)=>{
     if(locked||shaking)return;
-    if(pinVal===CORRECT_PIN){try{sessionStorage.setItem("sinario_auth","1");}catch{}onUnlock();}
+    if(pinVal===CORRECT_PIN){
+      try{localStorage.setItem("sinario_auth_ts",String(Date.now()));}catch{}
+      onUnlock();
+    }
     else{
       const att=attempts+1;setAttempts(att);
       if(att>=5){setLocked(true);setTimeout(()=>{setLocked(false);setAttempts(0);setPin("");},30000);return;}
@@ -2885,7 +2888,14 @@ const INVEST_TABS=[
 ];
 
 export default function App(){
-  const [authed,setAuthed]=useState(()=>{try{return sessionStorage.getItem("sinario_auth")==="1";}catch{return false;}});
+  const [authed,setAuthed]=useState(()=>{
+    try{
+      const ts=localStorage.getItem("sinario_auth_ts");
+      if(!ts)return false;
+      const elapsed=Date.now()-Number(ts);
+      return elapsed < 30*60*1000;
+    }catch{return false;}
+  });
   const [deviceAuthed,setDeviceAuthed]=useState(()=>localStorage.getItem('device_authorized')==='1');
   const [cats,             setCats]             =useState([]);
   const [expenses,         setExpenses]         =useState([]);

@@ -204,7 +204,6 @@ function Inp({value,onChange,placeholder,type="text",style={},onKeyDown}){
   return <input type={type} inputMode="text" value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,width:"100%",...style}}/>;
 }
 function PBar({value,max,color=T.navy,h=5}){
-  console.log('PBar color:', color);
   const pct=Math.min(100,(value/(max||1))*100);
   return <div style={{background:"#ece8e2",borderRadius:99,height:h,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",borderRadius:99,background:value>max?T.danger:color,transition:"width .7s cubic-bezier(.22,1,.36,1)"}}/></div>;
 }
@@ -546,7 +545,6 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const [confirmSpecialId,setConfirmSpecialId]=useState(null);
   const [showAll,setShowAll]=useState(false);
   const [searchQ,setSearchQ]=useState("");
-  console.log('cats in ExpensesTab:', cats.map(c=>({label:c.label,color:c.color,id:c.id})));
   const blankSp={desc:"",catId:"home",amount:"",currency:"ILS",rateUsed:"1",date:today()};
   const [spForm,setSpForm]=useState(blankSp);
   const totalBudget=cats.reduce((s,c)=>s+c.budget,0);
@@ -2938,7 +2936,6 @@ export default function App(){
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
-      console.log('loaded cats:', catRes.data?.map(c=>({label:c.label,color:c.color})));
       if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
       if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
       if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));

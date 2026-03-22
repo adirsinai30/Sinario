@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Sinario</title>
     <link rel="icon" type="image/png" href="/sinario-96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/sinario.svg" />
@@ -14,11 +14,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Sinario" />
   <style>
-    html, body { overscroll-behavior-y: none; margin: 0; }
+    html, body { overscroll-behavior-y: none; margin: 0; overflow: hidden; position: fixed; width: 100%; height: 100%; }
     body {
       background: linear-gradient(160deg,#0d1f35 0%,#1e3a5f 55%,#2d5282 100%);
-      min-height: 100vh;
     }
+    #root { width: 100%; height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   </style>
   </head>
   <body>

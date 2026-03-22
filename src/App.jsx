@@ -200,11 +200,10 @@ function Icon({name,size=16,color="currentColor"}){
 }
 
 const globalCss=`
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;}
   input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;}
   input,textarea{-webkit-user-modify:read-write-plaintext-only;}
-  ::-webkit-scrollbar{width:3px;height:3px;}
-  ::-webkit-scrollbar-thumb{background:#d6d0c8;border-radius:4px;}
+  *::-webkit-scrollbar{display:none;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
   @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}

@@ -2443,8 +2443,7 @@ function NotesTab(){
   );
 }
 
-function TripsSection({month,year,setMonth,setYear}){
-  const [trips,setTrips]=useState([]);
+function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
   const [sel,setSel]=useState(null);
   const [showNew,setShowNew]=useState(false);
   const [showItem,setShowItem]=useState(false);
@@ -2862,6 +2861,7 @@ export default function App(){
   const [dataLoading,      setDataLoading]      =useState(true);
   const [special,          setSpecial]          =useState([]);
   const [specialCatsList,  setSpecialCatsList]  =useState(DEFAULT_SPECIAL_CATS);
+  const [trips,            setTrips]            =useState([]);
   const [menuConceptsList, setMenuConceptsList] =useStorage("sp-menu-concepts",DEFAULT_MENU_CONCEPTS);
   const [section,     setSection]     =useState("home");
   const [homeTab,     setHomeTab]     =useState("expenses");
@@ -2953,7 +2953,7 @@ export default function App(){
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab menuConceptsList={menuConceptsList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab/>}
-        {section==="trips"   &&<TripsSection month={month} year={year} setMonth={setMonth} setYear={setYear}/>}
+        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}
         {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} tab={settingsTab} setTab={setSettingsTab}/>}

@@ -31,20 +31,6 @@ const DEFAULT_CATS = [
   {id:"c4",label:"בילויים",     icon:"sparkle",color:"#7c3aed", budget:800 },
   {id:"c5",label:"בריאות",      icon:"heart",  color:"#be185d", budget:600 },
 ];
-const SEED_EXPENSES = [
-  {id:101,desc:"שופרסל",    amount:342,catId:"c1",who:"א",date:"2026-03-05"},
-  {id:102,desc:"דלק",       amount:210,catId:"c2",who:"ס",date:"2026-03-04"},
-  {id:103,desc:"חשמל",      amount:430,catId:"c3",who:"א",date:"2026-03-03"},
-  {id:104,desc:"סינמה סיטי",amount:140,catId:"c4",who:"ס",date:"2026-03-02"},
-  {id:105,desc:"תרופות",    amount:95, catId:"c5",who:"א",date:"2026-03-01"},
-  {id:106,desc:"רמי לוי",   amount:280,catId:"c1",who:"ס",date:"2026-03-01"},
-  {id:107,desc:"ביטוח",     amount:380,catId:"c3",who:"א",date:"2026-02-28"},
-  {id:108,desc:"קפה ועוגה", amount:48, catId:"c4",who:"ס",date:"2026-02-27"},
-];
-const DEFAULT_SPECIAL = [
-  {id:"sp1",desc:"מחשב נייד",catId:"tech",amount:4200,currency:"ILS",rateUsed:1,   date:"2026-03-10"},
-  {id:"sp2",desc:"ספה",      catId:"home",amount:850, currency:"USD",rateUsed:3.65,date:"2026-02-20"},
-];
 const DEFAULT_SPECIAL_CATS = [
   {id:"home",label:"בית ורהיטים"},{id:"tech",label:"טכנולוגיה"},
   {id:"clothing",label:"ביגוד"},{id:"gift",label:"מתנות"},
@@ -55,24 +41,7 @@ const DEFAULT_GROCERY = [
   {id:"g2",name:"לחם",checked:false,qty:"1",price:12},
   {id:"g3",name:"ביצים",checked:false,qty:"1",price:18},
 ];
-const DEFAULT_TRIPS = [
-  {id:"t1",name:"אילת - קיץ 2026",budget:8000,items:[
-    {id:"ti1",cat:"טיסות",label:"EL AL הלוך חזור",amount:2200,currency:"ILS",rateUsed:1},
-    {id:"ti2",cat:"מלון", label:"מלון ישרוטל",   amount:3200,currency:"ILS",rateUsed:1},
-  ],dateFrom:"2026-07-10",dateTo:"2026-07-17",color:T.navy},
-];
-const DEFAULT_RECIPES = [
-  {id:"r1",type:"recipe",name:"פסטה ברוטב עגבניות",categories:["ארוחות ערב"],servings:4,prepTime:15,cookTime:25,
-   ingredients:[{item:"פסטה",qty:"400",unit:"גרם"}],steps:["לבשל פסטה.","לטגן שום.","להוסיף עגבניות."],prepNotes:"",concepts:[]},
-  {id:"r2",type:"menu",name:"ארוחת שישי משפחתית",categories:["ארוחות ערב"],servings:8,concepts:["ישראלי","משפחתי"],
-   sections:[{id:"s1",title:"מנות ראשונות",dishes:["סלט ירקות","חומוס"]},{id:"s2",title:"עיקריות",dishes:["שניצל"]},{id:"s3",title:"קינוחים",dishes:["עוגת שוקולד"]}],notes:""},
-];
-const DEFAULT_NOTES = [
-  {id:"n1",text:"לזכור לקנות מתנה לאמא השבוע",who:"א",date:"2026-03-05T10:30"},
-  {id:"n2",text:"שרברב מגיע ביום שלישי בין 10-12",who:"ס",date:"2026-03-04T19:15"},
-];
 const DEFAULT_MENU_CONCEPTS = ["אסייתי","ים תיכוני","איטלקי","מקסיקני","ישראלי","חלבי","בשרי","דגים","מהיר","חגיגי"];
-const RCATS = ["ארוחות בוקר","ארוחות ערב","ארוחות צהריים","קינוחים","טאפסים","אחר"];
 const TCAT  = ["טיסות","מלון","ביטוח","תחבורה מקומית","אוכל","בילויים","כרטיסים","אחר"];
 
 const CORRECT_PIN = "2009";
@@ -1233,9 +1202,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
 }
 
 function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,alertThresh,setAlertThresh}){
-  const [customTopics,setCustomTopics]=useStorage("inv-topics",["AI","ריביות","נאסד״ק"]);
-  const [sentimentLog,setSentimentLog]=useStorage("inv-sentiment-log",[]);
-  const [agentHistory,setAgentHistory]=useStorage("inv-agent-history",[]);
+  const [agentHistory,setAgentHistory]=useState([]);
   const [portfolioView,setPortfolioView]=useState("active");
   const [expandedId,setExpandedId]=useState(null);
   const [collapsed,setCollapsed]=useState({});
@@ -2232,7 +2199,7 @@ function exportMenuPDF(menu){
   w.document.close();
 }
 
-function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList}){
+function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList}){
   const [mode,setMode]=useState("recipe");
   const [filterCat,setFilterCat]=useState("הכל");
   const [filterConcept,setFilterConcept]=useState("הכל");
@@ -2300,7 +2267,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList}){
             placeholder={mode==="recipe"?"חיפוש מתכון, מצרך…":"חיפוש תפריט, מנה…"}
           />
           <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>
-            {["הכל",...RCATS].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterCat===c?T.navy:T.border}`,background:filterCat===c?T.navy:"transparent",color:filterCat===c?"#fff":T.textSub}}>{c}</button>)}
+            {["הכל",...mealTypesList].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterCat===c?T.navy:T.border}`,background:filterCat===c?T.navy:"transparent",color:filterCat===c?"#fff":T.textSub}}>{c}</button>)}
           </div>
           {mode==="menu"&&<div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -2313,7 +2280,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList}){
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 <div style={{display:"flex",gap:8}}><Inp placeholder="תיאור" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} style={{flex:3}}/><Inp type="number" placeholder="כמות אנשים" value={form.servings} onChange={e=>setForm({...form,servings:e.target.value})} style={{flex:2,minWidth:120}}/></div>
                 <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סוג ארוחה</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{RCATS.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{mealTypesList.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                 <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סגנון</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{menuConceptsList.map(c=><button key={c} onClick={()=>toggleC(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.concepts||[]).includes(c)?T.navyMid:T.border}`,background:(form.concepts||[]).includes(c)?T.navyMid:"transparent",color:(form.concepts||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                 {mode==="recipe"&&(<>
@@ -2367,7 +2334,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList}){
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   <div style={{display:"flex",gap:8}}><Inp placeholder="תיאור" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} style={{flex:3}}/><Inp type="number" placeholder="כמות אנשים" value={form.servings} onChange={e=>setForm({...form,servings:e.target.value})} style={{flex:2,minWidth:120}}/></div>
                   <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סוג ארוחה</div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{RCATS.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{mealTypesList.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                   <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סגנון</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{menuConceptsList.map(c=><button key={c} onClick={()=>toggleC(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.concepts||[]).includes(c)?T.navyMid:T.border}`,background:(form.concepts||[]).includes(c)?T.navyMid:"transparent",color:(form.concepts||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                   {mode==="recipe"&&(<><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>מצרכים</div>{form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}<button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>{form.steps.map((st,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:10}}>{i+1}</div><textarea value={st} onChange={e=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?e.target.value:x)}))} rows={2} style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,resize:"vertical"}}/></div>)}<button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/></>)}
@@ -2776,12 +2743,13 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
   );
 }
 
-function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuConceptsList,setMenuConceptsList,tab,setTab}){
+function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuConceptsList,setMenuConceptsList,mealTypesList,setMealTypesList,tab,setTab}){
   const [calConnected,setCalConnected]=useState(false);
   const [editId,setEditId]=useState(null);
   const [confirmCatId,setConfirmCatId]=useState(null);
   const [newSpecialCat,setNewSpecialCat]=useState("");
   const [newConcept,setNewConcept]=useState("");
+  const [newMealType,setNewMealType]=useState("");
   const [editBudget,setEditBudget]=useState(false);
   const [budgetInput,setBudgetInput]=useState("");
   const blank={label:"",icon:"basket",color:T.navy,budget:""};
@@ -2840,6 +2808,21 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>קטגוריות הוצאות מיוחדות</div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{specialCatsList.map(c=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:4,background:T.bg,border:`1px solid ${T.border}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.text}}>{c.label}</span><button onClick={()=>deleteSpecialCat(c.id)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
             <div style={{display:"flex",gap:8}}><Inp placeholder="קטגוריה חדשה" value={newSpecialCat} onChange={e=>setNewSpecialCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newSpecialCat.trim()){addSpecialCat(newSpecialCat);setNewSpecialCat("");}}}/><Btn onClick={()=>{if(newSpecialCat.trim()){addSpecialCat(newSpecialCat);setNewSpecialCat("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
+          </Card>
+          <Card>
+            <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>סוגי ארוחות</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+              {mealTypesList.map((c,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:4,background:T.bg,border:`1px solid ${T.border}`,borderRadius:99,padding:"5px 12px"}}>
+                  <span style={{fontSize:12,color:T.text}}>{c}</span>
+                  <button onClick={async()=>{await supabase.from('meal_types').delete().eq('label',c);setMealTypesList(mealTypesList.filter((_,j)=>j!==i));}} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <Inp placeholder="סוג ארוחה חדש" value={newMealType||""} onChange={e=>setNewMealType(e.target.value)} onKeyDown={async e=>{if(e.key==="Enter"&&(newMealType||"").trim()){await supabase.from('meal_types').insert({id:'mt'+uid(),label:newMealType.trim()});setMealTypesList([...mealTypesList,newMealType.trim()]);setNewMealType("");}}}/>
+              <Btn onClick={async()=>{if((newMealType||"").trim()){await supabase.from('meal_types').insert({id:'mt'+uid(),label:newMealType.trim()});setMealTypesList([...mealTypesList,newMealType.trim()]);setNewMealType("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn>
+            </div>
           </Card>
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>סגנונות תפריטים</div>
@@ -2906,6 +2889,7 @@ export default function App(){
   const [watchlist,        setWatchlist]        =useState(["AAPL","VOO","BTC","NVDA","TSLA"]);
   const [alertThresh,      setAlertThresh]      =useState(3);
   const [menuConceptsList, setMenuConceptsList] =useState(DEFAULT_MENU_CONCEPTS);
+  const [mealTypesList,    setMealTypesList]    =useState(["ארוחות בוקר","ארוחות צהריים","ארוחות ערב","קינוחים","טאפסים","אחר"]);
   const [recipes,          setRecipes]          =useState([]);
   const [notes,            setNotes]            =useState([]);
   const [section,     setSection]     =useState("home");
@@ -2932,7 +2916,7 @@ export default function App(){
   useEffect(()=>{
     async function loadData(){
       setDataLoading(true);
-      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes]=await Promise.all([
+      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes]=await Promise.all([
         supabase.from('expenses').select('*').order('date',{ascending:false}),
         supabase.from('categories').select('*'),
         supabase.from('settings').select('*').eq('key','monthly_budget').single(),
@@ -2947,7 +2931,8 @@ export default function App(){
         supabase.from('asset_transactions').select('*').order('date',{ascending:false}),
         supabase.from('dividends').select('*').order('date',{ascending:false}),
         supabase.from('watchlist').select('*'),
-        supabase.from('settings').select('*').eq('key','alert_thresh').single()
+        supabase.from('settings').select('*').eq('key','alert_thresh').single(),
+        supabase.from('meal_types').select('*')
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
@@ -2965,6 +2950,7 @@ export default function App(){
       }
       if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
       if(alertThreshRes.data)setAlertThresh(Number(alertThreshRes.data.value)||3);
+      if(mealTypesRes.data&&mealTypesRes.data.length>0)setMealTypesList(mealTypesRes.data.map(c=>c.label));
       setDataLoading(false);
     }
     if(deviceAuthed&&authed)loadData();
@@ -3014,12 +3000,12 @@ export default function App(){
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab/>}
-        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList}/>}
+        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}
         {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} alertThresh={alertThresh} setAlertThresh={setAlertThresh}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab}/>}
-        {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} tab={settingsTab} setTab={setSettingsTab}/>}
+        {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab}/>}
       </div>
     </div>
   );

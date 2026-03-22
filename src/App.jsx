@@ -2444,7 +2444,7 @@ function NotesTab(){
 }
 
 function TripsSection({month,year,setMonth,setYear}){
-  const [trips,setTrips]=useStorage("kp-trips",DEFAULT_TRIPS);
+  const [trips,setTrips]=useState([]);
   const [sel,setSel]=useState(null);
   const [showNew,setShowNew]=useState(false);
   const [showItem,setShowItem]=useState(false);
@@ -2462,23 +2462,36 @@ function TripsSection({month,year,setMonth,setYear}){
   const tripTotal=t=>t.items.reduce((s,i)=>s+toILS(i),0);
   const openAddTrip=()=>{setEditTripId(null);setTf(blankTf);setShowNew(true);};
   const openEditTrip=trip=>{setEditTripId(trip.id);setTf({name:trip.name,budget:String(trip.budget),dateFrom:trip.dateFrom||"",dateTo:trip.dateTo||"",color:trip.color||T.navy});setShowNew(true);};
-  const saveTrip=()=>{
+  const saveTrip=async()=>{
     if(!tf.name||!tf.budget||!tf.dateFrom||!tf.dateTo)return;
-    if(editTripId)setTrips(trips.map(t=>t.id===editTripId?{...t,...tf,budget:+tf.budget}:t));
-    else setTrips([...trips,{...tf,id:uid(),budget:+tf.budget,items:[]}]);
+    const dbTrip={id:editTripId||uid(),name:tf.name,budget:+tf.budget,color:tf.color||T.navy,date_from:tf.dateFrom,date_to:tf.dateTo};
+    if(editTripId){
+      await supabase.from('trips').update(dbTrip).eq('id',editTripId);
+      setTrips(trips.map(t=>t.id===editTripId?{...t,...tf,budget:+tf.budget}:t));
+    } else {
+      await supabase.from('trips').insert(dbTrip);
+      setTrips([...trips,{...dbTrip,dateFrom:dbTrip.date_from,dateTo:dbTrip.date_to,items:[]}]);
+    }
     setTf(blankTf);setShowNew(false);setEditTripId(null);
   };
   const openAddItem=()=>{setEditItemId(null);setItf(blankItf);setShowItem(true);};
   const openEditItem=item=>{setEditItemId(item.id);setItf({cat:item.cat||"אחר",label:item.label,amount:String(item.amount),currency:item.currency||"ILS",rateUsed:String(item.rateUsed||1)});setShowItem(true);};
-  const saveItem=()=>{
+  const saveItem=async()=>{
     if(!itf.label||!itf.amount)return;
-    const saved={...itf,id:editItemId||uid(),amount:+itf.amount,rateUsed:+itf.rateUsed||1};
-    if(editItemId)setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.map(i=>i.id===editItemId?saved:i)}:t));
-    else setTrips(trips.map(t=>t.id===sel?{...t,items:[...t.items,saved]}:t));
+    const itemId=editItemId||uid();
+    const dbItem={id:itemId,trip_id:sel,cat:itf.cat,label:itf.label,amount:+itf.amount,currency:itf.currency||'ILS',rate_used:+itf.rateUsed||1};
+    const localItem={id:itemId,cat:itf.cat,label:itf.label,amount:+itf.amount,currency:itf.currency||'ILS',rateUsed:+itf.rateUsed||1};
+    if(editItemId){
+      await supabase.from('trip_items').update(dbItem).eq('id',editItemId);
+      setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.map(i=>i.id===editItemId?localItem:i)}:t));
+    } else {
+      await supabase.from('trip_items').insert(dbItem);
+      setTrips(trips.map(t=>t.id===sel?{...t,items:[...t.items,localItem]}:t));
+    }
     setItf(blankItf);setShowItem(false);setEditItemId(null);
   };
-  const doDeleteTrip=id=>{setTrips(trips.filter(t=>t.id!==id));setConfirmTrip(null);if(sel===id)setSel(null);};
-  const doDeleteItem=id=>{setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.filter(i=>i.id!==id)}:t));setConfirmItem(null);};
+  const doDeleteTrip=async id=>{await supabase.from('trips').delete().eq('id',id);setTrips(trips.filter(t=>t.id!==id));setConfirmTrip(null);if(sel===id)setSel(null);};
+  const doDeleteItem=async id=>{await supabase.from('trip_items').delete().eq('id',id);setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.filter(i=>i.id!==id)}:t));setConfirmItem(null);};
   const selTrip=trips.find(t=>t.id===sel);
   const catIcon=c=>({טיסות:"plane",מלון:"home",ביטוח:"heart",אוכל:"basket",בילויים:"sparkle",כרטיסים:"note"}[c]||"currency");
   const filteredTrips=(showAll?[...trips].sort((a,b)=>(a.dateFrom||"").localeCompare(b.dateFrom||"")):trips.filter(t=>{if(!t.dateFrom)return true;const d=new Date(t.dateFrom);return d.getMonth()===month&&d.getFullYear()===year;}))
@@ -2874,18 +2887,21 @@ export default function App(){
   useEffect(()=>{
     async function loadData(){
       setDataLoading(true);
-      const [expRes,catRes,budRes,spRes,spCatRes]=await Promise.all([
+      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes]=await Promise.all([
         supabase.from('expenses').select('*').order('date',{ascending:false}),
         supabase.from('categories').select('*'),
         supabase.from('settings').select('*').eq('key','monthly_budget').single(),
         supabase.from('special_expenses').select('*').order('date',{ascending:false}),
-        supabase.from('special_categories').select('*')
+        supabase.from('special_categories').select('*'),
+        supabase.from('trips').select('*').order('date_from',{ascending:false}),
+        supabase.from('trip_items').select('*')
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon,color:c.color,budget:c.budget})));
       if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
       if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
       if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
+      if(tripsRes.data){const items=tripItemsRes.data||[];setTrips(tripsRes.data.map(t=>({id:t.id,name:t.name,budget:t.budget,color:t.color||T.navy,dateFrom:t.date_from,dateTo:t.date_to,notes:t.notes||'',items:items.filter(i=>i.trip_id===t.id).map(i=>({id:i.id,cat:i.cat,label:i.label,amount:i.amount,currency:i.currency||'ILS',rateUsed:i.rate_used||1}))})));}
       setDataLoading(false);
     }
     if(deviceAuthed&&authed)loadData();

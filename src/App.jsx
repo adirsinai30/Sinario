@@ -673,7 +673,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
                     <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}><CatIcon icon={c.icon} color={c.color} size={28}/><span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span></div>
                     <span style={{fontSize:12,color:sp>c.budget?T.danger:T.textSub,flexShrink:0,fontWeight:sp>c.budget?600:400}}>{fmt(sp)}</span>
                   </div>
-                  <PBar value={sp} max={c.budget} color={c.color} h={4}/>
+                  <PBar value={sp} max={c.budget||1} color={c.color||T.navy} h={4}/>
                 </div>
               );})}
             </div>
@@ -2950,7 +2950,7 @@ export default function App(){
         supabase.from('settings').select('*').eq('key','alert_thresh').single()
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
-      if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon,color:c.color,budget:c.budget})));
+      if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
       if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
       if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
       if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));

@@ -449,7 +449,7 @@ function AccessScreen({onAccess}){
         device_id:deviceId,
         device_name:deviceName,
         last_seen:new Date().toISOString()
-      });
+      },{onConflict:'device_id'});
       localStorage.setItem('device_authorized','1');
       onAccess();
     } else {

@@ -546,6 +546,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const [confirmSpecialId,setConfirmSpecialId]=useState(null);
   const [showAll,setShowAll]=useState(false);
   const [searchQ,setSearchQ]=useState("");
+  console.log('cats in ExpensesTab:', cats.map(c=>({label:c.label,color:c.color,id:c.id})));
   const blankSp={desc:"",catId:"home",amount:"",currency:"ILS",rateUsed:"1",date:today()};
   const [spForm,setSpForm]=useState(blankSp);
   const totalBudget=cats.reduce((s,c)=>s+c.budget,0);

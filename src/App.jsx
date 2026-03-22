@@ -2786,8 +2786,8 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   const [budgetInput,setBudgetInput]=useState("");
   const blank={label:"",icon:"basket",color:T.navy,budget:""};
   const [form,setForm]=useState(blank);
-  const ICONS=["basket","home","currency","wallet","sparkle","wifi","receipt","droplet","flame","building","music","restaurant"];
-  const COLORS=["#1e3a5f","#c0392b","#27ae60","#e67e22","#8e44ad","#16a085","#d4ac0d","#2980b9","#922b21","#1e8449","#6c3483","#d35400","#148f77","#1a5276","#7d6608","#512e5f","#0e6655","#784212","#4a235a","#1b4f72"];
+  const ICONS=["basket","home","currency","wallet","sparkle","wifi","receipt","droplet","flame","building","music","bolt"];
+  const COLORS=["#1e3a5f","#c0392b","#27ae60","#e67e22","#8e44ad","#16a085","#d4ac0d","#2471a3","#cb4335","#1e8449","#7d3c98","#ba4a00"];
   const startEdit=c=>{setEditId(c.id);setForm({label:c.label,icon:c.icon,color:c.color,budget:c.budget});};
   const addSpecialCat=async label=>{const newCat={id:"sc"+uid(),label:label.trim()};await supabase.from('special_categories').insert({id:newCat.id,label:newCat.label});setSpecialCatsList([...specialCatsList,newCat]);};
   const deleteSpecialCat=async id=>{await supabase.from('special_categories').delete().eq('id',id);setSpecialCatsList(specialCatsList.filter(x=>x.id!==id));};

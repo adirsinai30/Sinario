@@ -2631,6 +2631,7 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
                 </div>
                 {expandedItemId===item.id&&(
                   <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:12,padding:14,margin:"4px 0 8px"}}>
+                    <div style={{fontSize:15,fontWeight:600,color:T.navy,marginBottom:12,paddingBottom:10,borderBottom:`1px solid ${T.navyBorder}`}}>{item.label}</div>
                     <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
                       <span style={{fontSize:12,color:T.textMid,minWidth:72,flexShrink:0}}>קטגוריה:</span>
                       <span style={{fontSize:12,fontWeight:600,color:T.text}}>{item.cat}</span>

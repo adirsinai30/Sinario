@@ -604,34 +604,39 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
         <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
           <Btn onClick={()=>setShowAdd(true)} style={{padding:"8px 16px",fontSize:13,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
         </div>
-        <Card>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+        <Card style={{padding:18}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
             <div>
-              <div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>סה"כ הוצאות</div>
-              <div style={{fontSize:34,fontWeight:400,color:T.text,fontFamily:T.display,letterSpacing:-1}}>{fmt(combinedTotal)}</div>
-              <div style={{fontSize:12,color:T.textSub,marginTop:4}}>מתוך {fmt(totalBudget)} תקציב</div>
-              {liveSpecialTotal>0&&<div style={{fontSize:11,color:T.navyMid,marginTop:3}}>כולל {fmt(liveSpecialTotal)} הוצאות מיוחדות</div>}
+              <div style={{fontSize:12,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4,textTransform:"uppercase"}}>הוצאות {MONTHS[month]}</div>
+              <div style={{fontSize:38,fontWeight:300,color:T.text,letterSpacing:-1,lineHeight:1.1}}>{fmt(combinedTotal)}</div>
+              <div style={{fontSize:11,fontWeight:600,color:combinedTotal>totalBudget?T.danger:T.success,marginTop:4}}>{combinedTotal>totalBudget?`חריגה של ${fmt(combinedTotal-totalBudget)}`:`נותר ${fmt(totalBudget-combinedTotal)}`}</div>
             </div>
-            <div style={{textAlign:"left"}}>
-              <div style={{fontSize:28,fontWeight:600,color:combinedTotal>totalBudget?T.danger:T.navy,fontFamily:T.display}}>{Math.round((combinedTotal/(totalBudget||1))*100)}%</div>
-              <div style={{fontSize:11,color:T.textSub}}>נוצל</div>
+            <div style={{fontSize:34,fontWeight:700,color:combinedTotal>totalBudget?T.danger:T.navy,lineHeight:1,marginTop:4}}>{Math.round((combinedTotal/(totalBudget||1))*100)}%</div>
+          </div>
+          {(()=>{
+            const pct=(combinedTotal/(totalBudget||1))*100;
+            const barColor=combinedTotal>totalBudget?T.danger:pct<70?T.navy:pct<90?"#f59e0b":"#ef4444";
+            return(
+              <div style={{background:"#ece8e2",borderRadius:99,height:5,overflow:"hidden",marginBottom:10}}>
+                <div style={{width:`${Math.min(100,pct)}%`,height:"100%",borderRadius:99,background:barColor,transition:"width .7s cubic-bezier(.22,1,.36,1)"}}/>
+              </div>
+            );
+          })()}
+          <div style={{display:"flex",gap:8,marginBottom:diff>5?8:0}}>
+            {[["אדיר",adir],["ספיר",sapir]].map(([name,amt])=>(
+              <div key={name} style={{flex:1,background:T.bg,borderRadius:10,padding:"8px 12px",border:`1px solid ${T.border}`}}>
+                <div style={{fontSize:12,color:T.textSub,marginBottom:2}}>{name}</div>
+                <div style={{fontSize:16,fontWeight:600,color:T.text}}>{fmt(amt)} <span style={{fontSize:12,color:T.textSub,fontWeight:400}}>({((amt/(regularTotal||1))*100).toFixed(0)}%)</span></div>
+              </div>
+            ))}
+          </div>
+          {diff>5&&(
+            <div style={{background:T.navyLight,borderRadius:10,padding:"8px 12px",border:`1px solid ${T.navyBorder}`,fontSize:14,color:T.navy,fontWeight:600,textAlign:"center"}}>
+              העברה: {from} ← {fmt(diff)}
             </div>
-          </div>
-          <PBar value={combinedTotal} max={totalBudget} color={combinedTotal>totalBudget?T.danger:T.navy} h={6}/>
-          <div style={{marginTop:8,fontSize:12,fontWeight:600,color:combinedTotal>totalBudget?T.danger:T.success}}>
-            {combinedTotal>totalBudget?`חריגה של ${fmt(combinedTotal-totalBudget)}`:`נותר ${fmt(totalBudget-combinedTotal)}`}
-          </div>
+          )}
+          {liveSpecialTotal>0&&<div style={{fontSize:12,color:T.textSub,marginTop:6,textAlign:"center"}}>כולל {fmt(liveSpecialTotal)} הוצאות מיוחדות</div>}
         </Card>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {[["אדיר",adir],["ספיר",sapir]].map(([name,amt])=>(
-            <Card key={name} style={{padding:16}}>
-              <div style={{fontSize:11,color:T.textSub,fontWeight:600,marginBottom:4}}>{name}</div>
-              <div style={{fontSize:22,fontWeight:600,color:T.text,fontFamily:T.display}}>{fmt(amt)}</div>
-              <div style={{fontSize:11,color:T.textSub,marginTop:2}}>{((amt/(regularTotal||1))*100).toFixed(0)}%</div>
-            </Card>
-          ))}
-        </div>
-        {diff>5&&<Card style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,padding:16}}><div style={{fontSize:11,color:T.navyMid,fontWeight:700,marginBottom:4}}>סוגרים חשבון</div><div style={{fontSize:17,fontWeight:600,color:T.navy}}>{from}: {fmt(diff)}</div></Card>}
         <Card style={{padding:16}}>
           <div style={{display:"flex",gap:16,alignItems:"center"}}>
           <div style={{flex:1,minWidth:0}}>
@@ -2458,11 +2463,12 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
   const [editItemId,setEditItemId]=useState(null);
   const [confirmTrip,setConfirmTrip]=useState(null);
   const [confirmItem,setConfirmItem]=useState(null);
+  const [expandedItemId,setExpandedItemId]=useState(null);
   // ── סעיף 6א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
   const blankTf={name:"",budget:"",dateFrom:"",dateTo:"",color:T.navy};
   const [tf,setTf]=useState(blankTf);
-  const blankItf={cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1"};
+  const blankItf={cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1",notes:"",who:"א"};
   const [itf,setItf]=useState(blankItf);
   const tripTotal=t=>t.items.reduce((s,i)=>s+toILS(i),0);
   const openAddTrip=()=>{setEditTripId(null);setTf(blankTf);setShowNew(true);};
@@ -2480,12 +2486,14 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
     setTf(blankTf);setShowNew(false);setEditTripId(null);
   };
   const openAddItem=()=>{setEditItemId(null);setItf(blankItf);setShowItem(true);};
-  const openEditItem=item=>{setEditItemId(item.id);setItf({cat:item.cat||"אחר",label:item.label,amount:String(item.amount),currency:item.currency||"ILS",rateUsed:String(item.rateUsed||1)});setShowItem(true);};
+  const openEditItem=item=>{setEditItemId(item.id);setItf({cat:item.cat||"אחר",label:item.label,amount:String(item.amount),currency:item.currency||"ILS",rateUsed:String(item.rateUsed||1),notes:item.notes||"",who:item.who||"א"});setShowItem(true);};
   const saveItem=async()=>{
     if(!itf.label||!itf.amount)return;
     const itemId=editItemId||uid();
-    const dbItem={id:itemId,trip_id:sel,cat:itf.cat,label:itf.label,amount:+itf.amount,currency:itf.currency||'ILS',rate_used:+itf.rateUsed||1};
-    const localItem={id:itemId,cat:itf.cat,label:itf.label,amount:+itf.amount,currency:itf.currency||'ILS',rateUsed:+itf.rateUsed||1};
+    // -- ALTER TABLE trip_items ADD COLUMN IF NOT EXISTS notes text;
+    // -- ALTER TABLE trip_items ADD COLUMN IF NOT EXISTS who text;
+    const dbItem={id:itemId,trip_id:sel,cat:itf.cat,label:itf.label,amount:+itf.amount,currency:itf.currency||'ILS',rate_used:+itf.rateUsed||1,notes:itf.notes||"",who:itf.who||"א"};
+    const localItem={id:itemId,cat:itf.cat,label:itf.label,amount:+itf.amount,currency:itf.currency||'ILS',rateUsed:+itf.rateUsed||1,notes:itf.notes||"",who:itf.who||"א"};
     if(editItemId){
       await supabase.from('trip_items').update(dbItem).eq('id',editItemId);
       setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.map(i=>i.id===editItemId?localItem:i)}:t));
@@ -2499,7 +2507,14 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
   const doDeleteItem=async id=>{await supabase.from('trip_items').delete().eq('id',id);setTrips(trips.map(t=>t.id===sel?{...t,items:t.items.filter(i=>i.id!==id)}:t));setConfirmItem(null);};
   const selTrip=trips.find(t=>t.id===sel);
   const catIcon=c=>({טיסות:"plane",מלון:"home",ביטוח:"heart",אוכל:"basket",בילויים:"sparkle",כרטיסים:"note"}[c]||"currency");
-  const filteredTrips=(showAll?[...trips].sort((a,b)=>(a.dateFrom||"").localeCompare(b.dateFrom||"")):trips.filter(t=>{if(!t.dateFrom)return true;const d=new Date(t.dateFrom);return d.getMonth()===month&&d.getFullYear()===year;}))
+  const filteredTrips=(showAll?[...trips].sort((a,b)=>(a.dateFrom||"").localeCompare(b.dateFrom||"")):trips.filter(t=>{
+      if(!t.dateFrom||!t.dateTo)return true;
+      const from=new Date(t.dateFrom);
+      const to=new Date(t.dateTo);
+      const current=new Date(year,month,1);
+      const currentEnd=new Date(year,month+1,0);
+      return from<=currentEnd&&to>=current;
+    }))
     // ── סעיף 6ב: displayTrips ──
     .filter(t=>!searchQ||t.name.toLowerCase().includes(searchQ.toLowerCase()));
   return(
@@ -2587,16 +2602,57 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
                   <Inp placeholder="תיאור" value={itf.label} onChange={e=>setItf({...itf,label:e.target.value})}/>
                   <Inp type="number" placeholder="סכום" value={itf.amount} onChange={e=>setItf({...itf,amount:e.target.value})}/>
                   <CurrencyField currency={itf.currency} setCurrency={c=>setItf({...itf,currency:c})} rate={itf.rateUsed} setRate={r=>setItf({...itf,rateUsed:r})} amount={itf.amount}/>
+                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div>
+                  <RichTextEditor value={itf.notes||""} onChange={v=>setItf({...itf,notes:v})} placeholder="הערות לפריט…" minHeight={60}/>
+                  <div style={{display:"flex",gap:6}}>
+                    {[["א","אדיר"],["ס","ספיר"]].map(([v,l])=>(
+                      <button key={v} onClick={()=>setItf({...itf,who:v})}
+                        style={{flex:1,padding:"8px",borderRadius:10,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",
+                        border:`1px solid ${itf.who===v?T.navy:T.border}`,
+                        background:itf.who===v?T.navyLight:"transparent",
+                        color:itf.who===v?T.navy:T.textMid}}>{l}</button>
+                    ))}
+                  </div>
                   <div style={{display:"flex",gap:8}}><Btn onClick={saveItem} disabled={!itf.label||!itf.amount} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowItem(false);setEditItemId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
                 </div>
               </Card>
             )}
             {selTrip.items.map((item,i)=>{const cur=CURRENCIES.find(c=>c.code===item.currency)||CURRENCIES[0];return[
-              <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<selTrip.items.length-1?`1px solid ${T.border}`:"none"}}>
-                <CatIcon icon={catIcon(item.cat)} color={T.navy} size={34}/>
-                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:T.text}}>{item.label}</div><div style={{fontSize:11,color:T.textSub}}>{item.cat}{item.currency!=="ILS"?` · ${fmtCur(item.amount,cur.symbol)}`:""}</div></div>
-                <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(toILS(item))}</div>
-                <ActionBtns onEdit={()=>openEditItem(item)} onDelete={()=>setConfirmItem(item.id)}/>
+              <div key={item.id}>
+                <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${T.border}`,cursor:"pointer"}}
+                  onClick={()=>setExpandedItemId(expandedItemId===item.id?null:item.id)}>
+                  <CatIcon icon={catIcon(item.cat)} color={T.navy} size={34}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:500,color:T.text}}>{item.label}</div>
+                    <div style={{fontSize:11,color:T.textSub}}>{item.cat}{item.who?` · ${item.who==="א"?"אדיר":"ספיר"}`:""}{item.currency!=="ILS"?` · ${fmtCur(item.amount,cur.symbol)}`:""}</div>
+                  </div>
+                  <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(toILS(item))}</div>
+                  <ActionBtns onEdit={()=>openEditItem(item)} onDelete={()=>setConfirmItem(item.id)}/>
+                </div>
+                {expandedItemId===item.id&&(
+                  <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:12,padding:14,margin:"4px 0 8px"}}>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
+                      <span style={{fontSize:12,color:T.textMid,minWidth:72,flexShrink:0}}>קטגוריה:</span>
+                      <span style={{fontSize:12,fontWeight:600,color:T.text}}>{item.cat}</span>
+                    </div>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
+                      <span style={{fontSize:12,color:T.textMid,minWidth:72,flexShrink:0}}>סכום:</span>
+                      <span style={{fontSize:12,fontWeight:600,color:T.text}}>{fmt(toILS(item))}{item.currency!=="ILS"?` (${fmtCur(item.amount,cur.symbol)})`:""}</span>
+                    </div>
+                    {item.who&&(
+                      <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
+                        <span style={{fontSize:12,color:T.textMid,minWidth:72,flexShrink:0}}>משלם:</span>
+                        <span style={{fontSize:12,fontWeight:600,color:T.text}}>{item.who==="א"?"אדיר":"ספיר"}</span>
+                      </div>
+                    )}
+                    {item.notes&&(
+                      <div style={{marginTop:8,borderTop:`1px solid ${T.navyBorder}`,paddingTop:8}}>
+                        <div style={{fontSize:12,color:T.textMid,marginBottom:4}}>הערות:</div>
+                        <div style={{fontSize:13,color:T.text,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:item.notes}}/>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>,
               editItemId===item.id&&showItem&&(
                 <Card key={`form-${item.id}`} style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,marginBottom:4}}>
@@ -2607,6 +2663,17 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
                     <Inp placeholder="תיאור" value={itf.label} onChange={e=>setItf({...itf,label:e.target.value})}/>
                     <Inp type="number" placeholder="סכום" value={itf.amount} onChange={e=>setItf({...itf,amount:e.target.value})}/>
                     <CurrencyField currency={itf.currency} setCurrency={c=>setItf({...itf,currency:c})} rate={itf.rateUsed} setRate={r=>setItf({...itf,rateUsed:r})} amount={itf.amount}/>
+                    <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div>
+                    <RichTextEditor value={itf.notes||""} onChange={v=>setItf({...itf,notes:v})} placeholder="הערות לפריט…" minHeight={60}/>
+                    <div style={{display:"flex",gap:6}}>
+                      {[["א","אדיר"],["ס","ספיר"]].map(([v,l])=>(
+                        <button key={v} onClick={()=>setItf({...itf,who:v})}
+                          style={{flex:1,padding:"8px",borderRadius:10,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",
+                          border:`1px solid ${itf.who===v?T.navy:T.border}`,
+                          background:itf.who===v?T.navyLight:"transparent",
+                          color:itf.who===v?T.navy:T.textMid}}>{l}</button>
+                      ))}
+                    </div>
                     <div style={{display:"flex",gap:8}}><Btn onClick={saveItem} disabled={!itf.label||!itf.amount} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowItem(false);setEditItemId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
                   </div>
                 </Card>

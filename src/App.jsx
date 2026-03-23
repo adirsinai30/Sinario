@@ -3006,7 +3006,7 @@ export default function App(){
       if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
       if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
       if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
-      if(tripsRes.data){const items=tripItemsRes.data||[];setTrips(tripsRes.data.map(t=>({id:t.id,name:t.name,budget:t.budget,color:t.color||T.navy,dateFrom:t.date_from,dateTo:t.date_to,notes:t.notes||'',items:items.filter(i=>i.trip_id===t.id).map(i=>({id:i.id,cat:i.cat,label:i.label,amount:i.amount,currency:i.currency||'ILS',rateUsed:i.rate_used||1}))})));}
+      if(tripsRes.data){const items=tripItemsRes.data||[];setTrips(tripsRes.data.map(t=>({id:t.id,name:t.name,budget:t.budget,color:t.color||T.navy,dateFrom:t.date_from,dateTo:t.date_to,notes:t.notes||'',items:items.filter(i=>i.trip_id===t.id).map(i=>({id:i.id,cat:i.cat,label:i.label,amount:i.amount,currency:i.currency||'ILS',rateUsed:i.rate_used||1,notes:i.notes||'',who:i.who||'א'}))})));}
       if(recipesRes.data)setRecipes(recipesRes.data.map(r=>({id:r.id,type:r.type,name:r.name,categories:r.categories||[],servings:r.servings,prepTime:r.prep_time,cookTime:r.cook_time,ingredients:r.ingredients||[],steps:r.steps||[],sections:r.sections||[],notes:r.notes||'',prepNotes:r.prep_notes||'',concepts:r.concepts||[]})));
       if(notesRes.data)setNotes(notesRes.data.map(n=>({id:n.id,text:n.text,who:n.who||'א',date:n.date})));
       if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
@@ -3021,6 +3021,13 @@ export default function App(){
       setDataLoading(false);
     }
     if(deviceAuthed&&authed)loadData();
+  },[deviceAuthed,authed]);
+  useEffect(()=>{
+    const handleFocus=()=>{
+      if(deviceAuthed&&authed)loadData();
+    };
+    window.addEventListener('focus',handleFocus);
+    return()=>window.removeEventListener('focus',handleFocus);
   },[deviceAuthed,authed]);
   if(!deviceAuthed)return <AccessScreen onAccess={()=>setDeviceAuthed(true)}/>;
   if(!authed)return <PinScreen onUnlock={()=>setAuthed(true)}/>;

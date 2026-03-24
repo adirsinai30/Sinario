@@ -608,10 +608,10 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
             <div>
               <div style={{fontSize:12,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4,textTransform:"uppercase"}}>הוצאות {MONTHS[month]}</div>
-              <div style={{fontSize:38,fontWeight:300,color:T.text,letterSpacing:-1,lineHeight:1.1}}>{fmt(combinedTotal)}</div>
+              <div style={{fontSize:34,fontWeight:300,color:T.text,letterSpacing:-1,lineHeight:1.1}}>{fmt(combinedTotal)}</div>
               <div style={{fontSize:11,fontWeight:600,color:combinedTotal>totalBudget?T.danger:T.success,marginTop:4}}>{combinedTotal>totalBudget?`חריגה של ${fmt(combinedTotal-totalBudget)}`:`נותר ${fmt(totalBudget-combinedTotal)}`}</div>
             </div>
-            <div style={{fontSize:34,fontWeight:700,color:combinedTotal>totalBudget?T.danger:T.navy,lineHeight:1,marginTop:4}}>{Math.round((combinedTotal/(totalBudget||1))*100)}%</div>
+            <div style={{fontSize:30,fontWeight:700,color:combinedTotal>totalBudget?T.danger:T.navy,lineHeight:1,marginTop:4}}>{Math.round((combinedTotal/(totalBudget||1))*100)}%</div>
           </div>
           {(()=>{
             const pct=(combinedTotal/(totalBudget||1))*100;
@@ -626,7 +626,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
             {[["אדיר",adir],["ספיר",sapir]].map(([name,amt])=>(
               <div key={name} style={{flex:1,background:T.bg,borderRadius:10,padding:"8px 12px",border:`1px solid ${T.border}`}}>
                 <div style={{fontSize:12,color:T.textSub,marginBottom:2}}>{name}</div>
-                <div style={{fontSize:16,fontWeight:600,color:T.text}}>{fmt(amt)} <span style={{fontSize:12,color:T.textSub,fontWeight:400}}>({((amt/(regularTotal||1))*100).toFixed(0)}%)</span></div>
+                <div style={{fontSize:16,fontWeight:600,color:T.text}}>{fmt(amt)} <span style={{fontSize:12,color:T.textSub,fontWeight:400}}></span></div>
               </div>
             ))}
           </div>

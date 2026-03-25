@@ -1252,6 +1252,7 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const [editSale,      setEditSale]      = useState(null); // {assetId, sale}
   const [editDiv,       setEditDiv]       = useState(null); // {assetId, dividend}
   const [addDividendId,setAddDividendId]=useState(null);
+  const [currentRates,setCurrentRates]=useState({});
   // ── סעיף 7א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
   const [prices,setPrices]=useState({});
@@ -1282,7 +1283,7 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const avgBuyPrice=a=>{const tc=a.purchases.reduce((s,p)=>s+ +p.shares*(+p.price+(+p.commission||0)/+p.shares),0);const ts=a.purchases.reduce((s,p)=>s+ +p.shares,0);return ts>0?tc/ts:0;};
   const costBasisILS=a=>{const rate=a.currency!=="ILS"?+a.rateUsed:1;return a.purchases.reduce((s,p)=>s+(+p.shares*+p.price+(+p.commission||0))*rate,0);};
   const currentPriceFor=a=>prices[extractTicker(a.security)]||null;
-  const currentValILS=a=>{const price=currentPriceFor(a);const rate=a.currency!=="ILS"?+a.rateUsed:1;const shrs=totalShares(a);return price?price*shrs*rate:avgBuyPrice(a)*shrs*rate;};
+  const currentValILS=a=>{const price=currentPriceFor(a);const rate=a.currency!=="ILS"?(currentRates[a.currency]||+a.rateUsed):1;const shrs=totalShares(a);return price?price*shrs*rate:avgBuyPrice(a)*shrs*rate;};
   const soldCostILS=a=>{const rate=a.currency!=="ILS"?+a.rateUsed:1;const avg=avgBuyPrice(a);return(a.sales||[]).reduce((s,p)=>s+ +p.shares*avg*rate,0);};
   const unrealizedPnLILS=a=>currentValILS(a)-(costBasisILS(a)-soldCostILS(a));
   const realizedPnLILS=a=>{
@@ -1499,6 +1500,16 @@ const fetchNews = async (force=false) => {
       setPricesError("שגיאת חיבור");
     }
 
+    const currencies=[...new Set(assets.map(a=>a.currency).filter(c=>c!=="ILS"))];
+    if(currencies.length>0){
+      const rates={};
+      await Promise.all(currencies.map(async c=>{
+        const r=await fetchRate(c);
+        rates[c]=r;
+      }));
+      setCurrentRates(rates);
+    }
+
     setPricesLoading(false);
   };
   const priceAlerts=activeAssets.flatMap(a=>{const ticker=extractTicker(a.security);const current=prices[ticker];const avg=avgBuyPrice(a);if(!current||!avg)return[];const changePct=((current-avg)/avg)*100;if(Math.abs(changePct)>=alertThresh)return[{security:a.security,ticker,changePct,current,avg}];return[];});
@@ -1595,7 +1606,13 @@ ${newsContext}`;
               ))}
             </div>
           )}
-          {lastUpdated&&<div style={{marginTop:8,fontSize:10,color:"rgba(255,255,255,.35)"}}>עודכן: {lastUpdated.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}</div>}
+          {lastUpdated&&(
+            <div style={{marginTop:8,fontSize:10,color:"rgba(255,255,255,.35)"}}>
+              עודכן: {lastUpdated.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}
+              {Object.keys(currentRates).length>0&&` · `}
+              {Object.entries(currentRates).map(([c,r])=>`${c}: ₪${r.toFixed(3)}`).join(" · ")}
+            </div>
+          )}
         </Card>
       )}
 

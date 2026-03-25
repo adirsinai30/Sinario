@@ -615,7 +615,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           </div>
           {(()=>{
             const pct=(combinedTotal/(totalBudget||1))*100;
-            const barColor=combinedTotal>totalBudget?T.danger:pct<70?T.navy:pct<90?"#f59e0b":"#ef4444";
+            const barColor=combinedTotal>totalBudget?T.danger:T.navy;
             return(
               <div style={{background:"#ece8e2",borderRadius:99,height:5,overflow:"hidden",marginBottom:10}}>
                 <div style={{width:`${Math.min(100,pct)}%`,height:"100%",borderRadius:99,background:barColor,transition:"width .7s cubic-bezier(.22,1,.36,1)"}}/>

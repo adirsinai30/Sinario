@@ -478,7 +478,7 @@ function PinScreen({onUnlock}){
     const {data:pinData}=await supabase.from('settings').select('value').eq('key','app_pin').single();
     const correctPin=pinData?.value||'000000';
     if(pinVal===correctPin){
-      try{sessionStorage.setItem("sinario_auth_ts",String(Date.now()));}catch{}
+      try{localStorage.setItem("sinario_auth_ts",String(Date.now()));}catch{}
       onUnlock();
     } else {
       const att=attempts+1;setAttempts(att);
@@ -2948,7 +2948,7 @@ const INVEST_TABS=[
 export default function App(){
   const [authed,setAuthed]=useState(()=>{
     try{
-      const ts=sessionStorage.getItem("sinario_auth_ts");
+      const ts=localStorage.getItem("sinario_auth_ts");
       if(!ts)return false;
       const elapsed=Date.now()-Number(ts);
       return elapsed < 30*60*1000;

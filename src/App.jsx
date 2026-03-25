@@ -1027,17 +1027,24 @@ const handleReceiptUpload=async e=>{
           <div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1}}>פריטים שנותרו</div>
           <div style={{fontSize:26,fontWeight:300,fontFamily:T.display,color:T.text}}>{searchQ?`${active.length} מתוך ${activeAll.length}`:`${activeAll.length} פריטים`}</div>
         </div>
-        {doneAll.length>0&&(
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button onClick={uncheckAll} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              ביטול בחירה
-            </button>
-            <button onClick={()=>setConfirmClear(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,color:T.danger,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-              מחיקה<Icon name="trash" size={13} color={T.danger}/>
-            </button>
-          </div>
-        )}
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button onClick={()=>fileRef.current?.click()} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
+            {scanMsg||"סריקת קובץ"}
+            <Icon name="photo" size={14} color={T.navy}/>
+            {scanMsg&&!scanMsg.startsWith("✓")&&!scanMsg.startsWith("לא")&&<div style={{width:10,height:10,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>}
+          </button>
+          {doneAll.length>0&&(
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <button onClick={uncheckAll} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
+                ביטול בחירה
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+              <button onClick={()=>setConfirmClear(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,color:T.danger,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
+                מחיקה<Icon name="trash" size={13} color={T.danger}/>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add item */}
@@ -1056,14 +1063,6 @@ const handleReceiptUpload=async e=>{
 
       {/* Receipt upload */}
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleReceiptUpload} style={{display:"none"}}/>
-      <Card style={{border:`1.5px dashed ${T.border}`,background:T.bg,padding:14,cursor:"pointer"}} onClick={()=>fileRef.current?.click()}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <Icon name="photo" size={16} color={T.textSub}/>
-          <span style={{fontSize:13,fontWeight:500,color:T.textSub}}>{scanMsg||"העלאת קבלה - תמונה או PDF"}</span>
-          {scanMsg&&!scanMsg.startsWith("✓")&&!scanMsg.startsWith("לא")&&<div style={{width:12,height:12,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>}
-        </div>
-        {!scanMsg&&<div style={{fontSize:11,color:T.textSub,marginTop:3,textAlign:"center"}}>חילוץ פריטים אוטומטי + תצוגה מקדימה לפני שמירה</div>}
-      </Card>
 
       {/* Items list */}
       <Card style={{padding:0,overflow:"hidden"}}>
@@ -1071,7 +1070,7 @@ const handleReceiptUpload=async e=>{
           <div style={{width:24,flexShrink:0}}/>
           <div style={{flex:1,fontSize:10,color:T.textSub,fontWeight:700,letterSpacing:.5,textAlign:"right",paddingRight:10}}>פריט</div>
           <div style={{width:1,height:14,background:T.border,marginLeft:8,flexShrink:0}}/>
-          <div style={{width:COL_QTY+46,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
+          <div style={{width:COL_QTY+40,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
           <div style={{width:22,flexShrink:0}}/>
         </div>
         {active.map((g,i)=>(
@@ -1081,23 +1080,29 @@ const handleReceiptUpload=async e=>{
             <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
             <div style={{display:"flex",gap:3,width:COL_QTY+40,flexShrink:0,alignItems:"center"}}>
               <input type="number" value={g.qty||""} onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,qty:e.target.value}:x))} style={{width:36,background:"transparent",border:"none",padding:"4px 2px",color:T.textMid,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}/>
-              <select value={g.unit||""} onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,unit:e.target.value}:x))} style={{width:62,background:"transparent",border:"none",padding:"4px 2px",paddingLeft:14,color:g.unit?T.textMid:T.textSub,fontSize:11,outline:"none",fontFamily:T.font,appearance:"auto",WebkitAppearance:"auto"}}>
+              <select value={g.unit||""} onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,unit:e.target.value}:x))} style={{width:62,background:"transparent",border:"none",padding:"4px 2px",paddingLeft:14,color:g.unit?T.textMid:T.textSub,fontSize:11,outline:"none",fontFamily:T.font,appearance:"none",WebkitAppearance:"none"}}>
                 <option value="יח'">יח'</option>
                 <option value="ק״ג">ק"ג</option>
                 <option value="ליטר">ליטר</option>
               </select>
             </div>
-            <button onClick={()=>remove(g.id)} style={{background:"none",border:"none",color:T.border,cursor:"pointer",fontSize:17,lineHeight:1,width:22,textAlign:"center",flexShrink:0,marginRight:6}}>×</button>
+            <button onClick={()=>remove(g.id)} style={{background:"none",border:"none",color:"rgb(168,162,158)",cursor:"pointer",fontSize:20,lineHeight:1,width:22,textAlign:"center",flexShrink:0}}>×</button>
           </div>
         ))}
         {done.length>0&&(<>
-          <div style={{padding: "8px 14px 4px",fontSize:10,color:T.textSub,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:T.bg}}>נרכשו</div>
+          <div style={{display:"flex",alignItems:"center",padding:"9px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+            <div style={{width:24,flexShrink:0}}/>
+            <div style={{flex:1,fontSize:10,color:T.textSub,fontWeight:700,letterSpacing:.5,textAlign:"right",paddingRight:10}}>נרכשו</div>
+            <div style={{width:1,height:14,background:T.border,marginLeft:8,flexShrink:0}}/>
+            <div style={{width:COL_QTY+40,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
+            <div style={{width:22,flexShrink:0}}/>
+          </div>
           {done.map((g,i)=>(
             <div key={g.id} style={{display:"flex",alignItems:"center",padding:"8px 14px",opacity:.4,borderBottom:i<done.length-1?`1px solid ${T.border}`:"none"}}>
               <button onClick={()=>toggle(g.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.navy}`,background:T.navy,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:10}}>✓</span></button>
               <div style={{flex:1,fontSize:13,color:T.textSub,textDecoration:"line-through",textAlign:"right",paddingRight:10}}>{highlight(g.name,searchQ)}</div>
               <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
-              <span style={{width:COL_QTY+4,fontSize:12,color:T.textSub,textAlign:"center",flexShrink:0}}>{g.qty}{g.unit?` ${g.unit}`:""}</span>
+              <span style={{width:COL_QTY+40,fontSize:12,color:T.textSub,textAlign:"center",flexShrink:0}}>{g.qty}{g.unit?` ${g.unit}`:""}</span>
               <div style={{width:22,flexShrink:0}}/>
             </div>
           ))}

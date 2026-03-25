@@ -1389,7 +1389,7 @@ const fetchNews = async (force=false) => {
     fetchPrices().catch(()=>{});
     setNewsError("");
     try {
-      const tickers = assets.map(a => extractTicker(a.security)).join(", ");
+      const tickers = activeAssets.map(a => extractTicker(a.security)).join(", ");
       const question = `תן לי סיכום חדשות פיננסיות עדכניות בעברית על: ${tickers}, ועל השוק הכללי (S&P 500, נאסד"ק).
 פורמט JSON בלבד ללא טקסט נוסף:
 {
@@ -1501,7 +1501,7 @@ const fetchNews = async (force=false) => {
 
     setPricesLoading(false);
   };
-  const priceAlerts=assets.flatMap(a=>{const ticker=extractTicker(a.security);const current=prices[ticker];const avg=avgBuyPrice(a);if(!current||!avg)return[];const changePct=((current-avg)/avg)*100;if(Math.abs(changePct)>=alertThresh)return[{security:a.security,ticker,changePct,current,avg}];return[];});
+  const priceAlerts=activeAssets.flatMap(a=>{const ticker=extractTicker(a.security);const current=prices[ticker];const avg=avgBuyPrice(a);if(!current||!avg)return[];const changePct=((current-avg)/avg)*100;if(Math.abs(changePct)>=alertThresh)return[{security:a.security,ticker,changePct,current,avg}];return[];});
   const runAgent = async () => {
     if (!agentQuery.trim()) return;
     const question = agentQuery.trim();
@@ -1686,6 +1686,7 @@ ${newsContext}`;
             .filter(a=>!searchQ||a.security.toLowerCase().includes(searchQ.toLowerCase()))
             .map(a=>{
             const ticker=extractTicker(a.security);const pnl=portfolioView==="active"?unrealizedPnLILS(a):realizedPnLILS(a);
+            const realPnL=realizedPnLILS(a);const realPnLPct=costBasisILS(a)>0?(realPnL/costBasisILS(a))*100:0;
             const pnlPct=(costBasisILS(a)-soldCostILS(a))>0?(unrealizedPnLILS(a)/(costBasisILS(a)-soldCostILS(a)))*100:0;
             const pos=pnl>=0;const price=prices[ticker];const avg=avgBuyPrice(a);const shrs=totalShares(a);const rate=a.currency!=="ILS"?+a.rateUsed:1;
             const isExpanded=expandedId===a.id;
@@ -1696,13 +1697,20 @@ ${newsContext}`;
                     {/* ── סעיף 7ד: highlight ── */}
                     <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:3}}>{highlight(a.security,searchQ)}</div>
                     <div style={{fontSize:11,color:T.textSub}}>{shrs>0?`${(n=>Number.isInteger(Number(n.toFixed(3)))?Number(n).toLocaleString():parseFloat(Number(n).toFixed(3)).toLocaleString(undefined,{maximumFractionDigits:3}))(shrs)} יחידות`:"נמכר"}{" · "}שער ממוצע {fmtForeign(avg,a.currency)}{" · "}{fmt(avg*rate)}/יח׳</div>
-                    {price?(
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
-                        <span style={{fontSize:12,fontWeight:700,color:T.navy,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"2px 10px"}}>{fmtForeign(price,a.currency)}</span>
-                        <span style={{fontSize:11,color:T.textSub}}>{fmt(price*rate)}/יח׳</span>
-                        {avg>0&&<span style={{fontSize:11,fontWeight:700,color:price>=avg?T.success:T.danger,background:price>=avg?T.successBg:T.dangerBg,border:`1px solid ${price>=avg?"#bbf7d0":T.dangerBorder}`,borderRadius:99,padding:"2px 8px"}}>{price>=avg?"+":""}{(((price-avg)/avg)*100).toFixed(1)}%</span>}
+                    {portfolioView==="active"?(
+                      price?(
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
+                          <span style={{fontSize:12,fontWeight:700,color:T.navy,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"2px 10px"}}>{fmtForeign(price,a.currency)}</span>
+                          <span style={{fontSize:11,color:T.textSub}}>{fmt(price*rate)}/יח׳</span>
+                          {avg>0&&<span style={{fontSize:11,fontWeight:700,color:price>=avg?T.success:T.danger,background:price>=avg?T.successBg:T.dangerBg,border:`1px solid ${price>=avg?"#bbf7d0":T.dangerBorder}`,borderRadius:99,padding:"2px 8px"}}>{price>=avg?"+":""}{(((price-avg)/avg)*100).toFixed(1)}%</span>}
+                        </div>
+                      ):<div style={{fontSize:11,color:T.textSub,marginTop:2,fontStyle:"italic"}}>לחצו "מחירים" לעדכון</div>
+                    ):(
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                        <span style={{fontSize:11,fontWeight:700,color:realPnL>=0?T.success:T.danger,background:realPnL>=0?T.successBg:T.dangerBg,borderRadius:99,padding:"3px 10px",border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>{realPnL>=0?"+":""}{fmt(realPnL)} ({realPnLPct.toFixed(1)}%)</span>
+                        {price&&<span style={{fontSize:11,color:T.textSub}}>מחיר נוכחי: {fmtForeign(price,a.currency)} · {fmt(price*rate)}</span>}
                       </div>
-                    ):<div style={{fontSize:11,color:T.textSub,marginTop:2,fontStyle:"italic"}}>לחצו "מחירים" לעדכון</div>}
+                    )}
                   </div>
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
                     {portfolioView==="active"&&<div style={{fontSize:20,fontWeight:600,fontFamily:T.display,color:T.text}}>{fmt(currentValILS(a))}</div>}
@@ -1871,28 +1879,9 @@ ${newsContext}`;
                           </div>
                         </div>
                       )}
-                      {editDiv?.assetId===a.id&&(
-                        <div style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:12,padding:14,marginBottom:8}}>
-                          <div style={{fontSize:12,fontWeight:700,color:T.success,marginBottom:10}}>עריכת דיבידנד</div>
-                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                            <div style={{display:"flex",gap:8}}>
-                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>סכום ({CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency})</div><Inp type="number" value={editDiv.dividend.amount} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,amount:e.target.value}}))}/></div>
-                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={editDiv.dividend.date} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,date:e.target.value}}))}/></div>
-                            </div>
-                            <div style={{display:"flex",gap:8}}>
-                              {a.currency!=="ILS"&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה</div><Inp type="number" value={editDiv.dividend.rateUsed===0||editDiv.dividend.rateUsed===""?"":editDiv.dividend.rateUsed} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,rateUsed:e.target.value}}))}/></div>}
-                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס (%)</div><Inp type="number" value={editDiv.dividend.taxRate||25} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,taxRate:e.target.value}}))}/></div>
-                            </div>
-                            <div style={{display:"flex",gap:8}}>
-                              <Btn onClick={()=>updateDividend({...editDiv.dividend,amount:+editDiv.dividend.amount,rateUsed:+editDiv.dividend.rateUsed||1,taxRate:+editDiv.dividend.taxRate||25})} style={{flex:1,padding:"9px",background:T.success}}>שמירה</Btn>
-                              <Btn variant="secondary" onClick={()=>setEditDiv(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                       {isOpen(a.id,"d")&&assetDividends(a.id).length>0&&(
                         <div style={{borderRadius:10,overflow:"hidden",border:"1px solid #bbf7d0"}}>
-                          {assetDividends(a.id).sort((x,y)=>new Date(y.date)-new Date(x.date)).map((d,di)=>(
+                          {assetDividends(a.id).sort((x,y)=>new Date(y.date)-new Date(x.date)).map((d,di)=>[
                             <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:di<assetDividends(a.id).length-1?"1px solid #dcfce7":"none",background:di%2===0?"#f0faf4":"#fff"}}>
                               <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{new Date(d.date).toLocaleDateString("he-IL")}</div>{d.notes&&<div style={{fontSize:10,color:T.textSub}}>{d.notes}</div>}</div>
                               <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.success}}>+{fmt((+d.amount)*(+d.rateUsed||1))}</div>{a.currency!=="ILS"&&<div style={{fontSize:10,color:T.textSub}}>{d.amount} {CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency}</div>}</div>
@@ -1901,8 +1890,27 @@ ${newsContext}`;
                                 <button onClick={()=>setConfirmDiv(d.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            </div>,
+                            editDiv?.assetId===a.id&&editDiv?.dividend?.id===d.id&&(
+                              <div key={`edit-${d.id}`} style={{background:T.successBg,border:"1px solid #bbf7d0",borderRadius:12,padding:14,margin:"4px 8px 8px"}}>
+                                <div style={{fontSize:12,fontWeight:700,color:T.success,marginBottom:10}}>עריכת דיבידנד</div>
+                                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                                  <div style={{display:"flex",gap:8}}>
+                                    <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>סכום ({CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency})</div><Inp type="number" value={editDiv.dividend.amount} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,amount:e.target.value}}))}/></div>
+                                    <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={editDiv.dividend.date} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,date:e.target.value}}))}/></div>
+                                  </div>
+                                  <div style={{display:"flex",gap:8}}>
+                                    {a.currency!=="ILS"&&<div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה</div><Inp type="number" value={editDiv.dividend.rateUsed===0||editDiv.dividend.rateUsed===""?"":editDiv.dividend.rateUsed} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,rateUsed:e.target.value}}))}/></div>}
+                                    <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס (%)</div><Inp type="number" value={editDiv.dividend.taxRate||25} onChange={e=>setEditDiv(ed=>({...ed,dividend:{...ed.dividend,taxRate:e.target.value}}))}/></div>
+                                  </div>
+                                  <div style={{display:"flex",gap:8}}>
+                                    <Btn onClick={()=>updateDividend({...editDiv.dividend,amount:+editDiv.dividend.amount,rateUsed:+editDiv.dividend.rateUsed||1,taxRate:+editDiv.dividend.taxRate||25})} style={{flex:1,padding:"9px",background:T.success}}>שמירה</Btn>
+                                    <Btn variant="secondary" onClick={()=>setEditDiv(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          ])}
                         </div>
                       )}
                       {isOpen(a.id,"d")&&assetDividends(a.id).length===0&&addDividendId!==a.id&&<div style={{fontSize:11,color:T.textSub,fontStyle:"italic"}}>אין דיבידנדים מתועדים</div>}

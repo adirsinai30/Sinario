@@ -1704,7 +1704,7 @@ ${newsContext}`;
                           <span style={{fontSize:11,color:T.textSub}}>{fmt(price*rate)}/יח׳</span>
                           {avg>0&&<span style={{fontSize:11,fontWeight:700,color:price>=avg?T.success:T.danger,background:price>=avg?T.successBg:T.dangerBg,border:`1px solid ${price>=avg?"#bbf7d0":T.dangerBorder}`,borderRadius:99,padding:"2px 8px"}}>{price>=avg?"+":""}{(((price-avg)/avg)*100).toFixed(1)}%</span>}
                         </div>
-                      ):<div style={{fontSize:11,color:T.textSub,marginTop:2,fontStyle:"italic"}}>לחצו "מחירים" לעדכון</div>
+                      ):""
                     ):(
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
                         <span style={{fontSize:11,fontWeight:700,color:realPnL>=0?T.success:T.danger,background:realPnL>=0?T.successBg:T.dangerBg,borderRadius:99,padding:"3px 10px",border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>{realPnL>=0?"+":""}{fmt(realPnL)} ({realPnLPct.toFixed(1)}%)</span>

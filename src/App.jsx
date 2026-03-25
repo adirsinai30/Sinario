@@ -44,7 +44,6 @@ const DEFAULT_GROCERY = [
 const DEFAULT_MENU_CONCEPTS = ["אסייתי","ים תיכוני","איטלקי","מקסיקני","ישראלי","חלבי","בשרי","דגים","מהיר","חגיגי"];
 const TCAT  = ["טיסות","מלון","ביטוח","תחבורה מקומית","אוכל","בילויים","כרטיסים","אחר"];
 
-const CORRECT_PIN = "2009";
 
 const fmt    = n   => "₪" + Math.round(n).toLocaleString("he-IL");
 const fmtCur = (n,sym) => sym + Number(n).toLocaleString();
@@ -474,13 +473,14 @@ function PinScreen({onUnlock}){
   const [attempts,setAttempts]=useState(0);
   const [locked,setLocked]=useState(false);
   const np=[["1","2","3"],["4","5","6"],["7","8","9"],["⌫","0","✓"]];
-  const submit=useCallback((pinVal)=>{
+  const submit=useCallback(async(pinVal)=>{
     if(locked||shaking)return;
-    if(pinVal===CORRECT_PIN){
-      try{localStorage.setItem("sinario_auth_ts",String(Date.now()));}catch{}
+    const {data:pinData}=await supabase.from('settings').select('value').eq('key','app_pin').single();
+    const correctPin=pinData?.value||'000000';
+    if(pinVal===correctPin){
+      try{sessionStorage.setItem("sinario_auth_ts",String(Date.now()));}catch{}
       onUnlock();
-    }
-    else{
+    } else {
       const att=attempts+1;setAttempts(att);
       if(att>=5){setLocked(true);setTimeout(()=>{setLocked(false);setAttempts(0);setPin("");},30000);return;}
       setShaking(true);setTimeout(()=>{setShaking(false);setPin("");},500);
@@ -826,10 +826,20 @@ function parseReceiptText(rawText){
   return items;
 }
 
-function GroceryTab(){
-  const LISTS_KEY="kp-grocery-lists";
-  const [lists,setLists]=useStorage(LISTS_KEY,[{id:"default",name:"רשימה ראשית",items:DEFAULT_GROCERY}]);
-  const [activeListId,setActiveListId]=useStorage("kp-grocery-active","default");
+function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActiveId}){
+  const lists=groceryLists;
+  const activeListId=groceryActiveId;
+  const setLists=async(newLists)=>{
+    setGroceryLists(newLists);
+    for(const list of newLists){
+      await supabase.from('grocery_lists').upsert({
+        id:list.id,
+        name:list.name,
+        items:list.items||[]
+      });
+    }
+  };
+  const setActiveListId=(id)=>setGroceryActiveId(id);
   const [newItem,setNewItem]=useState({name:"",qty:"1"});
   const [scanMsg,setScanMsg]=useState("");
   const [confirmClear,setConfirmClear]=useState(false);
@@ -2938,7 +2948,7 @@ const INVEST_TABS=[
 export default function App(){
   const [authed,setAuthed]=useState(()=>{
     try{
-      const ts=localStorage.getItem("sinario_auth_ts");
+      const ts=sessionStorage.getItem("sinario_auth_ts");
       if(!ts)return false;
       const elapsed=Date.now()-Number(ts);
       return elapsed < 30*60*1000;
@@ -2960,6 +2970,8 @@ export default function App(){
   const [mealTypesList,    setMealTypesList]    =useState(["ארוחות בוקר","ארוחות צהריים","ארוחות ערב","קינוחים","טאפסים","אחר"]);
   const [recipes,          setRecipes]          =useState([]);
   const [notes,            setNotes]            =useState([]);
+  const [groceryLists,setGroceryLists]=useState([{id:"default",name:"רשימה ראשית",items:[]}]);
+  const [groceryActiveId,setGroceryActiveId]=useState("default");
   const [section,     setSection]     =useState("home");
   const [homeTab,     setHomeTab]     =useState("expenses");
   const [investTab,   setInvestTab]   =useState("portfolio");
@@ -2984,7 +2996,7 @@ export default function App(){
   useEffect(()=>{
     async function loadData(){
       setDataLoading(true);
-      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes]=await Promise.all([
+      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes,groceryRes]=await Promise.all([
         supabase.from('expenses').select('*').order('date',{ascending:false}),
         supabase.from('categories').select('*'),
         supabase.from('settings').select('*').eq('key','monthly_budget').single(),
@@ -3000,7 +3012,8 @@ export default function App(){
         supabase.from('dividends').select('*').order('date',{ascending:false}),
         supabase.from('watchlist').select('*'),
         supabase.from('settings').select('*').eq('key','alert_thresh').single(),
-        supabase.from('meal_types').select('*')
+        supabase.from('meal_types').select('*'),
+        supabase.from('grocery_lists').select('*')
       ]);
       if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
       if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
@@ -3019,6 +3032,9 @@ export default function App(){
       if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
       if(alertThreshRes.data)setAlertThresh(Number(alertThreshRes.data.value)||3);
       if(mealTypesRes.data&&mealTypesRes.data.length>0)setMealTypesList(mealTypesRes.data.map(c=>c.label));
+      if(groceryRes.data&&groceryRes.data.length>0){
+        setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:l.items||[]})));
+      }
       setDataLoading(false);
     }
     if(deviceAuthed&&authed)loadData();
@@ -3074,7 +3090,7 @@ export default function App(){
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
-        {section==="home"&&homeTab==="grocery"  &&<GroceryTab/>}
+        {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}

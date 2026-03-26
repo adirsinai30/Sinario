@@ -732,101 +732,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   );
 }
 
-// ── Pre-processing: שפר את התמונה לפני OCR ──
-async function preprocessImage(file){
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    const url=URL.createObjectURL(file);
-    img.onload=()=>{
-      const canvas=document.createElement("canvas");
-      // הגדל פי 2 לדיוק טוב יותר
-      const scale=Math.min(2, 3000/Math.max(img.width,img.height));
-      canvas.width=img.width*scale;
-      canvas.height=img.height*scale;
-      const ctx=canvas.getContext("2d");
-
-      // רקע לבן
-      ctx.fillStyle="#ffffff";
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-
-      // צייר תמונה מוגדלת
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
-      // שפר ניגודיות
-      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-      const data=imageData.data;
-      for(let i=0;i<data.length;i+=4){
-        // המר לגווני אפור
-        const gray=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
-        // threshold - הפוך לשחור/לבן
-        const bw=gray>128?255:0;
-        data[i]=data[i+1]=data[i+2]=bw;
-      }
-      ctx.putImageData(imageData,0,0);
-
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/png"));
-    };
-    img.onerror=reject;
-    img.src=url;
-  });
-}
-
-// ── פרסור חכם של טקסט קבלה ──
-function parseReceiptText(rawText){
-  const lines=rawText
-    .split("\n")
-    .map(l=>l.trim())
-    .filter(l=>l.length>1);
-
-  // מילים לדילוג
-  const skipPatterns=[
-    /סה.?כ/,/total/i,/מע.?מ/,/vat/i,/שלם/,/cash/i,/change/i,
-    /תודה/,/thank/i,/חשבונית/,/קבלה/,/תאריך/,/date/i,
-    /מספר/,/טלפון/,/phone/i,/קופה/,/פקיד/,
-    /^\d{1,2}[/.]\d{1,2}[/.]\d{2,4}$/,  // תאריך
-    /^\d{2,4}$/,                           // מספר קצר בלבד
-    /^[*\-=_]{2,}$/,                       // קווים מפרידים
-  ];
-
-  const pricePattern=/(\d+[.,]\d{2})\s*$/;  // מחיר בסוף שורה
-  const qtyPattern=/^(\d+)\s*[×xX*]\s*/;    // כמות בתחילה
-
-  const items=[];
-
-  for(const line of lines){
-    // דלג על שורות שלא רלוונטיות
-    if(skipPatterns.some(p=>p.test(line)))continue;
-
-    // חלץ כמות
-    const qtyMatch=line.match(qtyPattern);
-    const qty=qtyMatch?qtyMatch[1]:"1";
-
-    // חלץ מחיר
-    const priceMatch=line.match(pricePattern);
-    const price=priceMatch?parseFloat(priceMatch[1].replace(",",".")):0;
-
-    // נקה את שם המוצר
-    let name=line
-      .replace(qtyPattern,"")
-      .replace(pricePattern,"")
-      .replace(/[\d.,₪$%]+/g," ")
-      .replace(/[×xX*]/g," ")
-      .trim()
-      .replace(/\s+/g," ");
-
-    // וידוא שם תקין
-    if(name.length<2||name.length>60)continue;
-    // דלג אם נשאר רק מספרים/סימנים
-    if(/^[\d\s.,*×%₪$-]+$/.test(name))continue;
-
-    items.push({id:uid(),name,qty,unit:"",checked:false,price});
-  }
-
-  return items;
-}
-
-function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActiveId,loadData}){
+function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActiveId}){
   const lists=groceryLists;
   const activeListId=groceryActiveId;
   const setLists=async(newLists)=>{
@@ -841,14 +747,11 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
   };
   const setActiveListId=(id)=>setGroceryActiveId(id);
   const [newItem,setNewItem]=useState({name:"",qty:"",unit:""});
-  const [scanMsg,setScanMsg]=useState("");
   const [confirmClear,setConfirmClear]=useState(false);
-  const [previewItems,setPreviewItems]=useState(null); // null = no preview
   const [editingListName,setEditingListName]=useState(false);
   const [newListName,setNewListName]=useState("");
   const [showNewList,setShowNewList]=useState(false);
   const [searchQ,setSearchQ]=useState("");
-  const fileRef=useRef();
 
   const activeList=lists.find(l=>l.id===activeListId)||lists[0]||{id:"default",name:"רשימה",items:[]};
   const grocery=activeList.items||[];
@@ -869,73 +772,6 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
   const doneAll=grocery.filter(g=>g.checked);
   const COL_QTY=60;
 
-const handleReceiptUpload=async e=>{
-  const file=e.target.files?.[0];
-  if(!file)return;
-
-  // וידוא שזו תמונה בלבד
-  if(!file.type.startsWith("image/")){
-    setScanMsg("יש להעלות תמונה בלבד (JPG, PNG)");
-    setTimeout(()=>setScanMsg(""),3000);
-    e.target.value="";return;
-  }
-
-  setScanMsg("מכין תמונה…");
-
-  try{
-    // ── שלב 1: Pre-processing - שפר ניגודיות וחדד ──
-    const processedBase64=await preprocessImage(file);
-
-    setScanMsg("מזהה טקסט…");
-
-    // ── שלב 2: טען Tesseract ──
-    if(!window.Tesseract){
-      await new Promise((res,rej)=>{
-        const s=document.createElement("script");
-        s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
-        s.onload=res;s.onerror=rej;
-        document.head.appendChild(s);
-      });
-    }
-
-    // ── שלב 3: הרץ OCR עם עברית + אנגלית ──
-    const {data:{text}}=await window.Tesseract.recognize(
-      processedBase64,
-      "heb+eng",
-      {
-        logger:m=>{
-          if(m.status==="recognizing text")
-            setScanMsg(`מזהה… ${Math.round(m.progress*100)}%`);
-        }
-      }
-    );
-
-    setScanMsg("מפרסר פריטים…");
-
-    // ── שלב 4: עיבוד חכם של הטקסט ──
-    const parsed=parseReceiptText(text);
-
-    if(parsed.length){
-      setPreviewItems(parsed);
-      setScanMsg("");
-    } else {
-      setScanMsg("לא זוהו פריטים - נסו תמונה ברורה יותר");
-      setTimeout(()=>setScanMsg(""),4000);
-    }
-  }catch(err){
-    console.error(err);
-    setScanMsg("שגיאה - נסו שוב");
-    setTimeout(()=>setScanMsg(""),4000);
-  }
-  e.target.value="";
-};
-
-  const confirmPreview=()=>{
-    if(!previewItems)return;
-    setGrocery([...grocery,...previewItems]);
-    setPreviewItems(null);
-  };
-
   const createList=()=>{
     if(!newListName.trim())return;
     const id=uid();
@@ -951,50 +787,6 @@ const handleReceiptUpload=async e=>{
     setLists(remaining);
     if(activeListId===id)setActiveListId(remaining[0].id);
   };
-
-  // ── Preview modal ──
-  if(previewItems){
-    return(
-      <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div>
-            <div style={{fontSize:11,color:T.textSub,fontWeight:600,letterSpacing:1}}>תצוגה מקדימה</div>
-            <div style={{fontSize:22,fontWeight:300,fontFamily:T.display,color:T.text}}>{previewItems.length} פריטים זוהו</div>
-          </div>
-          <button onClick={()=>setPreviewItems(null)} style={{background:"none",border:"none",fontSize:20,color:T.textSub,cursor:"pointer"}}>✕</button>
-        </div>
-        <Card style={{padding:0,overflow:"hidden"}}>
-          <div style={{display:"flex",alignItems:"center",padding:"9px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-            <div style={{flex:1,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"right"}}>שם פריט</div>
-            <div style={{width:COL_QTY,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center"}}>כמות</div>
-            <div style={{width:22}}/>
-          </div>
-          {previewItems.map((item,i)=>(
-            <div key={item.id} style={{display:"flex",alignItems:"center",padding:"9px 14px",borderBottom:i<previewItems.length-1?`1px solid ${T.border}`:"none"}}>
-              <input
-                value={item.name}
-                onChange={e=>setPreviewItems(previewItems.map(x=>x.id===item.id?{...x,name:e.target.value}:x))}
-                style={{flex:1,background:"transparent",border:"none",borderBottom:`1px dashed ${T.border}`,padding:"3px 4px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,textAlign:"right"}}
-              />
-              <input
-                type="number"
-                value={item.qty}
-                onChange={e=>setPreviewItems(previewItems.map(x=>x.id===item.id?{...x,qty:e.target.value}:x))}
-                style={{width:COL_QTY,background:"transparent",border:"none",padding:"4px",color:T.textMid,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}
-              />
-              <button onClick={()=>setPreviewItems(previewItems.filter(x=>x.id!==item.id))} style={{background:"none",border:"none",color:T.border,cursor:"pointer",fontSize:17,lineHeight:1,width:22,textAlign:"center"}}>×</button>
-            </div>
-          ))}
-        </Card>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setPreviewItems(null)} style={{flex:1,padding:"11px",borderRadius:10,border:`1px solid ${T.border}`,background:"transparent",color:T.textMid,fontSize:13,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>ביטול</button>
-          <Btn onClick={confirmPreview} style={{flex:2,padding:"11px",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            הוספת {previewItems.length} פריטים לרשימה<Icon name="plus" size={13} color="#fff"/>
-          </Btn>
-        </div>
-      </div>
-    );
-  }
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
@@ -1028,11 +820,6 @@ const handleReceiptUpload=async e=>{
           <div style={{fontSize:26,fontWeight:300,fontFamily:T.display,color:T.text}}>{searchQ?`${active.length} מתוך ${activeAll.length}`:`${activeAll.length} פריטים`}</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <button onClick={()=>fileRef.current?.click()} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-            {scanMsg||"סריקת קובץ"}
-            <Icon name="photo" size={14} color={T.navy}/>
-            {scanMsg&&!scanMsg.startsWith("✓")&&!scanMsg.startsWith("לא")&&<div style={{width:10,height:10,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>}
-          </button>
           {doneAll.length>0&&(
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <button onClick={uncheckAll} title="ביטול בחירה" style={{display:"flex",alignItems:"center",justifyContent:"center",width:34,height:34,borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,cursor:"pointer",flexShrink:0}}>
@@ -1059,9 +846,6 @@ const handleReceiptUpload=async e=>{
           <Btn onClick={add} style={{padding:"10px 12px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn>
         </div>
       </Card>
-
-      {/* Receipt upload */}
-      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleReceiptUpload} style={{display:"none"}}/>
 
       {/* Items list */}
       <Card style={{padding:0,overflow:"hidden"}}>
@@ -3131,7 +2915,7 @@ export default function App(){
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
-        {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId} loadData={loadData}/>}
+        {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}

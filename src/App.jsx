@@ -826,7 +826,7 @@ function parseReceiptText(rawText){
   return items;
 }
 
-function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActiveId}){
+function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActiveId,loadData}){
   const lists=groceryLists;
   const activeListId=groceryActiveId;
   const setLists=async(newLists)=>{
@@ -3131,7 +3131,7 @@ export default function App(){
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
-        {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
+        {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId} loadData={loadData}/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}

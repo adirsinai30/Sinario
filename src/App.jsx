@@ -1034,13 +1034,12 @@ const handleReceiptUpload=async e=>{
             {scanMsg&&!scanMsg.startsWith("✓")&&!scanMsg.startsWith("לא")&&<div style={{width:10,height:10,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>}
           </button>
           {doneAll.length>0&&(
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <button onClick={uncheckAll} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-                ביטול בחירה
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <button onClick={uncheckAll} title="ביטול בחירה" style={{display:"flex",alignItems:"center",justifyContent:"center",width:34,height:34,borderRadius:10,border:`1px solid ${T.border}`,background:T.bg,color:T.textMid,cursor:"pointer",flexShrink:0}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
-              <button onClick={()=>setConfirmClear(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,color:T.danger,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}>
-                מחיקה<Icon name="trash" size={13} color={T.danger}/>
+              <button onClick={()=>setConfirmClear(true)} title="מחיקת נרכשים" style={{display:"flex",alignItems:"center",justifyContent:"center",width:34,height:34,borderRadius:10,border:`1px solid ${T.dangerBorder}`,background:T.dangerBg,color:T.danger,cursor:"pointer",flexShrink:0}}>
+                <Icon name="trash" size={14} color={T.danger}/>
               </button>
             </div>
           )}

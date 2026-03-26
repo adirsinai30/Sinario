@@ -2865,8 +2865,12 @@ export default function App(){
     if(authed&&deviceAuthed)loadData();
   },[authed,deviceAuthed,loadData]);
   useEffect(()=>{
+    let lastLoad=Date.now();
     const handleFocus=()=>{
-      if(deviceAuthed&&authed)loadData();
+      if(deviceAuthed&&authed&&Date.now()-lastLoad>60000){
+        lastLoad=Date.now();
+        loadData();
+      }
     };
     window.addEventListener('focus',handleFocus);
     return()=>window.removeEventListener('focus',handleFocus);

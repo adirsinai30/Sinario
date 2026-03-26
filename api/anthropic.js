@@ -7,7 +7,7 @@ const apiKey = process.env.GEMINI_KEY_AGENT;
     return res.status(500).json({ error: "GEMINI_KEY_AGENT not set" });
   }
   try {
-    const { messages, max_tokens, system } = req.body;
+    const { messages, max_tokens, system, useSearch } = req.body;
 
     const geminiContents = messages.map(m => {
       // תוכן טקסט פשוט
@@ -54,6 +54,7 @@ const apiKey = process.env.GEMINI_KEY_AGENT;
             maxOutputTokens: max_tokens || 1000,
             temperature: 0.7,
           },
+          ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
         }),
       }
     );

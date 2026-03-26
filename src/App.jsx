@@ -3034,59 +3034,59 @@ export default function App(){
         .catch(err=>console.error('SW error:',err));
     }
   },[]);
-  useEffect(()=>{
-    async function loadData(){
-      setDataLoading(true);
-      const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes,groceryRes]=await Promise.all([
-        supabase.from('expenses').select('*').order('date',{ascending:false}),
-        supabase.from('categories').select('*'),
-        supabase.from('settings').select('*').eq('key','monthly_budget').single(),
-        supabase.from('special_expenses').select('*').order('date',{ascending:false}),
-        supabase.from('special_categories').select('*'),
-        supabase.from('trips').select('*').order('date_from',{ascending:false}),
-        supabase.from('trip_items').select('*'),
-        supabase.from('recipes').select('*').order('created_at',{ascending:false}),
-        supabase.from('notes').select('*').order('date',{ascending:false}),
-        supabase.from('menu_concepts').select('*'),
-        supabase.from('assets').select('*'),
-        supabase.from('asset_transactions').select('*').order('date',{ascending:false}),
-        supabase.from('dividends').select('*').order('date',{ascending:false}),
-        supabase.from('watchlist').select('*'),
-        supabase.from('settings').select('*').eq('key','alert_thresh').single(),
-        supabase.from('meal_types').select('*'),
-        supabase.from('grocery_lists').select('*')
-      ]);
-      if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
-      if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
-      if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
-      if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
-      if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
-      if(tripsRes.data){const items=tripItemsRes.data||[];setTrips(tripsRes.data.map(t=>({id:t.id,name:t.name,budget:t.budget,color:t.color||T.navy,dateFrom:t.date_from,dateTo:t.date_to,notes:t.notes||'',items:items.filter(i=>i.trip_id===t.id).map(i=>({id:i.id,cat:i.cat,label:i.label,amount:i.amount,currency:i.currency||'ILS',rateUsed:i.rate_used||1,notes:i.notes||'',who:i.who||'א'}))})));}
-      if(recipesRes.data)setRecipes(recipesRes.data.map(r=>({id:r.id,type:r.type,name:r.name,categories:r.categories||[],servings:r.servings,prepTime:r.prep_time,cookTime:r.cook_time,ingredients:r.ingredients||[],steps:r.steps||[],sections:r.sections||[],notes:r.notes||'',prepNotes:r.prep_notes||'',concepts:r.concepts||[]})));
-      if(notesRes.data)setNotes(notesRes.data.map(n=>({id:n.id,text:n.text,who:n.who||'א',date:n.date})));
-      if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
-      if(assetsRes.data){
-        const txs=txRes.data||[];const divs=divRes.data||[];
-        setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
-        setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
-      }
-      if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
-      if(alertThreshRes.data)setAlertThresh(Number(alertThreshRes.data.value)||3);
-      if(mealTypesRes.data&&mealTypesRes.data.length>0)setMealTypesList(mealTypesRes.data.map(c=>c.label));
-      if(groceryRes.data&&groceryRes.data.length>0){
-        setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:l.items||[]})));
-      }
-      setDataLoading(false);
+  const loadData=useCallback(async()=>{
+    setDataLoading(true);
+    const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes,groceryRes]=await Promise.all([
+      supabase.from('expenses').select('*').order('date',{ascending:false}),
+      supabase.from('categories').select('*'),
+      supabase.from('settings').select('*').eq('key','monthly_budget').single(),
+      supabase.from('special_expenses').select('*').order('date',{ascending:false}),
+      supabase.from('special_categories').select('*'),
+      supabase.from('trips').select('*').order('date_from',{ascending:false}),
+      supabase.from('trip_items').select('*'),
+      supabase.from('recipes').select('*').order('created_at',{ascending:false}),
+      supabase.from('notes').select('*').order('date',{ascending:false}),
+      supabase.from('menu_concepts').select('*'),
+      supabase.from('assets').select('*'),
+      supabase.from('asset_transactions').select('*').order('date',{ascending:false}),
+      supabase.from('dividends').select('*').order('date',{ascending:false}),
+      supabase.from('watchlist').select('*'),
+      supabase.from('settings').select('*').eq('key','alert_thresh').single(),
+      supabase.from('meal_types').select('*'),
+      supabase.from('grocery_lists').select('*')
+    ]);
+    if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
+    if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
+    if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
+    if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
+    if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
+    if(tripsRes.data){const items=tripItemsRes.data||[];setTrips(tripsRes.data.map(t=>({id:t.id,name:t.name,budget:t.budget,color:t.color||T.navy,dateFrom:t.date_from,dateTo:t.date_to,notes:t.notes||'',items:items.filter(i=>i.trip_id===t.id).map(i=>({id:i.id,cat:i.cat,label:i.label,amount:i.amount,currency:i.currency||'ILS',rateUsed:i.rate_used||1,notes:i.notes||'',who:i.who||'א'}))})));}
+    if(recipesRes.data)setRecipes(recipesRes.data.map(r=>({id:r.id,type:r.type,name:r.name,categories:r.categories||[],servings:r.servings,prepTime:r.prep_time,cookTime:r.cook_time,ingredients:r.ingredients||[],steps:r.steps||[],sections:r.sections||[],notes:r.notes||'',prepNotes:r.prep_notes||'',concepts:r.concepts||[]})));
+    if(notesRes.data)setNotes(notesRes.data.map(n=>({id:n.id,text:n.text,who:n.who||'א',date:n.date})));
+    if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
+    if(assetsRes.data){
+      const txs=txRes.data||[];const divs=divRes.data||[];
+      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
+      setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
     }
-    if(deviceAuthed&&authed)loadData();
-  },[deviceAuthed,authed]);
+    if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
+    if(alertThreshRes.data)setAlertThresh(Number(alertThreshRes.data.value)||3);
+    if(mealTypesRes.data&&mealTypesRes.data.length>0)setMealTypesList(mealTypesRes.data.map(c=>c.label));
+    if(groceryRes.data&&groceryRes.data.length>0){
+      setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:l.items||[]})));
+    }
+    setDataLoading(false);
+  },[]);
+  useEffect(()=>{
+    if(authed&&deviceAuthed)loadData();
+  },[authed,deviceAuthed,loadData]);
   useEffect(()=>{
     const handleFocus=()=>{
       if(deviceAuthed&&authed)loadData();
     };
     window.addEventListener('focus',handleFocus);
     return()=>window.removeEventListener('focus',handleFocus);
-  },[deviceAuthed,authed]);
+  },[deviceAuthed,authed,loadData]);
   if(!deviceAuthed)return <AccessScreen onAccess={()=>setDeviceAuthed(true)}/>;
   if(!authed)return <PinScreen onUnlock={()=>setAuthed(true)}/>;
   if(dataLoading)return(

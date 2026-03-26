@@ -1724,7 +1724,7 @@ ${newsContext}`;
                       ):""
                     ):(
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,fontWeight:700,color:realPnL>=0?T.success:T.danger,background:realPnL>=0?T.successBg:T.dangerBg,borderRadius:99,padding:"3px 10px",border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>{realPnL>=0?"+":""}{fmt(realPnL)} ({realPnLPct.toFixed(1)}%)</span>
+                        <span style={{fontSize:11,fontWeight:700,color:realPnL>=0?T.success:T.danger,background:realPnL>=0?T.successBg:T.dangerBg,borderRadius:99,padding:"3px 10px",border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>{realPnL>=0?"+":""}({realPnLPct.toFixed(1)}%)</span>
                         {price&&<span style={{fontSize:11,color:T.textSub}}>מחיר נוכחי: {fmtForeign(price,a.currency)} · {fmt(price*rate)}</span>}
                       </div>
                     )}

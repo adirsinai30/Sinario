@@ -192,6 +192,16 @@ const globalCss=`
   .rte-editor ul{padding-right:18px;list-style:disc;}
   .rte-editor ol{padding-right:18px;list-style:decimal;}
   .rte-editor li{margin-bottom:2px;}
+  .note-content ol,.recipe-content ol{padding-right:0;margin:4px 0;list-style-position:inside;counter-reset:item;}
+  .note-content ol li,.recipe-content ol li{margin:3px 0;display:block;padding-right:0;}
+  .note-content ol li:before,.recipe-content ol li:before{content:counter(item) ". ";counter-increment:item;display:inline-block;min-width:28px;text-align:right;direction:rtl;}
+  .note-content ul,.recipe-content ul{padding-right:16px;margin:4px 0;}
+  .note-content ul li,.recipe-content ul li{margin:2px 0;}
+  [contenteditable] ol{padding-right:0;list-style-position:inside;counter-reset:item;}
+  [contenteditable] ol li{display:block;margin:3px 0;}
+  [contenteditable] ol li:before{content:counter(item) ". ";counter-increment:item;display:inline-block;min-width:28px;text-align:right;}
+  [contenteditable] ul{padding-right:16px;}
+  [contenteditable] ul li{margin:2px 0;}
 `;
 
 function Card({children,style={},onClick}){return <div onClick={onClick} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:20,boxShadow:"0 1px 3px rgba(0,0,0,.03)",...style}}>{children}</div>;}
@@ -2054,6 +2064,30 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   const blankM={type:"menu",name:"",categories:[],servings:"",concepts:[],sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],notes:""};
   const [form,setForm]=useState(blankR);
   const [notesHtml,setNotesHtml]=useState("");
+  const saveDraft=useCallback((formData,notesData)=>{
+    if(!editId){
+      const deviceId=localStorage.getItem('device_id');
+      localStorage.setItem(`draft_recipe_form_${deviceId}`,JSON.stringify(formData));
+      localStorage.setItem(`draft_recipe_notes_${deviceId}`,notesData||'');
+    }
+  },[editId]);
+  useEffect(()=>{
+    if(showForm&&!editId){
+      const deviceId=localStorage.getItem('device_id');
+      const savedForm=localStorage.getItem(`draft_recipe_form_${deviceId}`);
+      const savedNotes=localStorage.getItem(`draft_recipe_notes_${deviceId}`);
+      if(savedForm){
+        try{
+          const parsed=JSON.parse(savedForm);
+          if(parsed.name||parsed.ingredients?.length||parsed.steps?.length)setForm(parsed);
+        }catch{}
+      }
+      if(savedNotes&&savedNotes.replace(/<[^>]+>/g,'').trim())setNotesHtml(savedNotes);
+    }
+  },[showForm,editId]);
+  useEffect(()=>{
+    if(showForm&&!editId)saveDraft(form,notesHtml);
+  },[form,notesHtml,showForm,editId]);
   const openAdd=()=>{setEditId(null);const b=mode==="recipe"?blankR:{...blankM,sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}]};setForm(b);setNotesHtml("");setShowForm(true);};
   const openEdit=item=>{setEditId(item.id);const f={...item,categories:normCats(item),servings:String(item.servings||""),prepTime:String(item.prepTime||""),cookTime:String(item.cookTime||"")};if(item.type==="menu"&&!f.sections){f.sections=[{id:uid(),title:"מנות",dishes:item.dishes||[""]}];}setForm(f);setNotesHtml(item.notes||item.prepNotes||"");setShowForm(true);setSelected(null);};
   const save=async()=>{
@@ -2070,6 +2104,9 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       await supabase.from('recipes').insert(dbItem);
       setRecipes([saved,...recipes]);
     }
+    const deviceId=localStorage.getItem('device_id');
+    localStorage.removeItem(`draft_recipe_form_${deviceId}`);
+    localStorage.removeItem(`draft_recipe_notes_${deviceId}`);
     setShowForm(false);setEditId(null);setNotesHtml('');
   };
   const doDelete=async id=>{await supabase.from('recipes').delete().eq('id',id);setRecipes(recipes.filter(x=>x.id!==id));setConfirmId(null);if(selected===id)setSelected(null);};
@@ -2130,8 +2167,8 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>
                   {form.steps.map((st,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:10}}>{i+1}</div><textarea value={st} onChange={e=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?e.target.value:x)}))} rows={2} style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,resize:"vertical"}}/></div>)}
                   <button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button>
-                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div>
-                  <RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div>{notesHtml&&!editId&&<button onClick={()=>{const deviceId=localStorage.getItem('device_id');setNotesHtml('');setForm(blankR);localStorage.removeItem(`draft_recipe_form_${deviceId}`);localStorage.removeItem(`draft_recipe_notes_${deviceId}`);}} style={{background:"none",border:"none",fontSize:11,color:T.textSub,cursor:"pointer",padding:"0 8px"}}>הסרת טיוטה</button>}</div>
+                  <RichTextEditor value={notesHtml} onChange={v=>setNotesHtml(v)} placeholder="הכנות מקדימות…"/>
                 </>)}
                 {mode==="menu"&&(<>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div><button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button></div>
@@ -2142,10 +2179,10 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                       <button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button>
                     </div>
                   ))}
-                  <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div>
-                  <RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הערות…"/>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div>{notesHtml&&!editId&&<button onClick={()=>{const deviceId=localStorage.getItem('device_id');setNotesHtml('');setForm(blankR);localStorage.removeItem(`draft_recipe_form_${deviceId}`);localStorage.removeItem(`draft_recipe_notes_${deviceId}`);}} style={{background:"none",border:"none",fontSize:11,color:T.textSub,cursor:"pointer",padding:"0 8px"}}>הסרת טיוטה</button>}</div>
+                  <RichTextEditor value={notesHtml} onChange={v=>setNotesHtml(v)} placeholder="הערות…"/>
                 </>)}
-                <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
+                <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{const deviceId=localStorage.getItem('device_id');localStorage.removeItem(`draft_recipe_form_${deviceId}`);localStorage.removeItem(`draft_recipe_notes_${deviceId}`);setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
               </div>
             </Card>
           )}
@@ -2179,7 +2216,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{menuConceptsList.map(c=><button key={c} onClick={()=>toggleC(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.concepts||[]).includes(c)?T.navyMid:T.border}`,background:(form.concepts||[]).includes(c)?T.navyMid:"transparent",color:(form.concepts||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                   {mode==="recipe"&&(<><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>מצרכים</div>{form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}<button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>{form.steps.map((st,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:10}}>{i+1}</div><textarea value={st} onChange={e=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?e.target.value:x)}))} rows={2} style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,resize:"vertical"}}/></div>)}<button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/></>)}
                   {mode==="menu"&&(<><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div><button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button></div>{(form.sections||[]).map(sec=>(<div key={sec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:12}}><div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}><Inp placeholder="שם החלק" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>{(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}</div>{sec.dishes.map((d,di)=><div key={di} style={{display:"flex",gap:6,marginBottom:6}}><Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>{sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}</div>)}<button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button></div>))}<div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הערות…"/></>)}
-                  <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
+                  <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{const deviceId=localStorage.getItem('device_id');localStorage.removeItem(`draft_recipe_form_${deviceId}`);localStorage.removeItem(`draft_recipe_notes_${deviceId}`);setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
                 </div>
               </Card>
             )
@@ -2206,7 +2243,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
             {sel.type==="recipe"&&(<>
               {sel.ingredients?.length>0&&(<><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>מצרכים</div>{sel.ingredients.map((ing,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><span style={{fontSize:13,color:T.text}}>{ing.item}</span><span style={{fontSize:13,color:T.textSub}}>{ing.qty} {ing.unit}</span></div>)}</>)}
               {sel.steps?.length>0&&<div style={{marginTop:14}}><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>אופן הכנה</div>{sel.steps.map((st,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:10}}><div style={{width:24,height:24,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div><div style={{fontSize:13,color:T.text,lineHeight:1.7}}>{st}</div></div>)}</div>}
-              {sel.prepNotes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הכנות מקדימות</div><div style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.prepNotes}}/></div>}
+              {sel.prepNotes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הכנות מקדימות</div><div className="recipe-content" style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.prepNotes}}/></div>}
             </>)}
             {sel.type==="menu"&&(<>
               {(sel.sections||[]).filter(s=>s.dishes?.some(d=>d.trim())).map(sec=>(
@@ -2215,7 +2252,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   {sec.dishes.filter(d=>d.trim()).map((d,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><div style={{width:6,height:6,borderRadius:"50%",background:T.navy,flexShrink:0}}/><span style={{fontSize:13,color:T.text}}>{d}</span></div>)}
                 </div>
               ))}
-              {sel.notes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הערות</div><div style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.notes}}/></div>}
+              {sel.notes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הערות</div><div className="recipe-content" style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.notes}}/></div>}
             </>)}
           </Card>
         </div>
@@ -2231,6 +2268,12 @@ function NotesTab({notes,setNotes}){
   const [confirmId,setConfirmId]=useState(null);
   // ── סעיף 5א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
+  useEffect(()=>{
+    if(!editId){
+      const draft=localStorage.getItem(`draft_note_${localStorage.getItem('device_id')}`);
+      if(draft&&draft.replace(/<[^>]+>/g,'').trim())setHtml(draft);
+    }
+  },[]);
   const save=async()=>{
     if(!html.replace(/<[^>]+>/g,'').trim())return;
     if(editId){
@@ -2242,6 +2285,7 @@ function NotesTab({notes,setNotes}){
       await supabase.from('notes').insert({id:newNote.id,text:newNote.text,who:newNote.who,date:newNote.date});
       setNotes([newNote,...notes]);
     }
+    localStorage.removeItem(`draft_note_${localStorage.getItem('device_id')}`);
     setHtml('');
   };
   const deleteNote=async id=>{await supabase.from('notes').delete().eq('id',id);setNotes(notes.filter(n=>n.id!==id));setConfirmId(null);};
@@ -2257,17 +2301,20 @@ function NotesTab({notes,setNotes}){
       <SearchBar value={searchQ} onChange={setSearchQ} placeholder="חיפוש בפתקים…" />
       {!editId&&(
         <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,padding:16}}>
-          <RichTextEditor value={html} onChange={setHtml} placeholder="כתיבת פתק…" minHeight={80}/>
+          <RichTextEditor value={html} onChange={v=>{setHtml(v);if(!editId)localStorage.setItem(`draft_note_${localStorage.getItem('device_id')}`,v);}} placeholder="כתיבת פתק…" minHeight={80}/>
           <div style={{display:"flex",gap:8,marginTop:10,alignItems:"center"}}>
             <div style={{display:"flex",gap:6}}>{[["א","אדיר"],["ס","ספיר"]].map(([v,l])=><button key={v} onClick={()=>setWho(v)} style={{padding:"6px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:`1px solid ${who===v?T.navy:T.border}`,background:who===v?T.navyLight:"transparent",color:who===v?T.navy:T.textMid}}>{l}</button>)}</div>
-            <div style={{marginRight:"auto"}}><Btn onClick={save} style={{padding:"8px 20px"}}>שמירה</Btn></div>
+            <div style={{marginRight:"auto",display:"flex",alignItems:"center"}}>
+              {html&&!editId&&<button onClick={()=>{setHtml('');localStorage.removeItem(`draft_note_${localStorage.getItem('device_id')}`);}} style={{background:"none",border:"none",fontSize:11,color:T.textSub,cursor:"pointer",padding:"0 8px"}}>הסרת טיוטה</button>}
+              <Btn onClick={save} style={{padding:"8px 20px"}}>שמירה</Btn>
+            </div>
           </div>
         </Card>
       )}
 
       {filteredNotes.map(note=>[
         <Card key={note.id} style={{padding:16}}>
-          <div style={{fontSize:14,color:T.text,lineHeight:1.7,marginBottom:10}} dangerouslySetInnerHTML={{__html:note.text}}/>
+          <div className="note-content" style={{fontSize:14,color:T.text,lineHeight:1.7,marginBottom:10}} dangerouslySetInnerHTML={{__html:note.text}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:11,color:T.textSub}}>{note.who==="א"?"אדיר":"ספיר"} · {fmtDt(note.date)}</div>
             <ActionBtns onEdit={()=>startEdit(note)} onDelete={()=>setConfirmId(note.id)}/>

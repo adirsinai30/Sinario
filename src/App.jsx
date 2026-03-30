@@ -1246,7 +1246,12 @@ const fetchNews = async (force=false) => {
       "source_date": "תאריך החדשה העיקרית"
     }
   ]
-}`;
+}
+
+כללים חשובים:
+- source_date חייב להיות בפורמט DD.MM.YYYY בלבד (לדוגמה: 30.03.2026)
+- אסור לכלול ציטוטי RSS, מזהי מקור, סוגריים מרובעים, או טקסט בסגנון [cite ...] בשום שדה
+- summary חייב להיות טקסט נקי בעברית בלבד ללא סימנים מיוחדים`;
 
       const resp = await fetch("/api/anthropic", {
         method: "POST",
@@ -1278,13 +1283,30 @@ const fetchNews = async (force=false) => {
         }
       } catch {}
 
+      const cleanSummary=s=>(s||"")
+        .replace(/\[cite[^\]]*\]/gi,"")
+        .replace(/\[\d+[\d.:]*\]/g,"")
+        .trim();
+      const cleanDate=d=>{
+        if(!d)return "";
+        if(/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(d))return d;
+        try{
+          const dt=new Date(d);
+          if(!isNaN(dt.getTime())){
+            const dd=String(dt.getDate()).padStart(2,"0");
+            const mm=String(dt.getMonth()+1).padStart(2,"0");
+            return `${dd}.${mm}.${dt.getFullYear()}`;
+          }
+        }catch{}
+        return d;
+      };
       const results = parsed.map(item => ({
         ticker: item.ticker,
         label: item.label,
         type: item.ticker === "MARKET" ? "market" : "stock",
-        summary: item.summary,
+        summary: cleanSummary(item.summary),
         trend: item.trend || "neutral",
-        source_date: item.source_date || "",
+        source_date: cleanDate(item.source_date),
         articles: [],
         updatedAt: new Date()
       }));
@@ -1932,14 +1954,10 @@ ${newsContext}`;
 
           {/* כרטיסי סיכום */}
           {newsItems.map((group,gi)=>{
-            const trendColor = group.trend==="positive"?T.success
-              :group.trend==="negative"?T.danger:T.textSub;
-            const trendBg = group.trend==="positive"?T.successBg
-              :group.trend==="negative"?T.dangerBg:T.bg;
-            const trendBorder = group.trend==="positive"?"#bbf7d0"
-              :group.trend==="negative"?T.dangerBorder:T.border;
-            const trendIcon = group.trend==="positive"?"📈"
-              :group.trend==="negative"?"📉":"📊";
+            const trendColor=group.trend==="positive"?T.success:group.trend==="negative"?T.danger:T.textSub;
+            const trendBg=group.trend==="positive"?T.successBg:group.trend==="negative"?T.dangerBg:T.bg;
+            const trendBorder=group.trend==="positive"?"#bbf7d0":group.trend==="negative"?T.dangerBorder:T.border;
+            const trendIconName=group.trend==="positive"?"trending":group.trend==="negative"?"trending":"insights";
 
             return(
               <Card key={gi} style={{padding:16}}>
@@ -1947,7 +1965,7 @@ ${newsContext}`;
                 <div style={{display:"flex",justifyContent:"space-between",
                   alignItems:"center",marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:18}}>{trendIcon}</span>
+                    <Icon name={trendIconName} size={13} color={trendColor} style={group.trend==="negative"?{transform:"rotate(180deg)"}:{}}/>
                     <div>
                       <div style={{fontSize:14,fontWeight:700,color:T.text}}>{group.label}</div>
                       {group.type==="stock"&&(
@@ -2932,7 +2950,7 @@ const HOME_TABS=[
 ];
 const INVEST_TABS=[
   {id:"portfolio",label:"תיק השקעות"},
-  {id:"news",     label:"חדשות והתראות"},
+  {id:"news",     label:"חדשות"},
   {id:"agent",    label:"סוכן חכם"},
 ];
 
@@ -2985,7 +3003,7 @@ export default function App(){
   const [trips,            setTrips]            =useState([]);
   const [assets,           setAssets]           =useState([]);
   const [dividends,        setDividends]        =useState([]);
-  const [watchlist,        setWatchlist]        =useState(["AAPL","VOO","BTC","NVDA","TSLA"]);
+  const [watchlist,        setWatchlist]        =useState([]);
   const [priceSnapshots,   setPriceSnapshots]   =useState({});
   const [menuConceptsList, setMenuConceptsList] =useState(DEFAULT_MENU_CONCEPTS);
   const [mealTypesList,    setMealTypesList]    =useState(["ארוחות בוקר","ארוחות צהריים","ארוחות ערב","קינוחים","טאפסים","אחר"]);

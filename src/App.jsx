@@ -2785,10 +2785,10 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
         </>)}
         {tab==="device"&&(<>
           <Card>
-            <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>מי משתמש במכשיר זה?</div>
+            <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>מי אני?</div>
             <div style={{display:"flex",gap:10}}>
               {[["א","אדיר"],["ס","ספיר"]].map(([val,label])=>(
-                <button key={val} onClick={()=>saveDeviceOwner&&saveDeviceOwner(val)} style={{flex:1,padding:"14px 0",borderRadius:12,border:`2px solid ${defaultWho===val?T.navy:T.border}`,background:defaultWho===val?T.navy:"#fff",color:defaultWho===val?"#fff":T.text,fontFamily:T.font,fontSize:14,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{label}</button>
+                <button key={val} onClick={()=>saveDeviceOwner&&saveDeviceOwner(val)} style={{flex: "1 1 0%", padding:"5px 16px",borderRadius:8,border:`1px solid ${defaultWho===val?T.navyBorder:T.border}`,background:defaultWho===val?T.navyLight:"transparent",color:defaultWho===val?T.navy:T.textMid,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{label}</button>
               ))}
             </div>
           </Card>

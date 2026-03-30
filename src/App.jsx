@@ -355,9 +355,9 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
   );
 }
 
-function AddExpenseDrawer({cats,onAdd,onClose,initData=null}){
+function AddExpenseDrawer({cats,onAdd,onClose,initData=null,defaultWho="א"}){
   const [step,setStep]=useState(initData?1:0);
-  const [form,setForm]=useState(initData||{amount:"",desc:"",catId:cats[0]?.id||"",who:"א",date:today()});
+  const [form,setForm]=useState(initData||{amount:"",desc:"",catId:cats[0]?.id||"",who:defaultWho,date:today()});
   const np=[["1","2","3"],["4","5","6"],["7","8","9"],["⌫","0","✓"]];
   const press=k=>{
     if(k==="⌫"){setForm(f=>({...f,amount:f.amount.slice(0,-1)}));return;}
@@ -545,7 +545,7 @@ function PinScreen({onUnlock}){
   );
 }
 
-function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0}){
+function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0,defaultWho="א"}){
   const [expMode,setExpMode]=useState("regular");
   const [showAdd,setShowAdd]=useState(false);
   const [editExp,setEditExp]=useState(null);
@@ -679,7 +679,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           );})}
           {expenses.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין הוצאות עדיין</div>}
         </Card>
-        {showAdd&&<AddExpenseDrawer cats={cats} onAdd={async e=>{await supabase.from('expenses').insert({id:e.id,description:e.desc,amount:e.amount,currency:e.currency||'ILS',rate_used:e.rateUsed||1,cat_id:e.catId,date:e.date,who:e.who||'א'});setExpenses(prev=>[e,...prev]);}} onClose={()=>setShowAdd(false)}/>}
+        {showAdd&&<AddExpenseDrawer cats={cats} defaultWho={defaultWho} onAdd={async e=>{await supabase.from('expenses').insert({id:e.id,description:e.desc,amount:e.amount,currency:e.currency||'ILS',rate_used:e.rateUsed||1,cat_id:e.catId,date:e.date,who:e.who||'א'});setExpenses(prev=>[e,...prev]);}} onClose={()=>setShowAdd(false)}/>}
       </>)}
       {expMode==="special"&&(<>
         <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
@@ -2261,9 +2261,9 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   );
 }
 
-function NotesTab({notes,setNotes}){
+function NotesTab({notes,setNotes,defaultWho="א"}){
   const [html,setHtml]=useState("");
-  const [who,setWho]=useState("א");
+  const [who,setWho]=useState(defaultWho);
   const [editId,setEditId]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
   // ── סעיף 5א: searchQ ──
@@ -2336,7 +2336,7 @@ function NotesTab({notes,setNotes}){
   );
 }
 
-function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
+function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א"}){
   const [sel,setSel]=useState(null);
   const [showNew,setShowNew]=useState(false);
   const [showItem,setShowItem]=useState(false);
@@ -2350,7 +2350,7 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear}){
   const [searchQ,setSearchQ]=useState("");
   const blankTf={name:"",budget:"",dateFrom:"",dateTo:"",color:T.navy};
   const [tf,setTf]=useState(blankTf);
-  const blankItf={cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1",notes:"",who:"א"};
+  const blankItf={cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1",notes:"",who:defaultWho};
   const [itf,setItf]=useState(blankItf);
   const tripTotal=t=>t.items.reduce((s,i)=>s+toILS(i),0);
   const openAddTrip=()=>{setEditTripId(null);setTf(blankTf);setShowNew(true);};
@@ -2693,7 +2693,7 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
   );
 }
 
-function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuConceptsList,setMenuConceptsList,mealTypesList,setMealTypesList,tab,setTab}){
+function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuConceptsList,setMenuConceptsList,mealTypesList,setMealTypesList,tab,setTab,defaultWho="א",saveDeviceOwner}){
   const [calConnected,setCalConnected]=useState(false);
   const [editId,setEditId]=useState(null);
   const [confirmCatId,setConfirmCatId]=useState(null);
@@ -2727,7 +2727,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
     <div style={{padding:"0 0 40px"}}>
       {confirmCatId&&<ConfirmModal message="למחוק קטגוריה זו?" onConfirm={async()=>{await supabase.from('categories').delete().eq('id',confirmCatId);setCats(cats.filter(c=>c.id!==confirmCatId));setConfirmCatId(null);}} onCancel={()=>setConfirmCatId(null)}/>}
       <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
-        {tab==="system"&&(<>
+        {tab==="general"&&(<>
           <Card style={{background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,border:"none",padding:20}}>
             <div style={{fontSize:11,color:"rgba(255,255,255,.6)",fontWeight:600,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>תקציב חודשי כולל</div>
             <div style={{fontSize:38,fontWeight:300,color:"#fff",fontFamily:T.display,letterSpacing:-1}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>
@@ -2780,7 +2780,15 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
             <div style={{display:"flex",gap:8}}><Inp placeholder="סגנון חדש" value={newConcept} onChange={e=>setNewConcept(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newConcept.trim()){addConcept(newConcept);setNewConcept("");}}}/><Btn onClick={()=>{if(newConcept.trim()){addConcept(newConcept);setNewConcept("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
           </Card>
         </>)}
-        {tab==="db"&&(<>
+        {tab==="device"&&(<>
+          <Card>
+            <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>מי משתמש במכשיר זה?</div>
+            <div style={{display:"flex",gap:10}}>
+              {["אדיר","ספיר"].map(name=>(
+                <button key={name} onClick={()=>saveDeviceOwner&&saveDeviceOwner(name)} style={{flex:1,padding:"14px 0",borderRadius:12,border:`2px solid ${defaultWho===name?T.navy:T.border}`,background:defaultWho===name?T.navy:"#fff",color:defaultWho===name?"#fff":T.text,fontFamily:T.font,fontSize:14,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{name}</button>
+              ))}
+            </div>
+          </Card>
           <Card>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><Icon name="calendar" size={18} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>חיבור ל-Google Calendar</div></div>
             <div style={{fontSize:12,color:T.textMid,lineHeight:1.7,marginBottom:14,background:T.navyLight,borderRadius:10,padding:12,border:`1px solid ${T.navyBorder}`}}>יאפשר ייצוא חופשות ישירות ל-Calendar</div>
@@ -2848,7 +2856,8 @@ export default function App(){
   const [homeTab,     setHomeTab]     =useState("expenses");
   const [investTab,   setInvestTab]   =useState("portfolio");
   const [reportTab,   setReportTab]   =useState("monthly");
-  const [settingsTab, setSettingsTab] =useState("system");
+  const [settingsTab, setSettingsTab] =useState("general");
+  const [defaultWho, setDefaultWho]   =useState("א");
   const [month,       setMonth]       =useState(new Date().getMonth());
   const [year,        setYear]        =useState(2026);
   const monthExp=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===month&&d.getFullYear()===year;});
@@ -2867,7 +2876,7 @@ export default function App(){
   },[]);
   const loadData=useCallback(async()=>{
     setDataLoading(true);
-    const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes,groceryRes]=await Promise.all([
+    const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes,groceryRes,deviceRes]=await Promise.all([
       supabase.from('expenses').select('*').order('date',{ascending:false}),
       supabase.from('categories').select('*'),
       supabase.from('settings').select('*').eq('key','monthly_budget').single(),
@@ -2884,7 +2893,8 @@ export default function App(){
       supabase.from('watchlist').select('*'),
       supabase.from('settings').select('*').eq('key','alert_thresh').single(),
       supabase.from('meal_types').select('*'),
-      supabase.from('grocery_lists').select('*')
+      supabase.from('grocery_lists').select('*'),
+      supabase.from('devices').select('*').eq('device_id',localStorage.getItem('device_id')||'').maybeSingle()
     ]);
     if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
     if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
@@ -2906,7 +2916,14 @@ export default function App(){
     if(groceryRes.data&&groceryRes.data.length>0){
       setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:l.items||[]})));
     }
+    if(deviceRes.data?.owner)setDefaultWho(deviceRes.data.owner);
     setDataLoading(false);
+  },[]);
+  const saveDeviceOwner=useCallback(async(owner)=>{
+    const deviceId=localStorage.getItem('device_id');
+    if(!deviceId)return;
+    await supabase.from('devices').upsert({device_id:deviceId,owner},{onConflict:'device_id'});
+    setDefaultWho(owner);
   },[]);
   useEffect(()=>{
     if(authed&&deviceAuthed)loadData();
@@ -2961,18 +2978,18 @@ export default function App(){
   {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
   {section==="invest"&&(<div style={{marginTop:0}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
   {section==="reports"&&(<div style={{borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{[["monthly","חודשי"],["annual","שנתי"],["split","חלוקה"],["insights","תובנות"]].map(([id,l])=>(<button key={id} onClick={()=>setReportTab(id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${reportTab===id?T.navy:"#e0dbd4"}`,background:reportTab===id?T.navy:"#f7f5f2",color:reportTab===id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:reportTab===id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</button>))}</div></div>)}
-  {section==="settings"&&(<div style={{borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{[["system","מערכת"],["db","נתונים"]].map(([id,l])=>(<button key={id} onClick={()=>setSettingsTab(id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${settingsTab===id?T.navy:"#e0dbd4"}`,background:settingsTab===id?T.navy:"#f7f5f2",color:settingsTab===id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:settingsTab===id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</button>))}</div></div>)}
+  {section==="settings"&&(<div style={{borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{[["general","כללי"],["device","מכשיר"]].map(([id,l])=>(<button key={id} onClick={()=>setSettingsTab(id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${settingsTab===id?T.navy:"#e0dbd4"}`,background:settingsTab===id?T.navy:"#f7f5f2",color:settingsTab===id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:settingsTab===id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</button>))}</div></div>)}
 </div>
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
-        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal}/>}
+        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
-        {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes}/>}
-        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear}/>}
+        {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
+        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho}/>}
         {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} alertThresh={alertThresh} setAlertThresh={setAlertThresh}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab}/>}
-        {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab}/>}
+        {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner}/>}
       </div>
     </div>
   );

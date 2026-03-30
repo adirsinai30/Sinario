@@ -1302,10 +1302,9 @@ const fetchNews = async (force=false) => {
   },[tab]);
 
   const fetchPrices=async()=>{
-    const allTickers=[...new Set([
-      ...assets.map(a=>extractTicker(a.security)),
-      ...watchlist
-    ])];
+    const allTickers=[...new Set(
+      assets.map(a=>extractTicker(a.security))
+    )];
     if(!allTickers.length)return;
     setPricesLoading(true);
     setPricesError("");
@@ -1457,6 +1456,39 @@ ${newsContext}`;
               {Object.entries(currentRates).map(([c,r])=>`${c}: ₪${r.toFixed(3)}`).join(" · ")}
             </div>
           )}
+          {activeAssets.length>0&&(
+            <div style={{marginTop:12,borderTop:"1px solid rgba(255,255,255,.15)",paddingTop:10,display:"flex",flexDirection:"column",gap:4}}>
+              {activeAssets.map(a=>{
+                const ticker=extractTicker(a.security);
+                const avg=avgBuyPrice(a);
+                const current=prices[ticker];
+                const snapshot=priceSnapshots[ticker];
+                const basePrice=current||snapshot;
+                const basePct=avg&&basePrice?(((basePrice-avg)/avg)*100):null;
+                const snapPct=current&&snapshot?(((current-snapshot)/snapshot)*100):null;
+                return(
+                  <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:5}}>
+                      <Icon name="trending" size={11} color="rgba(255,255,255,.7)"/>
+                      <span style={{fontSize:11,color:"rgba(255,255,255,.7)",fontWeight:600}}>{a.security}</span>
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      {basePct!==null&&(
+                        <span style={{fontSize:11,fontWeight:700,color:basePct>=0?"#86efac":"#fca5a5"}}>
+                          {basePct>=0?"+":""}{basePct.toFixed(2)}% מקנייה
+                        </span>
+                      )}
+                      {snapPct!==null&&(
+                        <span style={{fontSize:10,color:"rgba(255,255,255,.5)"}}>
+                          ({snapPct>=0?"+":""}{snapPct.toFixed(2)}% אחרון)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
       )}
 
@@ -1605,7 +1637,7 @@ ${newsContext}`;
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <Icon name="target" size={13} color={T.textMid}/>
                           <span style={{fontSize:12,fontWeight:600,color:T.textMid}}>התראת מחיר</span>
-                          {snapshot&&<span style={{fontSize:10,color:T.textSub}}>בסיס: {fmt(snapshot)}</span>}
+                          {snapshot&&<span style={{fontSize:10,color:T.textSub}}>בסיס: ${Number(snapshot).toFixed(2)}</span>}
                         </div>
                         {a.alertPct&&(
                           <button onClick={()=>saveAssetAlertPct&&saveAssetAlertPct(a.id,null)}

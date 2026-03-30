@@ -166,6 +166,7 @@ function Icon({name,size=16,color="currentColor"}){
     building:"M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21",
     music:"M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z",
     restaurant:"M12 3.75c-1.5 0-2.75.75-3.5 1.875C7.5 6.75 7.5 8.25 7.5 9.75H4.5a.75.75 0 0 0 0 1.5h15a.75.75 0 0 0 0-1.5h-3c0-1.5 0-3-.95-4.125C14.75 4.5 13.5 3.75 12 3.75ZM3.75 12.75a.75.75 0 0 1 .75.75 7.5 7.5 0 0 0 15 0 .75.75 0 0 1 1.5 0 9 9 0 0 1-18 0 .75.75 0 0 1 .75-.75Z",
+    user:"M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z",
   };
   return(
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -1184,16 +1185,38 @@ const fetchNews = async (force=false) => {
     fetchPrices().catch(()=>{});
     setNewsError("");
     try {
-      const tickers = activeAssets.map(a => extractTicker(a.security)).join(", ");
-      const question = `תן לי סיכום חדשות פיננסיות עדכניות בעברית על: ${tickers}, ועל השוק הכללי (S&P 500, נאסד"ק).
-פורמט JSON בלבד ללא טקסט נוסף:
+      const tickerList = activeAssets.map(a => {
+        const ticker = extractTicker(a.security);
+        const price = prices[ticker];
+        const avg = avgBuyPrice(a);
+        const pnlPct = price && avg ? (((price-avg)/avg)*100).toFixed(1) : null;
+        return `${ticker} (${a.security})${pnlPct ? ` | P&L נוכחי: ${pnlPct}%` : ""}`;
+      }).join(", ");
+
+      const question = `אתה אנליסט פיננסי מקצועי. סכם חדשות פיננסיות עדכניות בעברית.
+
+ניירות ערך בתיק: ${tickerList}
+תאריך היום: ${new Date().toLocaleDateString("he-IL")}
+
+הוראות:
+- השתמש אך ורק בכותרות ה-RSS שסופקו + חיפוש Google לאימות
+- לכל נייר: ציין את החדשה המרכזית ביותר מ-48 השעות האחרונות
+- אם אין חדשה ספציפית — ציין מגמת שוק רלוונטית
+- הזכר תאריכים ספציפיים כשאפשר
+- השוק הכללי: התייחס ל-S&P 500, נאסד"ק, ריבית הפד
+
+פורמט JSON בלבד, ללא טקסט לפני או אחרי:
 {
   "items": [
-    {"ticker": "AAPL", "label": "Apple", "summary": "...", "trend": "positive/negative/neutral"},
-    {"ticker": "MARKET", "label": "שוק כללי", "summary": "...", "trend": "positive/negative/neutral"}
+    {
+      "ticker": "TICKER",
+      "label": "שם החברה",
+      "summary": "סיכום 2-3 משפטים עם עובדות ספציפיות ותאריכים",
+      "trend": "positive/negative/neutral",
+      "source_date": "תאריך החדשה העיקרית"
+    }
   ]
-}
-2-3 משפטים לכל נייר. מגמה חיובית/שלילית/ניטרלית.`;
+}`;
 
       const resp = await fetch("/api/anthropic", {
         method: "POST",
@@ -1201,6 +1224,8 @@ const fetchNews = async (force=false) => {
         body: JSON.stringify({
           max_tokens: 8192,
           useSearch: true,
+          useNews: true,
+          newsTickers: activeAssets.map(a => extractTicker(a.security)),
           messages: [{ role: "user", content: question }]
         })
       });
@@ -1229,6 +1254,7 @@ const fetchNews = async (force=false) => {
         type: item.ticker === "MARKET" ? "market" : "stock",
         summary: item.summary,
         trend: item.trend || "neutral",
+        source_date: item.source_date || "",
         articles: [],
         updatedAt: new Date()
       }));
@@ -1887,6 +1913,9 @@ ${newsContext}`;
                 {/* תאריך עדכון */}
                 <div style={{fontSize:10,color:T.textSub,marginTop:8,textAlign:"left"}}>
                   {group.updatedAt?.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}
+                  {group.source_date&&(
+                    <div style={{fontSize:10,color:T.textSub,marginTop:2}}>מקור: {group.source_date}</div>
+                  )}
                 </div>
               </Card>
             );
@@ -2573,10 +2602,7 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א
   );
 }
 
-function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYear,reportTab,setReportTab}){
-  const [savingsGoal,setSavingsGoal]=useStorage("kp-savings-goal",3000);
-  const [editGoal,setEditGoal]=useState(false);
-  const [goalInput,setGoalInput]=useState("");
+function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYear,reportTab,setReportTab,savingsGoal=3000}){
   const [drillCat,setDrillCat]=useState(null);
   const monthExp=e=>{const d=new Date(e.date||e.expense_date||"");return d.getMonth()===month&&d.getFullYear()===year;};
   const prevM=month===0?11:month-1;const prevY=month===0?year-1:year;
@@ -2621,13 +2647,13 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
             {totalSpecial>0&&<div style={{marginTop:6,fontSize:11,color:T.textSub}}>הוצאות שוטפות {fmt(totalSpent)} + מיוחדות {fmt(totalSpecial)}</div>}
           </Card>
           <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="target" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:600,color:T.navy}}>יעד חיסכון חודשי</div></div>
-              <button onClick={()=>{setEditGoal(v=>!v);setGoalInput(String(savingsGoal));}} style={{background:"none",border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>{editGoal?"סגור":"עריכה"}</button>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <Icon name="target" size={15} color={T.navy}/>
+              <div style={{fontSize:13,fontWeight:600,color:T.navy}}>יעד חיסכון חודשי</div>
             </div>
-            {editGoal?(<div style={{display:"flex",gap:8}}><Inp type="number" placeholder="יעד חיסכון ₪" value={goalInput} onChange={e=>setGoalInput(e.target.value)} style={{flex:1}}/><Btn onClick={()=>{setSavingsGoal(+goalInput||0);setEditGoal(false);}} style={{padding:"10px 16px"}}>שמור</Btn></div>):(
-              <><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:12,color:T.textMid}}>נחסך בפועל</span><span style={{fontSize:14,fontWeight:600,color:savedThisMonth>=savingsGoal?T.success:T.danger}}>{fmt(savedThisMonth)}</span></div><PBar value={savedThisMonth} max={savingsGoal||1} color={savedThisMonth>=savingsGoal?T.success:T.navy} h={6}/><div style={{marginTop:6,fontSize:11,color:T.textMid}}>{savingsGoal>0?`יעד: ${fmt(savingsGoal)}`:"לא הוגדר יעד"}</div></>
-            )}
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:12,color:T.textMid}}>נחסך בפועל</span><span style={{fontSize:14,fontWeight:600,color:savedThisMonth>=savingsGoal?T.success:T.danger}}>{fmt(savedThisMonth)}</span></div>
+            <PBar value={savedThisMonth} max={savingsGoal||1} color={savedThisMonth>=savingsGoal?T.success:T.navy} h={6}/>
+            <div style={{marginTop:6,fontSize:11,color:T.textMid}}>{savingsGoal>0?`יעד: ${fmt(savingsGoal)}`:"לא הוגדר יעד"}</div>
           </Card>
           <Card>
             <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>השוואה לחודש קודם</div>
@@ -2696,7 +2722,9 @@ function ReportsSection({expenses,specialItems=[],cats,month,year,setMonth,setYe
   );
 }
 
-function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuConceptsList,setMenuConceptsList,mealTypesList,setMealTypesList,tab,setTab,defaultWho="א",saveDeviceOwner}){
+function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuConceptsList,setMenuConceptsList,mealTypesList,setMealTypesList,tab,setTab,defaultWho="א",saveDeviceOwner,savingsGoal=3000,setSavingsGoal}){
+  const [editGoal,setEditGoal]=useState(false);
+  const [goalInput,setGoalInput]=useState("");
   const [calConnected,setCalConnected]=useState(false);
   const [editId,setEditId]=useState(null);
   const [confirmCatId,setConfirmCatId]=useState(null);
@@ -2735,6 +2763,24 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
             <div style={{fontSize:11,color:"rgba(255,255,255,.6)",fontWeight:600,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>תקציב חודשי כולל</div>
             <div style={{fontSize:38,fontWeight:300,color:"#fff",fontFamily:T.display,letterSpacing:-1}}>{fmt(cats.reduce((s,c)=>s+c.budget,0))}</div>
             <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:4}}>מחולק על {cats.length} קטגוריות</div>
+            <div style={{borderTop:"1px solid rgba(255,255,255,.15)",marginTop:12,paddingTop:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editGoal?8:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <Icon name="target" size={13} color="rgba(255,255,255,.8)"/>
+                  <span style={{fontSize:12,fontWeight:600,color:"rgba(255,255,255,.8)"}}>יעד חיסכון חודשי</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  {!editGoal&&<span style={{fontSize:13,fontWeight:600,color:"#fff"}}>{savingsGoal>0?fmt(savingsGoal):"לא הוגדר"}</span>}
+                  <button onClick={()=>{setEditGoal(v=>!v);setGoalInput(String(savingsGoal));}} style={{background:"none",border:"1px solid rgba(255,255,255,.3)",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:"#fff",fontFamily:T.font,fontWeight:600}}>{editGoal?"ביטול":"עריכה"}</button>
+                </div>
+              </div>
+              {editGoal&&(
+                <div style={{display:"flex",gap:8,marginTop:8}}>
+                  <Inp type="number" placeholder="יעד חיסכון ₪" value={goalInput} onChange={e=>setGoalInput(e.target.value)} style={{flex:1}}/>
+                  <Btn onClick={()=>{setSavingsGoal&&setSavingsGoal(+goalInput||0);setEditGoal(false);}} style={{padding:"10px 16px"}}>שמירה</Btn>
+                </div>
+              )}
+            </div>
           </Card>
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -2866,6 +2912,7 @@ export default function App(){
   const [reportTab,   setReportTab]   =useState("monthly");
   const [settingsTab, setSettingsTab] =useState("general");
   const [defaultWho, setDefaultWho]   =useState("א");
+  const [savingsGoal, setSavingsGoal] =useStorage("kp-savings-goal",3000);
   const [month,       setMonth]       =useState(new Date().getMonth());
   const [year,        setYear]        =useState(2026);
   const monthExp=expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===month&&d.getFullYear()===year;});
@@ -3002,8 +3049,8 @@ export default function App(){
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho}/>}
         {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} alertThresh={alertThresh} setAlertThresh={setAlertThresh}/>}
-        {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab}/>}
-        {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner}/>}
+        {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
+        {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>
     </div>
   );

@@ -2785,7 +2785,12 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
         </>)}
         {tab==="device"&&(<>
           <Card>
-            <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>מי אני?</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <Icon name="user" size={15} color={T.navy}/>
+                <div style={{fontSize:13,fontWeight:700,color:T.navy}}>מי אני?</div>
+              </div>
+            </div>
             <div style={{display:"flex",gap:10}}>
               {[["א","אדיר"],["ס","ספיר"]].map(([val,label])=>(
                 <button key={val} onClick={()=>saveDeviceOwner&&saveDeviceOwner(val)} style={{flex: "1 1 0%", padding:"5px 16px",borderRadius:8,border:`1px solid ${defaultWho===val?T.navyBorder:T.border}`,background:defaultWho===val?T.navyLight:"transparent",color:defaultWho===val?T.navy:T.textMid,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{label}</button>

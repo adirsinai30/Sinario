@@ -30,13 +30,34 @@ async function fetchRSSHeadlines(tickers) {
   return headlines;
 }
 
+let keyIndex = 0;
+
+function getApiKeys() {
+  return [
+    process.env.GEMINI_KEY_1,
+    process.env.GEMINI_KEY_2,
+    process.env.GEMINI_KEY_3,
+  ].filter(Boolean);
+}
+
+async function callGemini(apiKey, body) {
+  return fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
-const apiKey = process.env.GEMINI_KEY_AGENT;
-  if (!apiKey) {
-    return res.status(500).json({ error: "GEMINI_KEY_AGENT not set" });
+  const keys = getApiKeys();
+  if (!keys.length) {
+    return res.status(500).json({ error: "No Gemini API keys configured" });
   }
   try {
     const { messages, max_tokens, system, useSearch, useNews, newsTickers } = req.body;
@@ -90,21 +111,39 @@ const apiKey = process.env.GEMINI_KEY_AGENT;
       });
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: geminiContents,
-          generationConfig: {
-            maxOutputTokens: max_tokens || 1000,
-            temperature: 0.7,
-          },
-          ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
-        }),
+    const geminiBody = {
+      contents: geminiContents,
+      generationConfig: {
+        maxOutputTokens: max_tokens || 1000,
+        temperature: 0.7,
+      },
+      ...(useSearch ? { tools: [{ googleSearch: {} }] } : {}),
+    };
+
+    let response;
+    const startIndex = keyIndex % keys.length;
+
+    for (let attempt = 0; attempt < keys.length; attempt++) {
+      const currentIndex = (startIndex + attempt) % keys.length;
+      try {
+        response = await callGemini(keys[currentIndex], geminiBody);
+        if (response.status === 429) {
+          console.warn(`GEMINI_KEY_${currentIndex + 1} hit rate limit, trying next...`);
+          response = null;
+          continue;
+        }
+        keyIndex = (currentIndex + 1) % keys.length;
+        break;
+      } catch (err) {
+        console.warn(`GEMINI_KEY_${currentIndex + 1} error: ${err.message}`);
+        response = null;
+        continue;
       }
-    );
+    }
+
+    if (!response) {
+      return res.status(429).json({ error: "כל ה-API keys הגיעו ללימיט. נסה שוב מאוחר יותר." });
+    }
 
     const geminiData = await response.json();
 

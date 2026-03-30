@@ -2946,9 +2946,15 @@ export default function App(){
   if(!authed)return <PinScreen onUnlock={()=>setAuthed(true)}/>;
   if(dataLoading)return(
     <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.font}}>
-      <div style={{textAlign:"center"}}>
-        <div style={{width:40,height:40,border:`3px solid ${T.navyLight}`,borderTop:`3px solid ${T.navy}`,borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 12px"}}/>
-        <div style={{fontSize:13,color:T.textSub}}>טוען נתונים...</div>
+      <style>{globalCss}</style>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:20}}>
+        <div style={{display:"flex",flexDirection:"row-reverse",alignItems:"center",gap:10}}>
+          <div style={{width:38,height:38,borderRadius:11,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(30,58,95,.15)",border:`1px solid ${T.navyBorder}`}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
+          </div>
+          <div style={{fontFamily:"system-ui,sans-serif",color:T.navy,letterSpacing:"2px",fontWeight:300,fontSize:"16px",direction:"ltr"}}>SINARIO</div>
+        </div>
+        <div style={{width:28,height:28,border:`2.5px solid ${T.navyLight}`,borderTop:`2.5px solid ${T.navy}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
       </div>
     </div>
   );

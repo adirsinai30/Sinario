@@ -932,7 +932,7 @@ function DividendPreview({amount, rateUsed, taxRate}){
   );
 }
 
-function TradeForm({mode,form,setForm,onSave,onCancel,currency}){
+function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={}}){
   const isBuy=mode==="buy";
   const curSym=CURRENCIES.find(c=>c.code===currency)?.symbol||currency;
   const r=currency!=="ILS"?(+form.rateUsed||3.68):1;
@@ -1409,21 +1409,33 @@ ${newsContext}`;
           <div style={{color:"rgba(255,255,255,.55)",fontSize:11,fontWeight:700,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>שווי תיק</div>
           <div style={{fontSize:40,fontWeight:300,fontFamily:T.display,color:"#fff",letterSpacing:-2,marginBottom:4}}>{fmt(totalPortfolio)}</div>
           <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}>
-            {[["רווח ממומש",totalRealized,totalRealized>=0],["רווח דיבידנדים",allDividendsTotal,allDividendsTotal>=0],["רווח/הפסד %",totalPnLPct,totalPnLPct>=0,`${totalPnLPct>=0?"+":""}${totalPnLPct.toFixed(1)}%`],["רווח/הפסד שוטף",totalPnL,totalPnL>=0]].map(([label,val,pos,display])=>(
+            {[["רווח ממומש",totalRealized,totalRealized>=0],["רווח דיבידנדים",allDividendsTotal,allDividendsTotal>=0],["רווח/הפסד %",totalPnLPct,totalPnLPct>=0,`${totalPnLPct>=0?"+":""}${totalPnLPct.toFixed(2)}%`],["רווח/הפסד שוטף",totalPnL,totalPnL>=0]].map(([label,val,pos,display])=>(
               <div key={label} style={{flex:1,minWidth:80,background:"rgba(255,255,255,.1)",borderRadius:12,padding:"10px 12px",border:"1px solid rgba(255,255,255,.13)"}}>
                 <div style={{fontSize:10,color:"rgba(255,255,255,.5)",fontWeight:600,marginBottom:3}}>{label}</div>
                 <div style={{fontSize:16,fontWeight:700,color:pos?"#86efac":"#fca5a5",fontFamily:T.display}}>{display||(val>=0?"+":"")+fmt(val)}</div>
               </div>
             ))}
           </div>
-          {priceAlerts.length>0&&(
-            <div style={{marginTop:12,borderTop:"1px solid rgba(255,255,255,.15)",paddingTop:10}}>
-              {priceAlerts.map(a=>(
-                <div key={a.ticker} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                  <div style={{display:"flex",alignItems:"center",gap:5}}><Icon name="trending" size={11} color="rgba(255,255,255,.7)"/><span style={{fontSize:11,color:"rgba(255,255,255,.7)",fontWeight:600}}>{a.security}</span></div>
-                  <span style={{fontSize:12,fontWeight:700,color:a.changePct>=0?"#86efac":"#fca5a5"}}>{a.changePct>=0?"+":""}{a.changePct.toFixed(1)}% לעומת שער קנייה</span>
-                </div>
-              ))}
+          {activeAssets.length>0&&prices&&Object.keys(prices).length>0&&(
+            <div style={{marginTop:12,borderTop:"1px solid rgba(255,255,255,.15)",paddingTop:10,display:"flex",flexDirection:"column",gap:4}}>
+              {activeAssets.map(a=>{
+                const ticker=extractTicker(a.security);
+                const current=prices[ticker];
+                const avg=avgBuyPrice(a);
+                if(!current||!avg)return null;
+                const changePct=((current-avg)/avg)*100;
+                return(
+                  <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:5}}>
+                      <Icon name="trending" size={11} color="rgba(255,255,255,.7)"/>
+                      <span style={{fontSize:11,color:"rgba(255,255,255,.7)",fontWeight:600}}>{a.security}</span>
+                    </div>
+                    <span style={{fontSize:12,fontWeight:700,color:changePct>=0?"#86efac":"#fca5a5"}}>
+                      {changePct>=0?"+":""}{changePct.toFixed(2)}% לעומת שער קנייה
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
           {lastUpdated&&(
@@ -1539,12 +1551,12 @@ ${newsContext}`;
                         <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
                           <span style={{fontSize:12,fontWeight:700,color:T.navy,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"2px 10px"}}>{fmtForeign(price,a.currency)}</span>
                           <span style={{fontSize:11,color:T.textSub}}>{fmt(price*rate)}/יח׳</span>
-                          {avg>0&&<span style={{fontSize:11,fontWeight:700,color:price>=avg?T.success:T.danger,background:price>=avg?T.successBg:T.dangerBg,border:`1px solid ${price>=avg?"#bbf7d0":T.dangerBorder}`,borderRadius:99,padding:"2px 8px"}}>{price>=avg?"+":""}{(((price-avg)/avg)*100).toFixed(1)}%</span>}
+                          {avg>0&&<span style={{fontSize:11,fontWeight:700,color:price>=avg?T.success:T.danger,background:price>=avg?T.successBg:T.dangerBg,border:`1px solid ${price>=avg?"#bbf7d0":T.dangerBorder}`,borderRadius:99,padding:"2px 8px"}}>{price>=avg?"+":""}{(((price-avg)/avg)*100).toFixed(2)}%</span>}
                         </div>
                       ):""
                     ):(
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,fontWeight:700,color:realPnL>=0?T.success:T.danger,background:realPnL>=0?T.successBg:T.dangerBg,borderRadius:99,padding:"3px 10px",border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>{realPnL>=0?"+":""}({realPnLPct.toFixed(1)}%)</span>
+                        <span style={{fontSize:11,fontWeight:700,color:realPnL>=0?T.success:T.danger,background:realPnL>=0?T.successBg:T.dangerBg,borderRadius:99,padding:"3px 10px",border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>{realPnL>=0?"+":""}({realPnLPct.toFixed(2)}%)</span>
                         {price&&<span style={{fontSize:11,color:T.textSub}}>מחיר נוכחי: {fmtForeign(price,a.currency)} · {fmt(price*rate)}</span>}
                       </div>
                     )}
@@ -1558,9 +1570,9 @@ ${newsContext}`;
                 {isExpanded&&(
                   <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:14}}>
                     <div style={{display:"flex",gap:6,marginBottom:12}}>
-                      <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(a.rateUsed)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
-                      {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(a.rateUsed)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger}}>מכירה +</button>}
-                      <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm(blankDividend);}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.successBg,border:"1px solid #bbf7d0",color:T.success}}>דיבידנד +</button>
+                      <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
+                      {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger}}>מכירה +</button>}
+                      <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm({...blankDividend,rateUsed:String(currentRates?.[a.currency]||currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.successBg,border:"1px solid #bbf7d0",color:T.success}}>דיבידנד +</button>
                     </div>
                     <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:8,display:"flex",alignItems:"center"}}>
                   <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"p")}>
@@ -1619,7 +1631,7 @@ ${newsContext}`;
                         </div>
                       );
                     })()}
-                    {addPurchaseId===a.id&&<TradeForm mode="buy" form={purchaseForm} setForm={setPurchaseForm} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency}/>}
+                    {addPurchaseId===a.id&&<TradeForm mode="buy" form={purchaseForm} setForm={setPurchaseForm} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency} currentRates={currentRates}/>}
                     {((a.sales||[]).length>0||portfolioView==="active")&&(
                       <div style={{marginTop:12}}>
                         <div style={{fontSize:11,fontWeight:700,color:T.danger,marginBottom:8,display:"flex",alignItems:"center"}}>
@@ -1685,7 +1697,7 @@ ${newsContext}`;
                             </div>
                           );
                         })()}
-                        {addSaleId===a.id&&<TradeForm mode="sell" form={saleForm} setForm={setSaleForm} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency}/>}
+                        {addSaleId===a.id&&<TradeForm mode="sell" form={saleForm} setForm={setSaleForm} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency} currentRates={currentRates}/>}
                       </div>
                     )}
                     <div style={{marginTop:12}}>
@@ -1934,7 +1946,7 @@ ${newsContext}`;
                   <div style={{display:"flex",alignItems:"center",gap:6}}><Icon name="trending" size={13} color={T.navy}/><span style={{fontSize:13,fontWeight:600,color:T.navy}}>{a.security}</span></div>
                   <span style={{fontSize:13,fontWeight:700,
                     color:a.changePct>=0?T.success:T.danger}}>
-                    {a.changePct>=0?"+":""}{a.changePct.toFixed(1)}% ממחיר קנייה
+                    {a.changePct>=0?"+":""}{a.changePct.toFixed(2)}% ממחיר קנייה
                   </span>
                 </div>
               ))}
@@ -1998,7 +2010,7 @@ ${newsContext}`;
                 return(
                   <div key={a.id} style={{background:"rgba(255,255,255,.1)",borderRadius:8,padding:"6px 10px",border:"1px solid rgba(255,255,255,.15)"}}>
                     <div style={{fontSize:11,fontWeight:700,color:"#fff"}}>{ticker}</div>
-                    {pnlPct!==null&&<div style={{fontSize:10,fontWeight:600,color:pnlPct>=0?"#86efac":"#fca5a5"}}>{pnlPct>=0?"+":""}{pnlPct.toFixed(1)}%</div>}
+                    {pnlPct!==null&&<div style={{fontSize:10,fontWeight:600,color:pnlPct>=0?"#86efac":"#fca5a5"}}>{pnlPct>=0?"+":""}{pnlPct.toFixed(2)}%</div>}
                   </div>
                 );
               })}

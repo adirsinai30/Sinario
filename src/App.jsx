@@ -406,6 +406,44 @@ function AccessScreen({onAccess}){
   const [locked,setLocked]=useState(false);
 
   const submit=async()=>{
+    if(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'){
+      const res=await fetch('/api/verify-access',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({code})
+      }).catch(()=>null);
+      if(!res||!res.ok){
+        // Vercel Functions לא רצות בלוקאל — השווה ל-env ישירות
+        const localCode=import.meta.env.VITE_ACCESS_CODE||"";
+        if(!localCode||code!==localCode){
+          setError("קוד שגוי");
+          setCode("");
+          return;
+        }
+        const deviceId=localStorage.getItem('device_id')||crypto.randomUUID();
+        const deviceName=navigator.userAgent.includes('Mobile')?'Mobile':'Desktop';
+        localStorage.setItem('device_id',deviceId);
+        await supabase.from('devices').upsert({
+          device_id:deviceId,
+          device_name:deviceName,
+          last_seen:new Date().toISOString()
+        },{onConflict:'device_id'});
+        localStorage.setItem('device_authorized','1');
+        onAccess();
+        return;
+      }
+      const data=await res.json();
+      if(data.valid){
+        const deviceId=localStorage.getItem('device_id')||crypto.randomUUID();
+        localStorage.setItem('device_id',deviceId);
+        localStorage.setItem('device_authorized','1');
+        onAccess();
+      } else {
+        setError("קוד שגוי");
+        setCode("");
+      }
+      return;
+    }
     if(locked)return;
     const res=await fetch('/api/verify-access',{
       method:'POST',
@@ -2914,6 +2952,7 @@ export default function App(){
         }else{
           localStorage.removeItem('device_authorized');
           localStorage.removeItem('device_id');
+          localStorage.removeItem('sinario_auth_ts');
           setDeviceAuthed(false);
         }
       }catch{

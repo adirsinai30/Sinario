@@ -1388,42 +1388,72 @@ const fetchNews = async (force=false) => {
 
     setPricesLoading(false);
   };
-  const runAgent = async () => {
-    if (!agentQuery.trim()) return;
-    const question = agentQuery.trim();
-    setAgentQuery("");
+  const runAgent = async (overrideQuery) => {
+    const question = (overrideQuery||agentQuery).trim();
+    if (!question) return;
+    if(!overrideQuery)setAgentQuery("");
     setAgentLoading(true);
 
-    const totalPortfolioILS = assets.reduce((s,a) => s + currentValILS(a), 0);
+    // טען חדשות אם לא נטענו עדיין
+    if(newsItems.length===0){
+      await fetchNews().catch(()=>{});
+    }
+
+    const totalPortfolioILS = activeAssets.reduce((s,a) => s + currentValILS(a), 0);
     const portfolioLines = activeAssets.map(a => {
       const ticker = extractTicker(a.security);
       const price = prices[ticker];
+      const snapshot = priceSnapshots[ticker];
       const avg = avgBuyPrice(a);
       const valILS = currentValILS(a);
       const pnl = unrealizedPnLILS(a);
-      const pnlPct = avg && price ? (((price - avg) / avg) * 100).toFixed(1) : "?";
-      const weight = totalPortfolioILS ? ((valILS / totalPortfolioILS) * 100).toFixed(1) : "?";
-      return `${a.security}: ${totalShares(a).toFixed(4)} יח׳ | קנייה ${fmtForeign(avg,a.currency)} | נוכחי ${price ? fmtForeign(price,a.currency) : "לא ידוע"} | שווי ${fmt(valILS)} (${weight}%) | P&L ${pnl>=0?"+":""}${fmt(pnl)} (${pnlPct}%)`;
-    }).join("\n");
+      const pnlPct = avg && price ? (((price-avg)/avg)*100).toFixed(2) : "?";
+      const snapPct = price && snapshot ? (((price-snapshot)/snapshot)*100).toFixed(2) : null;
+      const weight = totalPortfolioILS ? ((valILS/totalPortfolioILS)*100).toFixed(2) : "?";
+      const divTotal = totalDividendsILS(a);
+      return `${a.security} [${ticker}]:
+  - יחידות: ${totalShares(a).toFixed(4)} | שער קנייה ממוצע: ${fmtForeign(avg,a.currency)}
+  - מחיר נוכחי: ${price ? fmtForeign(price,a.currency) : "לא ידוע"}${snapPct!==null?` (${snapPct>=0?"+":""}${snapPct}% מאתמול)`:""}
+  - שווי: ${fmt(valILS)} (${weight}% מהתיק)
+  - P&L לא ממומש: ${pnl>=0?"+":""}${fmt(pnl)} (${pnlPct}%)
+  - דיבידנדים כולל: ${fmt(divTotal)}`;
+    }).join("\n\n");
+
+    const realizedLines = soldAssets.length > 0
+      ? `\nניירות שנמכרו: ${soldAssets.map(a=>`${a.security}: P&L ממומש ${fmt(realizedPnLILS(a))}`).join(", ")}`
+      : "";
 
     const newsContext = newsItems.length > 0
-      ? newsItems.map(g => `${g.label}: ${g.summary||"אין סיכום"}`).join("\n")
-      : "לא נמשכו חדשות";
+      ? newsItems.map(g=>`${g.label} (${g.trend}): ${g.summary||"אין סיכום"}`).join("\n")
+      : "חדשות לא נטענו";
 
-    const isFirstMessage = agentHistory.length === 0;
-    const systemPrompt = `אתה סוכן השקעות אישי בשם סינריו - סוכן השקעות. עונה בעברית בלבד.
-    כללים: תשובות ספציפיות עם מספרים מהתיק. תמציתי (3-5 משפטים). אל תמליץ על קנייה/מכירה חד-משמעית - הצג שיקולים. אם אין מחירים - ציין.
-    ${isFirstMessage ? 'בפתיחת שיחה - הצג את עצמך במשפט אחד קצר.' : 'אל תציג את עצמך שוב - המשך את השיחה ישירות.'}
+    const systemPrompt = `אתה יועץ השקעות אישי ומקצועי של המשתמש. שמך סינריו.
+עונה תמיד בעברית. סגנון: ישיר, מקצועי, ממוקד נתונים.
 
-תיק:
-${portfolioLines || "ריק"}
-סה"כ: ${fmt(totalPortfolioILS)} | P&L: ${fmt(totalPnL)} | ממומש: ${fmt(totalRealized)}
+כללי ייעוץ:
+- תמיד התבסס על נתוני התיק האמיתיים המצורפים
+- ציין מספרים ספציפיים (%, שקלים, יחידות) ולא רק כיוונים כלליים
+- הצג שיקולים מנוגדים — יתרונות מול סיכונים
+- הצג תרחישים והמלץ על קנייה/מכירה לפי מגמות המנייה והשוק
+- אם מחירים לא עדכניים — ציין זאת במפורש
+- אורך תשובה: 4-7 משפטים לשאלות כלליות, 6-10 לניתוח מעמיק
+- לשאלות על נייר ספציפי — התייחס לחדשות הרלוונטיות אם קיימות
 
-חדשות:
+נתוני התיק (${new Date().toLocaleDateString("he-IL")}):
+סה"כ שווי: ${fmt(totalPortfolioILS)}
+P&L שוטף: ${totalPnL>=0?"+":""}${fmt(totalPnL)} (${totalPnLPct.toFixed(2)}%)
+P&L ממומש: ${fmt(totalRealized)}
+דיבידנדים כולל: ${fmt(allDividendsTotal)}
+
+פירוט ניירות:
+${portfolioLines||"תיק ריק"}
+${realizedLines}
+
+חדשות שוק עדכניות:
 ${newsContext}`;
 
-    const conversationHistory = agentHistory.slice(-4).flatMap(h => [
-      { role: "user",      content: h.q },
+    const conversationHistory = agentHistory.slice(-6).flatMap(h => [
+      { role: "user", content: h.q },
       { role: "assistant", content: h.a }
     ]);
 
@@ -1438,10 +1468,10 @@ ${newsContext}`;
         })
       });
       const data = await resp.json();
-      const text = (data.content||[]).map(b=>b.text||"").join("") || data.error || "שגיאה - נסו שוב";
-      setAgentHistory(h => [...h, { id:uid(), q:question, a:text, date:new Date().toISOString() }]);
+      const text = (data.content||[]).map(b=>b.text||"").join("") || data.error || "שגיאה — נסו שוב";
+      setAgentHistory(h=>[...h,{id:uid(),q:question,a:text,date:new Date().toISOString()}]);
     } catch {
-      setAgentHistory(h => [...h, { id:uid(), q:question, a:"שגיאה בחיבור. נסו שוב.", date:new Date().toISOString() }]);
+      setAgentHistory(h=>[...h,{id:uid(),q:question,a:"שגיאה בחיבור. נסו שוב.",date:new Date().toISOString()}]);
     }
     setAgentLoading(false);
   };
@@ -2108,20 +2138,84 @@ ${newsContext}`;
 
           {agentHistory.length===0&&!agentLoading&&(
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <div style={{fontSize:11,color:T.textSub,fontWeight:700,marginBottom:4,textAlign:"right"}}>שאלו את הסוכן</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,.5)",fontWeight:700,marginBottom:4,textAlign:"right"}}>
+                התחל שיחה
+              </div>
+
+              {/* כפתורי ניתוח תיק */}
+              <div style={{fontSize:10,color:"rgba(255,255,255,.35)",fontWeight:600,marginBottom:2,textAlign:"right"}}>
+                ניתוח תיק
+              </div>
               {[
-                ...activeAssets.slice(0,2).map(a=>`האם כדאי להגדיל את הפוזיציה ב-${extractTicker(a.security)}?`),
-                "מהו הנייר עם הביצועים הגרועים? האם למכור?",
-                "האם התיק שלי מגוון מספיק?",
+                "נתח את התיק שלי — חוזקות, חולשות וסיכונים",
+                "האם התיק מגוון מספיק? מה חסר?",
+                "מה הנייר עם הביצועים הגרועים ביותר? האם למכור?",
                 "השווה את התיק למדד S&P 500",
-                "מה הסיכונים העיקריים בתיק?",
               ].map((s,i)=>(
-                <button key={i} onClick={()=>setAgentQuery(s)}
-                  style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,padding:"11px 14px",textAlign:"right",cursor:"pointer",fontFamily:T.font,fontSize:13,color:T.text,display:"flex",alignItems:"center",justifyContent:"flex-start",gap:8,transition:"border-color .15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor=T.navy}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                <button key={i} onClick={()=>{ setAgentQuery(s); setTimeout(()=>runAgent(),0); }}
+                  style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",
+                    borderRadius:10,padding:"10px 14px",textAlign:"right",cursor:"pointer",
+                    fontFamily:T.font,fontSize:12,color:"rgba(255,255,255,.85)",
+                    display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,
+                    transition:"background .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.14)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.08)"}>
+                  <Icon name="trending" size={12} color="rgba(255,255,255,.5)"/>
                   <span>{s}</span>
-                  <Icon name="trending" size={13} color={T.navyMid}/>
+                </button>
+              ))}
+
+              {/* כפתורי ניירות ספציפיים */}
+              {activeAssets.length>0&&(<>
+                <div style={{fontSize:10,color:"rgba(255,255,255,.35)",fontWeight:600,marginTop:6,marginBottom:2,textAlign:"right"}}>
+                  ניירות ספציפיים
+                </div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                  {activeAssets.map(a=>{
+                    const ticker=extractTicker(a.security);
+                    const price=prices[ticker];
+                    const avg=avgBuyPrice(a);
+                    const pnlPct=price&&avg?(((price-avg)/avg)*100):null;
+                    return(
+                      <button key={a.id}
+                        onClick={()=>{ setAgentQuery(`נתח את ${a.security} — כדאי להגדיל, להחזיק או למכור?`); setTimeout(()=>runAgent(),0); }}
+                        style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",
+                          borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:T.font,
+                          display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+                          transition:"background .15s"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.14)"}
+                        onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.08)"}>
+                        <span style={{fontSize:12,fontWeight:700,color:"#fff"}}>{ticker}</span>
+                        {pnlPct!==null&&(
+                          <span style={{fontSize:10,fontWeight:600,color:pnlPct>=0?"#86efac":"#fca5a5"}}>
+                            {pnlPct>=0?"+":""}{pnlPct.toFixed(2)}%
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>)}
+
+              {/* כפתורי כיווני השקעה */}
+              <div style={{fontSize:10,color:"rgba(255,255,255,.35)",fontWeight:600,marginTop:6,marginBottom:2,textAlign:"right"}}>
+                כיווני השקעה
+              </div>
+              {[
+                "הצע כיוון השקעה חדש שמשלים את התיק הנוכחי",
+                "מה הסיכונים המרכזיים בשוק כרגע שרלוונטיים לתיק?",
+                "איזה סקטורים חסרים בתיק שלי?",
+              ].map((s,i)=>(
+                <button key={i} onClick={()=>{ setAgentQuery(s); setTimeout(()=>runAgent(),0); }}
+                  style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",
+                    borderRadius:10,padding:"10px 14px",textAlign:"right",cursor:"pointer",
+                    fontFamily:T.font,fontSize:12,color:"rgba(255,255,255,.85)",
+                    display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,
+                    transition:"background .15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.14)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,.08)"}>
+                  <Icon name="sparkle" size={12} color="rgba(255,255,255,.5)"/>
+                  <span>{s}</span>
                 </button>
               ))}
             </div>
@@ -2134,7 +2228,7 @@ ${newsContext}`;
                 placeholder="שאלו שאלה על התיק שלכם…"
                 rows={2}
                 style={{flex:1,background:"transparent",border:"none",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,resize:"none",direction:"rtl",lineHeight:1.5}}/>
-              <button onClick={runAgent} disabled={agentLoading||!agentQuery.trim()}
+              <button onClick={()=>runAgent()} disabled={agentLoading||!agentQuery.trim()}
                 style={{width:36,height:36,borderRadius:10,flexShrink:0,background:agentQuery.trim()?T.navy:T.border,border:"none",cursor:agentQuery.trim()?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
                 <span style={{transform:"scaleX(-1)",display:"flex"}}><Icon name="plane" size={15} color="#fff"/></span>
               </button>

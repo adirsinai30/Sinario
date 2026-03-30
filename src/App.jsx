@@ -1059,7 +1059,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={}})
   );
 }
 
-function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,alertThresh,setAlertThresh}){
+function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},saveAssetAlertPct}){
   const [agentHistory,setAgentHistory]=useState([]);
   const [portfolioView,setPortfolioView]=useState("active");
   const [expandedId,setExpandedId]=useState(null);
@@ -1200,7 +1200,6 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const deleteDividend=async(id)=>{await supabase.from('dividends').delete().eq('id',id);setDividends(dividends.filter(d=>d.id!==id));setConfirmDiv(null);};
   const addToWatchlist=async(ticker)=>{if(watchlist.includes(ticker))return;await supabase.from('watchlist').insert({id:uid(),ticker});setWatchlist([...watchlist,ticker]);};
   const removeFromWatchlist=async(ticker)=>{await supabase.from('watchlist').delete().eq('ticker',ticker);setWatchlist(watchlist.filter(t=>t!==ticker));};
-  const saveAlertThresh=async(val)=>{await supabase.from('settings').upsert({key:'alert_thresh',value:String(val)});setAlertThresh(val);};
 
   useEffect(()=>{
     if(tab==="news" && newsItems.length===0) fetchNews();
@@ -1342,6 +1341,11 @@ const fetchNews = async (force=false) => {
 
       if(Object.keys(result).length){
         setPrices(result);
+        const upserts=Object.entries(result).map(([ticker,price])=>({
+          ticker,price,updated_at:new Date().toISOString()
+        }));
+        supabase.from('price_snapshots').upsert(upserts,{onConflict:'ticker'}).then(()=>{});
+        setPriceSnapshots(prev=>({...prev,...result}));
         setLastUpdated(new Date());
       } else {
         setPricesError("לא ניתן לקבל מחירים כרגע");
@@ -1447,28 +1451,6 @@ ${newsContext}`;
               </div>
             ))}
           </div>
-          {activeAssets.length>0&&prices&&Object.keys(prices).length>0&&(
-            <div style={{marginTop:12,borderTop:"1px solid rgba(255,255,255,.15)",paddingTop:10,display:"flex",flexDirection:"column",gap:4}}>
-              {activeAssets.map(a=>{
-                const ticker=extractTicker(a.security);
-                const current=prices[ticker];
-                const avg=avgBuyPrice(a);
-                if(!current||!avg)return null;
-                const changePct=((current-avg)/avg)*100;
-                return(
-                  <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:5}}>
-                      <Icon name="trending" size={11} color="rgba(255,255,255,.7)"/>
-                      <span style={{fontSize:11,color:"rgba(255,255,255,.7)",fontWeight:600}}>{a.security}</span>
-                    </div>
-                    <span style={{fontSize:12,fontWeight:700,color:changePct>=0?"#86efac":"#fca5a5"}}>
-                      {changePct>=0?"+":""}{changePct.toFixed(2)}% לעומת שער קנייה
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
           {lastUpdated&&(
             <div style={{marginTop:8,fontSize:10,color:"rgba(255,255,255,.35)"}}>
               עודכן: {lastUpdated.toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"})}
@@ -1570,12 +1552,31 @@ ${newsContext}`;
             const pnlPct=(costBasisILS(a)-soldCostILS(a))>0?(unrealizedPnLILS(a)/(costBasisILS(a)-soldCostILS(a)))*100:0;
             const pos=pnl>=0;const price=prices[ticker];const avg=avgBuyPrice(a);const shrs=totalShares(a);const rate=a.currency!=="ILS"?+a.rateUsed:1;
             const isExpanded=expandedId===a.id;
+            const snapshot=priceSnapshots[ticker];
+            const alertTriggered=snapshot&&a.alertPct&&prices[ticker]
+              ?Math.abs(((prices[ticker]-snapshot)/snapshot)*100)>=a.alertPct
+              :false;
+            const alertDiff=snapshot&&prices[ticker]
+              ?((prices[ticker]-snapshot)/snapshot)*100
+              :null;
             const cardEl=(
               <Card key={a.id} style={{padding:16}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,cursor:"pointer"}} onClick={()=>setExpandedId(isExpanded?null:a.id)}>
                   <div style={{flex:1}}>
                     {/* ── סעיף 7ד: highlight ── */}
-                    <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:3}}>{highlight(a.security,searchQ)}</div>
+                    <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:3,display:"flex",alignItems:"center",flexWrap:"wrap",gap:4}}>
+                      {highlight(a.security,searchQ)}
+                      {alertTriggered&&alertDiff!==null&&(
+                        <span style={{display:"flex",alignItems:"center",gap:3,fontSize:10,fontWeight:700,
+                          background:alertDiff>=0?"#dcfce7":"#fef2f2",
+                          color:alertDiff>=0?T.success:T.danger,
+                          border:`1px solid ${alertDiff>=0?"#bbf7d0":T.dangerBorder}`,
+                          borderRadius:99,padding:"2px 8px",marginRight:6}}>
+                          <Icon name="trending" size={10} color={alertDiff>=0?T.success:T.danger}/>
+                          {alertDiff>=0?"+":""}{alertDiff.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
                     <div style={{fontSize:11,color:T.textSub}}>{shrs>0?`${(n=>Number.isInteger(Number(n.toFixed(3)))?Number(n).toLocaleString():parseFloat(Number(n).toFixed(3)).toLocaleString(undefined,{maximumFractionDigits:3}))(shrs)} יחידות`:"נמכר"}{" · "}שער ממוצע {fmtForeign(avg,a.currency)}{" · "}{fmt(avg*rate)}/יח׳</div>
                     {portfolioView==="active"?(
                       price?(
@@ -1600,6 +1601,34 @@ ${newsContext}`;
                 </div>
                 {isExpanded&&(
                   <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:14}}>
+                    <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${T.border}`,marginBottom:12}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <Icon name="target" size={13} color={T.textMid}/>
+                          <span style={{fontSize:12,fontWeight:600,color:T.textMid}}>התראת מחיר</span>
+                          {snapshot&&<span style={{fontSize:10,color:T.textSub}}>בסיס: {fmt(snapshot)}</span>}
+                        </div>
+                        {a.alertPct&&(
+                          <button onClick={()=>saveAssetAlertPct&&saveAssetAlertPct(a.id,null)}
+                            style={{fontSize:11,color:T.danger,background:"none",border:"none",
+                              cursor:"pointer",fontFamily:T.font}}>
+                            הסר
+                          </button>
+                        )}
+                      </div>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                        {[1,2,3,5,10].map(pct=>(
+                          <button key={pct} onClick={()=>saveAssetAlertPct&&saveAssetAlertPct(a.id,a.alertPct===pct?null:pct)}
+                            style={{padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,
+                              fontWeight:600,cursor:"pointer",
+                              border:`1px solid ${a.alertPct===pct?T.navy:T.border}`,
+                              background:a.alertPct===pct?T.navy:"transparent",
+                              color:a.alertPct===pct?"#fff":T.textMid}}>
+                            {pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div style={{display:"flex",gap:6,marginBottom:12}}>
                       <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
                       {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger}}>מכירה +</button>}
@@ -1963,52 +1992,6 @@ ${newsContext}`;
               </Card>
             );
           })}
-
-          {/* התראות מחיר */}
-          {priceAlerts.length>0&&(
-            <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight,padding:16}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10}}>
-                <Icon name="target" size={14} color={T.navy}/>
-                <span style={{fontSize:13,fontWeight:700,color:T.navy}}>התראות מחיר פעילות</span>
-              </div>
-              {priceAlerts.map(a=>(
-                <div key={a.ticker} style={{display:"flex",justifyContent:"space-between",
-                  alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.navyBorder}`}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}><Icon name="trending" size={13} color={T.navy}/><span style={{fontSize:13,fontWeight:600,color:T.navy}}>{a.security}</span></div>
-                  <span style={{fontSize:13,fontWeight:700,
-                    color:a.changePct>=0?T.success:T.danger}}>
-                    {a.changePct>=0?"+":""}{a.changePct.toFixed(2)}% ממחיר קנייה
-                  </span>
-                </div>
-              ))}
-              <div style={{fontSize:11,color:T.textSub,marginTop:8}}>
-                עדכן מחירים כדי לרענן התראות
-              </div>
-            </Card>
-          )}
-
-          {/* סף התראה */}
-          <Card style={{padding:16}}>
-            <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:12}}>
-              <Icon name="settings" size={14} color={T.textMid}/>
-              <span style={{fontSize:13,fontWeight:700,color:T.text}}>סף התראת מחיר</span>
-            </div>
-            <div style={{fontSize:12,color:T.textSub,marginBottom:10}}>
-              הצג התראה כשמחיר משתנה ב-X% ממחיר הקנייה
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              {[2,3,5,10].map(v=>(
-                <button key={v} onClick={()=>saveAlertThresh(v)}
-                  style={{flex:1,padding:"8px",borderRadius:10,fontFamily:T.font,
-                    fontSize:13,fontWeight:700,cursor:"pointer",
-                    border:`1px solid ${alertThresh===v?T.navy:T.border}`,
-                    background:alertThresh===v?T.navy:"transparent",
-                    color:alertThresh===v?"#fff":T.textSub}}>
-                  {v}%
-                </button>
-              ))}
-            </div>
-          </Card>
 
         </div>
       )}
@@ -2972,7 +2955,7 @@ export default function App(){
   const [assets,           setAssets]           =useState([]);
   const [dividends,        setDividends]        =useState([]);
   const [watchlist,        setWatchlist]        =useState(["AAPL","VOO","BTC","NVDA","TSLA"]);
-  const [alertThresh,      setAlertThresh]      =useState(3);
+  const [priceSnapshots,   setPriceSnapshots]   =useState({});
   const [menuConceptsList, setMenuConceptsList] =useState(DEFAULT_MENU_CONCEPTS);
   const [mealTypesList,    setMealTypesList]    =useState(["ארוחות בוקר","ארוחות צהריים","ארוחות ערב","קינוחים","טאפסים","אחר"]);
   const [recipes,          setRecipes]          =useState([]);
@@ -3004,7 +2987,7 @@ export default function App(){
   },[]);
   const loadData=useCallback(async()=>{
     setDataLoading(true);
-    const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,alertThreshRes,mealTypesRes,groceryRes,deviceRes]=await Promise.all([
+    const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,mealTypesRes,groceryRes,deviceRes,snapshotsRes]=await Promise.all([
       supabase.from('expenses').select('*').order('date',{ascending:false}),
       supabase.from('categories').select('*'),
       supabase.from('settings').select('*').eq('key','monthly_budget').single(),
@@ -3019,10 +3002,10 @@ export default function App(){
       supabase.from('asset_transactions').select('*').order('date',{ascending:false}),
       supabase.from('dividends').select('*').order('date',{ascending:false}),
       supabase.from('watchlist').select('*'),
-      supabase.from('settings').select('*').eq('key','alert_thresh').single(),
       supabase.from('meal_types').select('*'),
       supabase.from('grocery_lists').select('*'),
-      supabase.from('devices').select('*').eq('device_id',localStorage.getItem('device_id')||'').maybeSingle()
+      supabase.from('devices').select('*').eq('device_id',localStorage.getItem('device_id')||'').maybeSingle(),
+      supabase.from('price_snapshots').select('*')
     ]);
     if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
     if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
@@ -3035,16 +3018,20 @@ export default function App(){
     if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
     if(assetsRes.data){
       const txs=txRes.data||[];const divs=divRes.data||[];
-      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
+      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,alertPct:a.alert_pct||null,purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
       setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
     }
     if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
-    if(alertThreshRes.data)setAlertThresh(Number(alertThreshRes.data.value)||3);
     if(mealTypesRes.data&&mealTypesRes.data.length>0)setMealTypesList(mealTypesRes.data.map(c=>c.label));
     if(groceryRes.data&&groceryRes.data.length>0){
       setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:l.items||[]})));
     }
     if(deviceRes.data?.owner)setDefaultWho(deviceRes.data.owner);
+    if(snapshotsRes.data){
+      const map={};
+      snapshotsRes.data.forEach(s=>{map[s.ticker]=+s.price;});
+      setPriceSnapshots(map);
+    }
     setDataLoading(false);
   },[]);
   const saveDeviceOwner=useCallback(async(owner)=>{
@@ -3053,6 +3040,10 @@ export default function App(){
     await supabase.from('devices').upsert({device_id:deviceId,owner},{onConflict:'device_id'});
     setDefaultWho(owner);
   },[]);
+  const saveAssetAlertPct=async(assetId,pct)=>{
+    await supabase.from('assets').update({alert_pct:pct||null}).eq('id',assetId);
+    setAssets(assets.map(a=>a.id===assetId?{...a,alertPct:pct||null}:a));
+  };
   useEffect(()=>{
     if(authed&&deviceAuthed)loadData();
   },[authed,deviceAuthed,loadData]);
@@ -3135,7 +3126,7 @@ export default function App(){
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho}/>}
-        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} alertThresh={alertThresh} setAlertThresh={setAlertThresh}/>}
+        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} saveAssetAlertPct={saveAssetAlertPct}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>

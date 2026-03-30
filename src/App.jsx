@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase } from './supabase.js';
 
 const fontLink = document.createElement("link");
@@ -557,6 +557,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const [searchQ,setSearchQ]=useState("");
   const blankSp={desc:"",catId:"home",amount:"",currency:"ILS",rateUsed:"1",date:today()};
   const [spForm,setSpForm]=useState(blankSp);
+  useEffect(()=>{setSpForm(f=>({...f,who:defaultWho}));},[defaultWho]);
   const totalBudget=cats.reduce((s,c)=>s+c.budget,0);
   const regularTotal=expenses.reduce((s,e)=>s+e.amount,0);
   // Compute fresh from specialItems so new additions reflect immediately
@@ -2264,6 +2265,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
 function NotesTab({notes,setNotes,defaultWho="א"}){
   const [html,setHtml]=useState("");
   const [who,setWho]=useState(defaultWho);
+  useEffect(()=>{setWho(defaultWho);},[defaultWho]);
   const [editId,setEditId]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
   // ── סעיף 5א: searchQ ──
@@ -2350,8 +2352,9 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א
   const [searchQ,setSearchQ]=useState("");
   const blankTf={name:"",budget:"",dateFrom:"",dateTo:"",color:T.navy};
   const [tf,setTf]=useState(blankTf);
-  const blankItf={cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1",notes:"",who:defaultWho};
+  const blankItf=useMemo(()=>({cat:"טיסות",label:"",amount:"",currency:"ILS",rateUsed:"1",notes:"",who:defaultWho}),[defaultWho]);
   const [itf,setItf]=useState(blankItf);
+  useEffect(()=>{setItf(f=>({...f,who:defaultWho}));},[defaultWho]);
   const tripTotal=t=>t.items.reduce((s,i)=>s+toILS(i),0);
   const openAddTrip=()=>{setEditTripId(null);setTf(blankTf);setShowNew(true);};
   const openEditTrip=trip=>{setEditTripId(trip.id);setTf({name:trip.name,budget:String(trip.budget),dateFrom:trip.dateFrom||"",dateTo:trip.dateTo||"",color:trip.color||T.navy});setShowNew(true);};

@@ -1059,7 +1059,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={}})
   );
 }
 
-function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},saveAssetAlertPct}){
+function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct}){
   const [agentHistory,setAgentHistory]=useState([]);
   const [portfolioView,setPortfolioView]=useState("active");
   const [expandedId,setExpandedId]=useState(null);
@@ -1367,7 +1367,6 @@ const fetchNews = async (force=false) => {
 
     setPricesLoading(false);
   };
-  const priceAlerts=activeAssets.flatMap(a=>{const ticker=extractTicker(a.security);const current=prices[ticker];const avg=avgBuyPrice(a);if(!current||!avg)return[];const changePct=((current-avg)/avg)*100;if(Math.abs(changePct)>=alertThresh)return[{security:a.security,ticker,changePct,current,avg}];return[];});
   const runAgent = async () => {
     if (!agentQuery.trim()) return;
     const question = agentQuery.trim();
@@ -3126,7 +3125,7 @@ export default function App(){
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho}/>}
-        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} saveAssetAlertPct={saveAssetAlertPct}/>}
+        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>

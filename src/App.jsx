@@ -2787,8 +2787,8 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>מי משתמש במכשיר זה?</div>
             <div style={{display:"flex",gap:10}}>
-              {["אדיר","ספיר"].map(name=>(
-                <button key={name} onClick={()=>saveDeviceOwner&&saveDeviceOwner(name)} style={{flex:1,padding:"14px 0",borderRadius:12,border:`2px solid ${defaultWho===name?T.navy:T.border}`,background:defaultWho===name?T.navy:"#fff",color:defaultWho===name?"#fff":T.text,fontFamily:T.font,fontSize:14,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{name}</button>
+              {[["א","אדיר"],["ס","ספיר"]].map(([val,label])=>(
+                <button key={val} onClick={()=>saveDeviceOwner&&saveDeviceOwner(val)} style={{flex:1,padding:"14px 0",borderRadius:12,border:`2px solid ${defaultWho===val?T.navy:T.border}`,background:defaultWho===val?T.navy:"#fff",color:defaultWho===val?"#fff":T.text,fontFamily:T.font,fontSize:14,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{label}</button>
               ))}
             </div>
           </Card>

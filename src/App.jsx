@@ -2199,6 +2199,51 @@ ${newsContext}`;
   );
 }
 
+const exportRecipePDF=(recipe)=>{
+  const w=window.open("","_blank");
+  if(!w)return;
+  const cats=Array.isArray(recipe.categories)?recipe.categories:recipe.category?[recipe.category]:[];
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he">
+<head><meta charset="UTF-8"/><title>${recipe.name}</title>
+<style>
+  body{font-family:system-ui,sans-serif;direction:rtl;padding:32px;color:#1c1917;max-width:680px;margin:0 auto;}
+  h1{font-size:26px;font-weight:700;margin-bottom:4px;}
+  .meta{font-size:13px;color:#78716c;margin-bottom:24px;display:flex;gap:16px;flex-wrap:wrap;}
+  .section-title{font-size:14px;font-weight:700;color:#1e3a5f;margin:20px 0 10px;padding-bottom:6px;border-bottom:2px solid #e6e2db;}
+  .ingredient-row{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f0ede8;font-size:13px;}
+  .ingredient-row .qty{color:#78716c;min-width:60px;}
+  .step-row{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;}
+  .step-num{width:26px;height:26px;border-radius:50%;background:#1e3a5f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+  .step-text{font-size:13px;line-height:1.7;white-space:pre-wrap;}
+  .notes{background:#f7f6f3;border-radius:10px;padding:14px;font-size:13px;line-height:1.7;margin-top:8px;}
+</style></head><body>
+  <h1>${recipe.name}</h1>
+  <div class="meta">
+    ${cats.length?`<span>${cats.join(", ")}</span>`:""}
+    ${recipe.servings?`<span>${recipe.servings} אנשים</span>`:""}
+  </div>
+  ${(recipe.ingredients||[]).filter(i=>i.item).length?`
+    <div class="section-title">מצרכים</div>
+    ${(recipe.ingredients||[]).filter(i=>i.item).map(i=>`
+      <div class="ingredient-row">
+        <span class="qty">${i.qty||""} ${i.unit||""}</span>
+        <span>${i.item}</span>
+      </div>`).join("")}`:""}
+  ${(recipe.steps||[]).filter(s=>s.replace(/<[^>]+>/g,"").trim()).length?`
+    <div class="section-title">אופן הכנה</div>
+    ${(recipe.steps||[]).filter(s=>s.replace(/<[^>]+>/g,"").trim()).map((s,i)=>`
+      <div class="step-row">
+        <div class="step-num">${i+1}</div>
+        <div class="step-text">${s}</div>
+      </div>`).join("")}`:""}
+  ${recipe.prepNotes||recipe.notes?`
+    <div class="section-title">הכנות מקדימות</div>
+    <div class="notes">${recipe.prepNotes||recipe.notes}</div>`:""}
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`);
+  w.document.close();
+};
+
 function exportMenuPDF(menu){
   const w=window.open("","_blank");if(!w)return;
   const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
@@ -2218,7 +2263,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   // ── סעיף 4א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
   const normCats=item=>{if(Array.isArray(item.categories))return item.categories;if(item.category)return[item.category];return[];};
-  const blankR={type:"recipe",name:"",categories:[],servings:"",prepTime:"",cookTime:"",ingredients:[{item:"",qty:"",unit:""}],steps:[""],prepNotes:"",concepts:[]};
+  const blankR={type:"recipe",name:"",categories:[],servings:"",ingredients:[{item:"",qty:"",unit:""}],steps:[""],prepNotes:"",concepts:[]};
   const blankM={type:"menu",name:"",categories:[],servings:"",concepts:[],sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],notes:""};
   const [form,setForm]=useState(blankR);
   const [notesHtml,setNotesHtml]=useState("");
@@ -2247,14 +2292,14 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
     if(showForm&&!editId)saveDraft(form,notesHtml);
   },[form,notesHtml,showForm,editId]);
   const openAdd=()=>{setEditId(null);const b=mode==="recipe"?blankR:{...blankM,sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}]};setForm(b);setNotesHtml("");setShowForm(true);};
-  const openEdit=item=>{setEditId(item.id);const f={...item,categories:normCats(item),servings:String(item.servings||""),prepTime:String(item.prepTime||""),cookTime:String(item.cookTime||"")};if(item.type==="menu"&&!f.sections){f.sections=[{id:uid(),title:"מנות",dishes:item.dishes||[""]}];}setForm(f);setNotesHtml(item.notes||item.prepNotes||"");setShowForm(true);setSelected(null);};
+  const openEdit=item=>{setEditId(item.id);const f={...item,categories:normCats(item),servings:String(item.servings||"")};if(item.type==="menu"&&!f.sections){f.sections=[{id:uid(),title:"מנות",dishes:item.dishes||[""]}];}setForm(f);setNotesHtml(item.notes||item.prepNotes||"");setShowForm(true);setSelected(null);};
   const save=async()=>{
     if(!form.name)return;
     const saved={...form,id:editId||uid(),servings:+form.servings||0,categories:form.categories||[]};
     if(form.type==="recipe")saved.prepNotes=notesHtml;
     if(form.type==="menu")saved.notes=notesHtml;
     delete saved.category;
-    const dbItem={id:saved.id,type:saved.type,name:saved.name,categories:saved.categories,servings:saved.servings,prep_time:saved.prepTime||0,cook_time:saved.cookTime||0,ingredients:saved.ingredients||[],steps:saved.steps||[],sections:saved.sections||[],notes:saved.notes||'',prep_notes:saved.prepNotes||'',concepts:saved.concepts||[]};
+    const dbItem={id:saved.id,type:saved.type,name:saved.name,categories:saved.categories,servings:saved.servings,ingredients:saved.ingredients||[],steps:saved.steps||[],sections:saved.sections||[],notes:saved.notes||'',prep_notes:saved.prepNotes||'',concepts:saved.concepts||[]};
     if(editId){
       await supabase.from('recipes').update(dbItem).eq('id',editId);
       setRecipes(recipes.map(x=>x.id===editId?saved:x));
@@ -2304,7 +2349,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
           <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>
             {["הכל",...mealTypesList].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterCat===c?T.navy:T.border}`,background:filterCat===c?T.navy:"transparent",color:filterCat===c?"#fff":T.textSub}}>{c}</button>)}
           </div>
-          {mode==="menu"&&<div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>}
+          <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
             <Btn onClick={openAdd} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
@@ -2323,7 +2368,17 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   {form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}
                   <button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button>
                   <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>
-                  {form.steps.map((st,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:10}}>{i+1}</div><textarea value={st} onChange={e=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?e.target.value:x)}))} rows={2} style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,resize:"vertical"}}/></div>)}
+                  {form.steps.map((st,i)=>(
+                    <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+                      <div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:8}}>{i+1}</div>
+                      <div style={{flex:1}}>
+                        <RichTextEditor value={st} onChange={v=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?v:x)}))} placeholder={`שלב ${i+1}…`} minHeight={60}/>
+                      </div>
+                      {form.steps.length>1&&(
+                        <button onClick={()=>setForm(f=>({...f,steps:f.steps.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"8px 4px",flexShrink:0}}>×</button>
+                      )}
+                    </div>
+                  ))}
                   <button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button>
                   <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div>{notesHtml&&!editId&&<button onClick={()=>{const deviceId=localStorage.getItem('device_id');setNotesHtml('');setForm(blankR);localStorage.removeItem(`draft_recipe_form_${deviceId}`);localStorage.removeItem(`draft_recipe_notes_${deviceId}`);}} style={{background:"none",border:"none",fontSize:11,color:T.textSub,cursor:"pointer",padding:"0 8px"}}>הסרת טיוטה</button>}</div>
                   <RichTextEditor value={notesHtml} onChange={v=>setNotesHtml(v)} placeholder="הכנות מקדימות…"/>
@@ -2353,11 +2408,12 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                     {rc.map((c,i)=><span key={i} style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{c}</span>)}
                     {r.servings&&<span style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{r.servings} אנשים</span>}
-                    {r.type==="recipe"&&(r.prepTime||r.cookTime)&&<span style={{fontSize:11,color:T.textSub,background:T.bg,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.border}`}}>{(+r.prepTime||0)+(+r.cookTime||0)} דק׳</span>}
+
                     {(r.concepts||[]).map(c=><span key={c} style={{fontSize:11,color:T.navyMid,background:T.navyLight,borderRadius:99,padding:"3px 10px",border:`1px solid ${T.navyBorder}`}}>{c}</span>)}
                   </div>
                 </div>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  {r.type==="recipe"&&<button onClick={e=>{e.stopPropagation();exportRecipePDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="download" size={12} color={T.navy}/></button>}
                   {r.type==="menu"&&<button onClick={e=>{e.stopPropagation();exportMenuPDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="download" size={12} color={T.navy}/><span style={{fontSize:10,color:T.navy,fontFamily:T.font,fontWeight:600}}></span></button>}
                   <ActionBtns onEdit={()=>openEdit(r)} onDelete={()=>setConfirmId(r.id)}/>
                 </div>
@@ -2372,7 +2428,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{mealTypesList.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                   <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סגנון</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{menuConceptsList.map(c=><button key={c} onClick={()=>toggleC(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.concepts||[]).includes(c)?T.navyMid:T.border}`,background:(form.concepts||[]).includes(c)?T.navyMid:"transparent",color:(form.concepts||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
-                  {mode==="recipe"&&(<><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>מצרכים</div>{form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}<button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>{form.steps.map((st,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:10}}>{i+1}</div><textarea value={st} onChange={e=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?e.target.value:x)}))} rows={2} style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,resize:"vertical"}}/></div>)}<button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/></>)}
+                  {mode==="recipe"&&(<><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>מצרכים</div>{form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}<button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>{form.steps.map((st,i)=>(<div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:8}}>{i+1}</div><div style={{flex:1}}><RichTextEditor value={st} onChange={v=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?v:x)}))} placeholder={`שלב ${i+1}…`} minHeight={60}/></div>{form.steps.length>1&&(<button onClick={()=>setForm(f=>({...f,steps:f.steps.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"8px 4px",flexShrink:0}}>×</button>)}</div>))}<button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/></>)}
                   {mode==="menu"&&(<><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div><button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button></div>{(form.sections||[]).map(sec=>(<div key={sec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:12}}><div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}><Inp placeholder="שם החלק" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>{(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}</div>{sec.dishes.map((d,di)=><div key={di} style={{display:"flex",gap:6,marginBottom:6}}><Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>{sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}</div>)}<button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button></div>))}<div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הערות…"/></>)}
                   <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{const deviceId=localStorage.getItem('device_id');localStorage.removeItem(`draft_recipe_form_${deviceId}`);localStorage.removeItem(`draft_recipe_notes_${deviceId}`);setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
                 </div>
@@ -2386,6 +2442,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <button onClick={()=>setSelected(null)} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:10,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="chevron" size={16} color={T.navy}/></button>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {sel.type==="recipe"&&<button onClick={()=>exportRecipePDF(sel)} style={{display:"flex",alignItems:"center",padding:"5px 8px",borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/></button>}
               {sel.type==="menu"&&<button onClick={()=>exportMenuPDF(sel)} style={{display:"flex",alignItems:"center",padding:"5px 8px",borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/></button>}
               <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>
             </div>
@@ -2395,12 +2452,12 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
             <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
               {normCats(sel).map((c,i)=><span key={i} style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{c}</span>)}
               {sel.servings&&<span style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{sel.servings} איש</span>}
-              {sel.type==="recipe"&&(sel.prepTime||sel.cookTime)&&<span style={{fontSize:12,color:T.textSub,background:T.bg,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.border}`}}>{(+sel.prepTime||0)+(+sel.cookTime||0)} דק׳</span>}
+
               {(sel.concepts||[]).map(c=><span key={c} style={{fontSize:12,color:T.navyMid,background:T.navyLight,borderRadius:99,padding:"4px 12px",border:`1px solid ${T.navyBorder}`}}>{c}</span>)}
             </div>
             {sel.type==="recipe"&&(<>
               {sel.ingredients?.length>0&&(<><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>מצרכים</div>{sel.ingredients.map((ing,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}><span style={{fontSize:13,color:T.text}}>{ing.item}</span><span style={{fontSize:13,color:T.textSub}}>{ing.qty} {ing.unit}</span></div>)}</>)}
-              {sel.steps?.length>0&&<div style={{marginTop:14}}><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>אופן הכנה</div>{sel.steps.map((st,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:10}}><div style={{width:24,height:24,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div><div style={{fontSize:13,color:T.text,lineHeight:1.7}}>{st}</div></div>)}</div>}
+              {sel.steps?.length>0&&<div style={{marginTop:14}}><div style={{fontSize:11,fontWeight:700,color:T.textMid,letterSpacing:.5,textTransform:"uppercase",marginBottom:10}}>אופן הכנה</div>{sel.steps.map((st,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:10}}><div style={{width:24,height:24,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div><div style={{fontSize:13,color:T.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{st}</div></div>)}</div>}
               {sel.prepNotes&&<div style={{marginTop:14,background:T.navyLight,borderRadius:10,padding:14,border:`1px solid ${T.navyBorder}`}}><div style={{fontSize:11,fontWeight:700,color:T.navyMid,marginBottom:6}}>הכנות מקדימות</div><div className="recipe-content" style={{fontSize:13,color:T.textMid,lineHeight:1.7}} dangerouslySetInnerHTML={{__html:sel.prepNotes}}/></div>}
             </>)}
             {sel.type==="menu"&&(<>
@@ -2952,7 +3009,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
             </div>
           </Card>
           <Card>
-            <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>סגנונות תפריטים</div>
+            <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>סגנונות ארוחות</div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{menuConceptsList.map((c,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"5px 12px"}}><span style={{fontSize:12,color:T.navy}}>{c}</span><button onClick={()=>deleteConcept(c)} style={{background:"none",border:"none",color:T.navyMid,cursor:"pointer",fontSize:14,lineHeight:1}}>×</button></div>))}</div>
             <div style={{display:"flex",gap:8}}><Inp placeholder="סגנון חדש" value={newConcept} onChange={e=>setNewConcept(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newConcept.trim()){addConcept(newConcept);setNewConcept("");}}}/><Btn onClick={()=>{if(newConcept.trim()){addConcept(newConcept);setNewConcept("");}}} style={{padding:"10px 14px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn></div>
           </Card>

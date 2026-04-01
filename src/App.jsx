@@ -1717,9 +1717,16 @@ ${newsContext}`;
                           </button>
                         )}
                       </div>
-                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
                         {[1,2,3,5,10].map(pct=>(
-                          <button key={pct} onClick={()=>saveAssetAlertPct&&saveAssetAlertPct(a.id,a.alertPct===pct?null:pct)}
+                          <button key={pct}
+                            onClick={()=>saveAssetAlertPct&&saveAssetAlertPct(
+                              a.id,
+                              a.alertPct===pct?null:pct,
+                              a.alertDirection||'both',
+                              prices[ticker]||null,
+                              ticker
+                            )}
                             style={{padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,
                               fontWeight:600,cursor:"pointer",
                               border:`1px solid ${a.alertPct===pct?T.navy:T.border}`,
@@ -1728,22 +1735,31 @@ ${newsContext}`;
                             {pct}%
                           </button>
                         ))}
-                      </div>
-                      {a.alertPct&&(
-                        <div style={{display:"flex",gap:4,marginTop:6}}>
-                          {[["up","↑ עלייה"],["down","↓ ירידה"],["both","↕ שניהם"]].map(([val,label])=>(
+                        <div style={{width:1,height:16,background:T.border,marginInline:2}}/>
+                        {[["up","↑"],["down","↓"]].map(([val,label])=>{
+                          const currentDir=a.alertDirection||'both';
+                          const isActive=currentDir===val||currentDir==='both';
+                          const nextDir=()=>{
+                            if(val==='up')return currentDir==='up'?'down':currentDir==='down'?'both':'up';
+                            if(val==='down')return currentDir==='down'?'up':currentDir==='up'?'both':'down';
+                            return 'both';
+                          };
+                          return(
                             <button key={val}
-                              onClick={()=>saveAssetAlertPct&&saveAssetAlertPct(a.id,a.alertPct,val)}
-                              style={{flex:1,padding:"4px 6px",borderRadius:8,fontFamily:T.font,fontSize:11,
-                                fontWeight:600,cursor:"pointer",
-                                border:`1px solid ${(a.alertDirection||'both')===val?T.navy:T.border}`,
-                                background:(a.alertDirection||'both')===val?T.navyLight:"transparent",
-                                color:(a.alertDirection||'both')===val?T.navy:T.textMid}}>
+                              onClick={()=>a.alertPct&&saveAssetAlertPct&&saveAssetAlertPct(
+                                a.id,a.alertPct,nextDir(),prices[ticker]||null,ticker
+                              )}
+                              style={{padding:"5px 10px",borderRadius:99,fontFamily:T.font,fontSize:12,
+                                fontWeight:700,cursor:a.alertPct?"pointer":"default",
+                                border:`1px solid ${isActive&&a.alertPct?T.navy:T.border}`,
+                                background:isActive&&a.alertPct?T.navyLight:"transparent",
+                                color:isActive&&a.alertPct?T.navy:T.textSub,
+                                opacity:a.alertPct?1:0.4}}>
                               {label}
                             </button>
-                          ))}
-                        </div>
-                      )}
+                          );
+                        })}
+                      </div>
                     </div>
                     <div style={{display:"flex",gap:6,marginBottom:12}}>
                       <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
@@ -3232,19 +3248,14 @@ export default function App(){
     await supabase.from('devices').upsert({device_id:deviceId,owner},{onConflict:'device_id'});
     setDefaultWho(owner);
   },[]);
-  const saveAssetAlertPct=async(assetId,pct,direction='both')=>{
+  const saveAssetAlertPct=async(assetId,pct,direction='both',currentPrice=null,ticker=null)=>{
     await supabase.from('assets')
       .update({alert_pct:pct||null,alert_direction:pct?direction:null})
       .eq('id',assetId);
-    if(pct){
-      const asset=assets.find(a=>a.id===assetId);
-      const ticker=asset?extractTicker(asset.security):null;
-      const currentPrice=ticker?prices[ticker]:null;
-      if(currentPrice&&ticker){
-        await supabase.from('price_snapshots')
-          .upsert({ticker,price:currentPrice,updated_at:new Date().toISOString()},{onConflict:'ticker'});
-        setPriceSnapshots(prev=>({...prev,[ticker]:currentPrice}));
-      }
+    if(pct&&currentPrice&&ticker){
+      await supabase.from('price_snapshots')
+        .upsert({ticker,price:currentPrice,updated_at:new Date().toISOString()},{onConflict:'ticker'});
+      setPriceSnapshots(prev=>({...prev,[ticker]:currentPrice}));
     }
     setAssets(assets.map(a=>a.id===assetId?{...a,alertPct:pct||null,alertDirection:pct?direction:'both'}:a));
   };

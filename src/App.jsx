@@ -963,7 +963,7 @@ function DividendPreview({amount, rateUsed, taxRate}){
   );
 }
 
-function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={}}){
+function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={},avgBuyPrice=0}){
   const isBuy=mode==="buy";
   const curSym=CURRENCIES.find(c=>c.code===currency)?.symbol||currency;
   const r=currency!=="ILS"?(+form.rateUsed||3.68):1;
@@ -974,7 +974,10 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={}})
   const subtotal=shares*price;
   const totalForeign=subtotal-commission;
   const totalILS=totalForeign*r;
-  const taxAmount=!isBuy&&totalForeign>0?Math.max(0,totalILS*(taxPct/100)):0;
+  const avgBuy=+form.avgBuyPrice||0;
+  const costILS=avgBuy*shares*(+form.rateUsed||1);
+  const profitILS=totalILS-costILS;
+  const taxAmount=!isBuy&&profitILS>0?profitILS*(taxPct/100):0;
   const netILS=totalILS-taxAmount;
   const effectivePrice=shares>0?subtotal/shares:0;
 
@@ -999,7 +1002,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={}})
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <div style={{flex:"1 1 120px"}}>
             <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({curSym})</div>
-            <Inp type="number" placeholder="0" value={form.commission} onChange={e=>setForm({...form,commission:e.target.value})}/>
+            <Inp type="number" placeholder="0" value={form.commission===""||form.commission==="0"?"":form.commission} onChange={e=>setForm({...form,commission:e.target.value})}/>
           </div>
           {!isBuy&&(
             <div style={{flex:"1 1 120px"}}>
@@ -1013,7 +1016,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={}})
           {currency!=="ILS"&&(
             <div style={{flex:"1 1 120px"}}>
               <div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div>
-              <Inp type="number" placeholder="3.68" value={form.rateUsed} onChange={e=>setForm({...form,rateUsed:e.target.value})}/>
+              <Inp type="number" placeholder={String(currentRates?.USD||"")} value={form.rateUsed} onChange={e=>setForm({...form,rateUsed:e.target.value})}/>
             </div>
           )}
           <div style={{flex:"1 1 120px"}}>
@@ -1092,10 +1095,10 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const [newsLoading,   setNewsLoading]   = useState(false);
   const [newsError,     setNewsError]     = useState("");
   const [newsLastFetch, setNewsLastFetch] = useState(null);
-  const NEWS_CACHE_MIN = 30; // דקות בין רענונים
+  const NEWS_CACHE_MIN = 60; // דקות בין רענונים
   const blankAsset={security:"",shares:"",price:"",commission:"0",date:today(),currency:"USD",rateUsed:"3.68"};
-  const blankPurchase={shares:"",price:"",commission:"0",date:today()};
-  const blankSale     = { shares:"", price:"", commission:"0", date:today(), taxRate:"25", rateUsed:"0" };
+  const blankPurchase={shares:"",price:"",commission:"",date:today()};
+  const blankSale     = { shares:"", price:"", commission:"", date:today(), taxRate:"25", rateUsed:"0" };
   const blankDividend = { amount:"", currency:"USD", rateUsed:"3.68", date:today(), taxRate:"25" };
   const [assetForm,setAssetForm]=useState(blankAsset);
   const [purchaseForm,setPurchaseForm]=useState(blankPurchase);
@@ -1103,6 +1106,14 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const [dividendForm,setDividendForm]=useState(blankDividend);
   const [newWatch,setNewWatch]=useState("");
   const [newTopic,setNewTopic]=useState("");
+
+  useEffect(()=>{
+    if(!currentRates?.USD){
+      fetchRate('USD').then(r=>{
+        if(r) setCurrentRates(prev=>({...prev,USD:r}));
+      }).catch(()=>{});
+    }
+  },[]);
 
   function extractTicker(security){const m=security.match(/\(([^)]+)\)/);return m?m[1].toUpperCase():security.split(" ")[0].toUpperCase();}
   const totalShares=a=>a.purchases.reduce((s,p)=>s+ +p.shares,0)-(a.sales||[]).reduce((s,p)=>s+ +p.shares,0);
@@ -1684,7 +1695,7 @@ ${newsContext}`;
                 </div>
                 {isExpanded&&(
                   <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:14}}>
-                    <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${T.border}`,marginBottom:12}}>
+                    <div style={{marginTop:10,paddingTop:10,marginBottom:12}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <Icon name="target" size={13} color={T.textMid}/>
@@ -1714,7 +1725,7 @@ ${newsContext}`;
                     </div>
                     <div style={{display:"flex",gap:6,marginBottom:12}}>
                       <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
-                      {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger}}>מכירה +</button>}
+                      {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(currentRates?.USD||3.68),avgBuyPrice:String(avgBuyPrice(a))});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger}}>מכירה +</button>}
                       <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm({...blankDividend,rateUsed:String(currentRates?.[a.currency]||currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.successBg,border:"1px solid #bbf7d0",color:T.success}}>דיבידנד +</button>
                     </div>
                     <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:8,display:"flex",alignItems:"center"}}>
@@ -1755,7 +1766,7 @@ ${newsContext}`;
                               <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({curSym})</div><Inp type="number" placeholder="0" value={ep.commission===0||ep.commission===""?"":ep.commission} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,commission:e.target.value}}))}/></div>
                             </div>
                             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                              {a.currency!=="ILS"&&<div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder="3.68" value={ep.rateUsed||""} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,rateUsed:e.target.value}}))}/></div>}
+                              {a.currency!=="ILS"&&<div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder={String(currentRates?.USD||"")} value={ep.rateUsed||""} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,rateUsed:e.target.value}}))}/></div>}
                               <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={ep.date} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,date:e.target.value}}))}/></div>
                             </div>
                             {shares>0&&price>0&&(
@@ -1821,7 +1832,7 @@ ${newsContext}`;
                                   <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס רווח הון (%)</div><Inp type="number" placeholder="25" value={es.taxRate??""} onChange={e=>setEditSale(v=>({...v,sale:{...v.sale,taxRate:e.target.value}}))}/></div>
                                 </div>
                                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                                  {a.currency!=="ILS"&&<div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder="3.68" value={es.rateUsed||""} onChange={e=>setEditSale(v=>({...v,sale:{...v.sale,rateUsed:e.target.value}}))}/></div>}
+                                  {a.currency!=="ILS"&&<div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder={String(currentRates?.USD||"")} value={es.rateUsed||""} onChange={e=>setEditSale(v=>({...v,sale:{...v.sale,rateUsed:e.target.value}}))}/></div>}
                                   <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={es.date} onChange={e=>setEditSale(v=>({...v,sale:{...v.sale,date:e.target.value}}))}/></div>
                                 </div>
                                 {shares>0&&price>0&&(
@@ -1840,7 +1851,7 @@ ${newsContext}`;
                             </div>
                           );
                         })()}
-                        {addSaleId===a.id&&<TradeForm mode="sell" form={saleForm} setForm={setSaleForm} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency} currentRates={currentRates}/>}
+                        {addSaleId===a.id&&<TradeForm mode="sell" form={saleForm} setForm={setSaleForm} onSave={()=>saveSale(a.id)} onCancel={()=>setAddSaleId(null)} currency={a.currency} currentRates={currentRates} avgBuyPrice={avgBuyPrice(a)}/>}
                       </div>
                     )}
                     <div style={{marginTop:12}}>
@@ -1859,7 +1870,7 @@ ${newsContext}`;
                               <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>מס רווח הון (%)</div><Inp type="number" placeholder="25" value={dividendForm.taxRate} onChange={e=>setDividendForm({...dividendForm,taxRate:e.target.value})}/></div>
                             </div>
                             <div style={{display:"flex",gap:8}}>
-                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder="3.68" value={dividendForm.rateUsed} onChange={e=>setDividendForm({...dividendForm,rateUsed:e.target.value})}/></div>
+                              <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder={String(currentRates?.USD||"")} value={dividendForm.rateUsed} onChange={e=>setDividendForm({...dividendForm,rateUsed:e.target.value})}/></div>
                               <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={dividendForm.date} onChange={e=>setDividendForm({...dividendForm,date:e.target.value})}/></div>
                             </div>
                             {+dividendForm.amount>0&&<DividendPreview
@@ -3209,7 +3220,7 @@ export default function App(){
   useEffect(()=>{
     let lastLoad=Date.now();
     const handleFocus=()=>{
-      if(deviceAuthed&&authed&&Date.now()-lastLoad>60000){
+      if(deviceAuthed&&authed&&Date.now()-lastLoad>60000&&section!=="invest"){
         lastLoad=Date.now();
         loadData();
       }

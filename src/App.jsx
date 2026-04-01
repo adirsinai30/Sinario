@@ -1647,9 +1647,16 @@ ${newsContext}`;
             const pos=pnl>=0;const price=prices[ticker];const avg=avgBuyPrice(a);const shrs=totalShares(a);const rate=a.currency!=="ILS"?+a.rateUsed:1;
             const isExpanded=expandedId===a.id;
             const snapshot=priceSnapshots[ticker];
-            const alertTriggered=snapshot&&a.alertPct&&prices[ticker]
-              ?Math.abs(((prices[ticker]-snapshot)/snapshot)*100)>=a.alertPct
-              :false;
+            const alertTriggered=(()=>{
+              if(!snapshot||!a.alertPct||!prices[ticker])return false;
+              const diff=((prices[ticker]-snapshot)/snapshot)*100;
+              const absOk=Math.abs(diff)>=a.alertPct;
+              if(!absOk)return false;
+              const dir=a.alertDirection||'both';
+              if(dir==='up')return diff>0;
+              if(dir==='down')return diff<0;
+              return true;
+            })();
             const alertDiff=snapshot&&prices[ticker]
               ?((prices[ticker]-snapshot)/snapshot)*100
               :null;
@@ -1667,7 +1674,7 @@ ${newsContext}`;
                           border:`1px solid ${alertDiff>=0?"#bbf7d0":T.dangerBorder}`,
                           borderRadius:99,padding:"2px 8px",marginRight:6}}>
                           <Icon name="trending" size={10} color={alertDiff>=0?T.success:T.danger}/>
-                          {alertDiff>=0?"+":""}{alertDiff.toFixed(2)}%
+                          {alertDiff>0?"↑":"↓"}{" "}{alertDiff>=0?"+":""}{alertDiff.toFixed(2)}%
                         </span>
                       )}
                     </div>
@@ -1722,6 +1729,21 @@ ${newsContext}`;
                           </button>
                         ))}
                       </div>
+                      {a.alertPct&&(
+                        <div style={{display:"flex",gap:4,marginTop:6}}>
+                          {[["up","↑ עלייה"],["down","↓ ירידה"],["both","↕ שניהם"]].map(([val,label])=>(
+                            <button key={val}
+                              onClick={()=>saveAssetAlertPct&&saveAssetAlertPct(a.id,a.alertPct,val)}
+                              style={{flex:1,padding:"4px 6px",borderRadius:8,fontFamily:T.font,fontSize:11,
+                                fontWeight:600,cursor:"pointer",
+                                border:`1px solid ${(a.alertDirection||'both')===val?T.navy:T.border}`,
+                                background:(a.alertDirection||'both')===val?T.navyLight:"transparent",
+                                color:(a.alertDirection||'both')===val?T.navy:T.textMid}}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div style={{display:"flex",gap:6,marginBottom:12}}>
                       <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
@@ -3047,7 +3069,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="target" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>התראות</div></div>
-              <button onClick={async()=>{if(!('Notification' in window)){alert('הדפדפן לא תומך בהתראות');return;}const perm=await Notification.requestPermission();if(perm!=='granted'){alert('יש לאשר התראות בהגדרות הדפדפן');return;}const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:'BEE2qENi30F_U3FN4pTE1mdd_9zWvo992w1WtdG3tc_cbYZ5XzNullwLITjWpbh89Pmox61yy8bONIljmK7OU_w'});localStorage.setItem('push_subscription',JSON.stringify(sub));await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)});alert('התראות הופעלו בהצלחה!');}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
+              <button onClick={async()=>{if(!('Notification' in window)){alert('הדפדפן לא תומך בהתראות');return;}const perm=await Notification.requestPermission();if(perm!=='granted'){alert('יש לאשר התראות בהגדרות הדפדפן');return;}const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:'BEE2qENi30F_U3FN4pTE1mdd_9zWvo992w1WtdG3tc_cbYZ5XzNullwLITjWpbh89Pmox61yy8bONIljmK7OU_w'});localStorage.setItem('push_subscription',JSON.stringify(sub));await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),device_id:localStorage.getItem('device_id')||""})});alert('התראות הופעלו בהצלחה!');}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
             </div>
             <div style={{fontSize:11,color:T.textSub}}>אפשר לאפליקציה לשלוח תזכורות ועדכונים</div>
           </Card>
@@ -3188,7 +3210,7 @@ export default function App(){
     if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
     if(assetsRes.data){
       const txs=txRes.data||[];const divs=divRes.data||[];
-      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,alertPct:a.alert_pct||null,purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
+      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,alertPct:a.alert_pct||null,alertDirection:a.alert_direction||'both',purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
       setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
     }
     if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
@@ -3210,9 +3232,21 @@ export default function App(){
     await supabase.from('devices').upsert({device_id:deviceId,owner},{onConflict:'device_id'});
     setDefaultWho(owner);
   },[]);
-  const saveAssetAlertPct=async(assetId,pct)=>{
-    await supabase.from('assets').update({alert_pct:pct||null}).eq('id',assetId);
-    setAssets(assets.map(a=>a.id===assetId?{...a,alertPct:pct||null}:a));
+  const saveAssetAlertPct=async(assetId,pct,direction='both')=>{
+    await supabase.from('assets')
+      .update({alert_pct:pct||null,alert_direction:pct?direction:null})
+      .eq('id',assetId);
+    if(pct){
+      const asset=assets.find(a=>a.id===assetId);
+      const ticker=asset?extractTicker(asset.security):null;
+      const currentPrice=ticker?prices[ticker]:null;
+      if(currentPrice&&ticker){
+        await supabase.from('price_snapshots')
+          .upsert({ticker,price:currentPrice,updated_at:new Date().toISOString()},{onConflict:'ticker'});
+        setPriceSnapshots(prev=>({...prev,[ticker]:currentPrice}));
+      }
+    }
+    setAssets(assets.map(a=>a.id===assetId?{...a,alertPct:pct||null,alertDirection:pct?direction:'both'}:a));
   };
   useEffect(()=>{
     if(authed&&deviceAuthed)loadData();

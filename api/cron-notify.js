@@ -90,49 +90,41 @@ export default async function handler(req, res) {
   }
 
   // ── התראת "מי מעביר למי" — ב-5 לחודש בלבד ──
-  const today=new Date();
-  if(today.getDate()===5){
+  const todayDate=new Date();
+  if(todayDate.getDate()===5){
     try{
       const now=new Date();
       const year=now.getFullYear();
       const month=now.getMonth();
-      const startOfMonth=new Date(year,month,1).toISOString();
-      const endOfMonth=new Date(year,month+1,0,23,59,59).toISOString();
+      const startOfMonth=new Date(year,month,1).toISOString().slice(0,10);
+      const endOfMonth=new Date(year,month+1,0).toISOString().slice(0,10);
 
-      const {data:expData}=await supabase
-        .from('expenses')
-        .select('amount,who')
-        .gte('date',startOfMonth.slice(0,10))
-        .lte('date',endOfMonth.slice(0,10));
+      const [{data:expData},{data:spData}]=await Promise.all([
+        supabase.from('expenses').select('amount,who')
+          .gte('date',startOfMonth).lte('date',endOfMonth),
+        supabase.from('special_expenses').select('amount,currency,rate_used,who')
+          .gte('date',startOfMonth).lte('date',endOfMonth)
+      ]);
 
-      const {data:spData}=await supabase
-        .from('special_expenses')
-        .select('amount,currency,rate_used,who')
-        .gte('date',startOfMonth.slice(0,10))
-        .lte('date',endOfMonth.slice(0,10));
+      const adirTotal=(expData||[]).filter(e=>e.who==="א").reduce((s,e)=>s+(+e.amount),0)
+        +(spData||[]).filter(e=>e.who==="א").reduce((s,e)=>s+(+e.amount)*(+e.rate_used||1),0);
+      const sapirTotal=(expData||[]).filter(e=>e.who==="ס").reduce((s,e)=>s+(+e.amount),0)
+        +(spData||[]).filter(e=>e.who==="ס").reduce((s,e)=>s+(+e.amount)*(+e.rate_used||1),0);
 
-      if((expData||[]).length>0||(spData||[]).length>0){
-        const adirTotal=(expData||[]).filter(e=>e.who==="א").reduce((s,e)=>s+(+e.amount),0)
-          +(spData||[]).filter(e=>e.who==="א").reduce((s,e)=>s+(+e.amount*(+e.rate_used||1)),0);
-        const sapirTotal=(expData||[]).filter(e=>e.who==="ס").reduce((s,e)=>s+(+e.amount),0)
-          +(spData||[]).filter(e=>e.who==="ס").reduce((s,e)=>s+(+e.amount*(+e.rate_used||1)),0);
+      const diff=Math.abs(adirTotal-sapirTotal)/2;
+      if(diff>5){
+        const from=adirTotal>sapirTotal?"ספיר":"אדיר";
+        const to=from==="אדיר"?"ספיר":"אדיר";
+        const verb=from==="ספיר"?"מעבירה":"מעביר";
+        const MONTHS_HE=["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
-        const diff=Math.abs(adirTotal-sapirTotal)/2;
-        if(diff>5){
-          const from=adirTotal>sapirTotal?"ספיר":"אדיר";
-          const to=from==="אדיר"?"ספיר":"אדיר";
-          const verb=from==="ספיר"?"מעבירה":"מעביר";
-          const MONTHS=["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
-          const monthName=MONTHS[month];
-
-          const {data:subs}=await supabase.from('push_subscriptions').select('*');
-          if(subs?.length){
-            for(const sub of subs){
-              await sendPushNotification(sub,{
-                title:`Sinario — חלוקת הוצאות ${monthName}`,
-                body:`${from} ${verb} ל${to}: ₪${Math.round(diff).toLocaleString()}`
-              });
-            }
+        const {data:subs}=await supabase.from('push_subscriptions').select('*');
+        if(subs?.length){
+          for(const sub of subs){
+            await sendPushNotification(sub,{
+              title:`Sinario — חלוקת הוצאות ${MONTHS_HE[month]}`,
+              body:`${from} ${verb} ל${to}: ₪${Math.round(diff).toLocaleString('he-IL')}`
+            });
           }
         }
       }

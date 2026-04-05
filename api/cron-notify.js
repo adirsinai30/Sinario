@@ -84,7 +84,7 @@ export default async function handler(req, res) {
             if(subs?.length){
               for(const sub of subs){
                 await sendPushNotification(sub,{
-                  title:'התראת מחיר — Sinario',
+                  title:'התראת מחיר - Sinario',
                   body:triggered.map(t=>t.msg).join(' | ')
                 });
               }
@@ -131,7 +131,7 @@ export default async function handler(req, res) {
           if(subs?.length){
             for(const sub of subs){
               await sendPushNotification(sub,{
-                title:`Sinario — חלוקת הוצאות ${MONTHS_HE[month]}`,
+                title:`Sinario - חלוקת הוצאות ${MONTHS_HE[month]}`,
                 body:`${from} ${verb} ל${to}: ₪${Math.round(diff).toLocaleString('he-IL')}`
               });
             }

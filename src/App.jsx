@@ -749,9 +749,8 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
             );
           })()}
           <div style={{display:"flex",gap:8,marginBottom:diff>5?10:0}}>
-            <div style={{flex:1,background:T.surface,borderRadius:99,
-              border:`1px solid ${T.border}`,padding:"8px 12px",
-              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{flex:1,background:"#ebf0f7",borderRadius:12,padding:"10px 12px",
+              display:"flex",alignItems:"center",gap:10}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:"#1e3a5f",
                 display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -759,14 +758,13 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
                   <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
                 </svg>
               </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontSize:11,color:T.textSub,marginBottom:2}}>אדיר</div>
-                <div style={{fontSize:17,fontWeight:600,color:T.text}}>{fmt(adir)}</div>
+              <div>
+                <div style={{fontSize:10,color:"#2d5282",marginBottom:1,fontWeight:600}}>אדיר</div>
+                <div style={{fontSize:16,fontWeight:600,color:"#1e3a5f",lineHeight:1.2}}>{fmt(adir)}</div>
               </div>
             </div>
-            <div style={{flex:1,background:T.surface,borderRadius:99,
-              border:`1px solid ${T.border}`,padding:"8px 12px",
-              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{flex:1,background:"#fce7f3",borderRadius:12,padding:"10px 12px",
+              display:"flex",alignItems:"center",gap:10}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:"#be185d",
                 display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -774,17 +772,17 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
                   <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
                 </svg>
               </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontSize:11,color:T.textSub,marginBottom:2}}>ספיר</div>
-                <div style={{fontSize:17,fontWeight:600,color:T.text}}>{fmt(sapir)}</div>
+              <div>
+                <div style={{fontSize:10,color:"#9d174d",marginBottom:1,fontWeight:600}}>ספיר</div>
+                <div style={{fontSize:16,fontWeight:600,color:"#be185d",lineHeight:1.2}}>{fmt(sapir)}</div>
               </div>
             </div>
           </div>
           {diff>5&&(
-            <div style={{background:T.navyLight,borderRadius:99,padding:"8px 12px",
-              border:`1px solid ${T.navyBorder}`,
+            <div style={{background:"#f7f6f3",border:"0.5px solid #e6e2db",borderRadius:12,
+              padding:"8px 12px",
               display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:28,height:28,borderRadius:"50%",
                   background:from==="אדיר"?"#1e3a5f":"#be185d",
                   display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -794,10 +792,10 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
                   </svg>
                 </div>
                 <span style={{fontSize:13,color:T.text,fontWeight:600}}>
-                  {from==="אדיר"?"אדיר מעביר":"ספיר מעבירה"} ל{from==="אדיר"?"ספיר":"אדיר"}
+                  {from==="אדיר"?"אדיר מעביר":"ספיר מעבירה"} ל{from==="אדיר"?"ספיר:":"אדיר:"}
                 </span>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <span style={{fontSize:14,fontWeight:700,color:T.navy}}>{fmt(diff)}</span>
                 <span style={{fontSize:12,color:T.textSub}}>←</span>
                 <div style={{width:28,height:28,borderRadius:"50%",
@@ -1223,9 +1221,8 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={},a
   );
 }
 
-function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct}){
+function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct,showAssetFormExternal=false,setShowAssetFormExternal=()=>{},portfolioView,setPortfolioView}){
   const [agentHistory,setAgentHistory]=useState([]);
-  const [portfolioView,setPortfolioView]=useState("active");
   const [expandedId,setExpandedId]=useState(null);
   const [collapsed,setCollapsed]=useState({});
   const toggleSection=(aid,sec)=>setCollapsed(c=>({...c,[`${aid}_${sec}`]:!c[`${aid}_${sec}`]}));
@@ -1313,6 +1310,12 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const totalRealized=assets.reduce((s,a)=>s+realizedPnLILS(a),0);
 
   const openAddAsset=()=>{setEditAssetId(null);setAssetForm(blankAsset);setShowAssetForm("new");setExpandedId(null);};
+  useEffect(()=>{
+    if(showAssetFormExternal){
+      if(portfolioView==="active")setShowAssetForm("new");
+      setShowAssetFormExternal(false);
+    }
+  },[showAssetFormExternal]);
   const saveAsset=async()=>{
     if(!assetForm.security||!assetForm.shares||!assetForm.price)return;
     const assetId=editAssetId||uid();
@@ -1732,7 +1735,6 @@ ${newsContext}`;
                 {pricesLoading?"טוען…":"מחירים"}
                 {pricesLoading?<div style={{width:12,height:12,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>:<Icon name="trending" size={13} color={T.navy}/>}
               </button>
-              <button onClick={openAddAsset} style={{width:40,height:40,borderRadius:"50%",background:T.navy,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(30,58,95,.25)",flexShrink:0,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}><Icon name="plus" size={18} color="#fff"/></button>
             </>)}
           </div>
           {pricesError&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:10,padding:"10px 14px",fontSize:12,color:T.danger}}>{pricesError}</div>}
@@ -2462,7 +2464,7 @@ function exportMenuPDF(menu){
   w.document.close();
 }
 
-function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList}){
+function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{}}){
   const [mode,setMode]=useState("recipe");
   const [filterCat,setFilterCat]=useState("הכל");
   const [filterConcept,setFilterConcept]=useState("הכל");
@@ -2502,6 +2504,9 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
     if(showForm&&!editId)saveDraft(form,notesHtml);
   },[form,notesHtml,showForm,editId]);
   const openAdd=()=>{setEditId(null);const b=mode==="recipe"?blankR:{...blankM,sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}]};setForm(b);setNotesHtml("");setShowForm(true);};
+  useEffect(()=>{
+    if(showFormExternal){openAdd();setShowFormExternal(false);}
+  },[showFormExternal]);
   const openEdit=item=>{setEditId(item.id);const f={...item,categories:normCats(item),servings:String(item.servings||"")};if(item.type==="menu"&&!f.sections){f.sections=[{id:uid(),title:"מנות",dishes:item.dishes||[""]}];}setForm(f);setNotesHtml(item.notes||item.prepNotes||"");setShowForm(true);setSelected(null);};
   const save=async()=>{
     if(!form.name)return;
@@ -2562,7 +2567,6 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
           <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
-            <button onClick={openAdd} style={{width:40,height:40,borderRadius:"50%",background:T.navy,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(30,58,95,.25)",flexShrink:0,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}><Icon name="plus" size={18} color="#fff"/></button>
           </div>
           {!editId&&showForm&&(
             <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
@@ -2762,9 +2766,8 @@ function NotesTab({notes,setNotes,defaultWho="א"}){
   );
 }
 
-function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א"}){
+function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א",showNew,setShowNew}){
   const [sel,setSel]=useState(null);
-  const [showNew,setShowNew]=useState(false);
   const [showItem,setShowItem]=useState(false);
   const [showAll,setShowAll]=useState(false);
   const [editTripId,setEditTripId]=useState(null);
@@ -2838,7 +2841,6 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א
                 <div style={{fontSize:14,fontWeight:600,color:T.text}}>{filteredTrips.length} חופשות</div>
                 <button onClick={()=>setShowAll(v=>!v)} style={{fontSize:11,color:showAll?T.navy:T.textSub,fontFamily:T.font,background:showAll?T.navyLight:"transparent",border:`1px solid ${showAll?T.navyBorder:T.border}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>{showAll?"לפי תקופה":"צפייה בהכל"}</button>
               </div>
-              <button onClick={openAddTrip} style={{width:40,height:40,borderRadius:"50%",background:T.navy,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(30,58,95,.25)",flexShrink:0,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}><Icon name="plus" size={18} color="#fff"/></button>
             </div>
             {/* ── סעיף 6ג: SearchBar ── */}
             <SearchBar value={searchQ} onChange={setSearchQ} placeholder="חיפוש חופשה, יעד…" />
@@ -3339,6 +3341,10 @@ export default function App(){
   const [expMode,     setExpMode]     =useState("regular");
   const [showExpenseAdd,setShowExpenseAdd]=useState(false);
   const [showSpecialAdd,setShowSpecialAdd]=useState(false);
+  const [showTripAdd,setShowTripAdd]=useState(false);
+  const [showRecipeAdd,setShowRecipeAdd]=useState(false);
+  const [showAssetAdd,setShowAssetAdd]=useState(false);
+  const [portfolioView,setPortfolioView]=useState("active");
   const [defaultWho, setDefaultWho]   =useState("א");
   const [savingsGoal, setSavingsGoal] =useStorage("kp-savings-goal",3000);
   const [month,       setMonth]       =useState(new Date().getMonth());
@@ -3502,31 +3508,36 @@ export default function App(){
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
-        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
+        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
-        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho}/>}
-        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct}/>}
+        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho} showNew={showTripAdd} setShowNew={setShowTripAdd}/>}
+        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct} showAssetFormExternal={showAssetAdd} setShowAssetFormExternal={setShowAssetAdd} portfolioView={portfolioView} setPortfolioView={setPortfolioView}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>
+      {!(section==="invest"&&investTab==="portfolio"&&portfolioView==="sold")&&(
       <button
         onClick={()=>{
           if(section==="home"&&homeTab==="expenses"){
             if(expMode==="regular")setShowExpenseAdd(true);
             else setShowSpecialAdd(true);
           }
+          if(section==="home"&&homeTab==="recipes")setShowRecipeAdd(true);
+          if(section==="trips")setShowTripAdd(true);
+          if(section==="invest"&&investTab==="portfolio")setShowAssetAdd(true);
         }}
         style={{position:"fixed",bottom:24,left:20,zIndex:201,
           width:52,height:52,borderRadius:"50%",
           background:T.navy,border:"none",cursor:"pointer",
           boxShadow:"0 4px 16px rgba(30,58,95,.35)",
-          display:(section==="home"&&homeTab==="expenses")?"flex":"none",
+          display:((section==="home"&&(homeTab==="expenses"||homeTab==="recipes"))||section==="trips"||(section==="invest"&&investTab==="portfolio"))?"flex":"none",
           alignItems:"center",justifyContent:"center",
           transition:"transform .15s"}}
         onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"}
         onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
         <Icon name="plus" size={22} color="#fff"/>
       </button>
+      )}
     </div>
   );
 }

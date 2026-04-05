@@ -2549,18 +2549,39 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
     if(!file)return;
     setImageLoading(true);
     try{
+      const compressImage=async(file)=>{
+        return new Promise((resolve)=>{
+          const img=new Image();
+          const url=URL.createObjectURL(file);
+          img.onload=()=>{
+            const canvas=document.createElement('canvas');
+            const maxSize=1024;
+            let w=img.width,h=img.height;
+            if(w>maxSize||h>maxSize){
+              if(w>h){h=Math.round(h*maxSize/w);w=maxSize;}
+              else{w=Math.round(w*maxSize/h);h=maxSize;}
+            }
+            canvas.width=w;canvas.height=h;
+            canvas.getContext('2d').drawImage(img,0,0,w,h);
+            canvas.toBlob(blob=>resolve(blob),'image/jpeg',0.8);
+            URL.revokeObjectURL(url);
+          };
+          img.src=url;
+        });
+      };
+      const compressed=await compressImage(file);
       const base64=await new Promise((res,rej)=>{
         const r=new FileReader();
         r.onload=()=>res(r.result.split(",")[1]);
         r.onerror=rej;
-        r.readAsDataURL(file);
+        r.readAsDataURL(compressed);
       });
-      const mediaType=file.type||"image/jpeg";
+      const mediaType="image/jpeg";
       const resp=await fetch("/api/anthropic",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          max_tokens:2000,
+          max_tokens:4000,
           system:`אתה עוזר שמחלץ מתכונים מתמונות. החזר תמיד JSON בלבד, ללא טקסט נוסף, בפורמט:
 {"name":"שם המתכון","servings":"4","categories":[],"ingredients":[{"item":"","qty":"","unit":""}],"steps":[""],"prepNotes":""}
 - steps: כל שלב כטקסט נפרד
@@ -2577,8 +2598,17 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       });
       const data=await resp.json();
       const text=(data.content||[]).map(b=>b.text||"").join("").trim();
-      const clean=text.replace(/```json|```/g,"").trim();
-      const parsed=JSON.parse(clean);
+      let clean=text.replace(/```json|```/g,"").trim();
+      // תקן JSON קטוע — מצא את הסגירה האחרונה התקינה
+      const lastBrace=clean.lastIndexOf('}');
+      if(lastBrace>0&&lastBrace<clean.length-1)clean=clean.slice(0,lastBrace+1);
+      let parsed;
+      try{parsed=JSON.parse(clean);}
+      catch{
+        // נסה לחלץ לפחות שם
+        const nameMatch=clean.match(/"name"\s*:\s*"([^"]+)"/);
+        parsed={name:nameMatch?.[1]||"מתכון מהתמונה",ingredients:[{item:"",qty:"",unit:""}],steps:[""]};
+      }
       if(parsed.error){alert(parsed.error);return;}
       setForm({
         type:"recipe",

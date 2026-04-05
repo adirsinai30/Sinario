@@ -319,6 +319,10 @@ function Donut({slices,size=140}){
 function RichTextEditor({value,onChange,placeholder,minHeight=80}){
   const editorRef=useRef(null);
   const initialized=useRef(false);
+  const [linkModal,setLinkModal]=useState(false);
+  const [linkUrl,setLinkUrl]=useState("");
+  const [linkText,setLinkText]=useState("");
+  const savedRange=useRef(null);
     const isInternalChange=useRef(false);
     useEffect(()=>{
       if(editorRef.current&&!initialized.current){
@@ -352,21 +356,11 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
         <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
         {toolBtn("🔗",()=>{
           const sel=window.getSelection();
-          const selectedText=sel?.toString()||"";
-          const url=window.prompt("הכנס כתובת קישור:",selectedText.startsWith("http")?selectedText:"https://");
-          if(url){
-            if(selectedText){
-              execVal("createLink",url);
-            } else {
-              const text=window.prompt("טקסט לתצוגה:",url)||url;
-              const html=`<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-              execVal("insertHTML",html);
-            }
-            editorRef.current?.querySelectorAll("a").forEach(a=>{
-              a.target="_blank";
-              a.rel="noopener noreferrer";
-            });
-          }
+          const text=sel?.toString()||"";
+          savedRange.current=sel?.rangeCount>0?sel.getRangeAt(0).cloneRange():null;
+          setLinkText(text);
+          setLinkUrl("");
+          setLinkModal(true);
         },"קישור")}
       </div>
       <div ref={editorRef} contentEditable suppressContentEditableWarning className="rte-editor" onInput={handleInput} data-placeholder={placeholder||""}
@@ -378,6 +372,64 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
           }
         }}
         style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}/>
+      {linkModal&&(
+        <div style={{position:"absolute",top:"100%",right:0,left:0,zIndex:400,
+          background:T.surface,border:`1px solid ${T.navyBorder}`,
+          borderRadius:10,padding:12,boxShadow:"0 8px 24px rgba(0,0,0,.12)",
+          display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:2}}>הוספת קישור</div>
+          <input
+            autoFocus
+            placeholder="טקסט לתצוגה"
+            value={linkText}
+            onChange={e=>setLinkText(e.target.value)}
+            style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,
+              padding:"8px 10px",fontSize:13,color:T.text,outline:"none",
+              fontFamily:T.font,direction:"rtl",width:"100%",boxSizing:"border-box"}}
+          />
+          <input
+            placeholder="כתובת אתר (https://...)"
+            value={linkUrl}
+            onChange={e=>setLinkUrl(e.target.value)}
+            style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,
+              padding:"8px 10px",fontSize:13,color:T.text,outline:"none",
+              fontFamily:T.font,direction:"ltr",width:"100%",boxSizing:"border-box"}}
+          />
+          <div style={{display:"flex",gap:6}}>
+            <button
+              onMouseDown={e=>{
+                e.preventDefault();
+                if(!linkUrl.trim()){setLinkModal(false);return;}
+                const url=linkUrl.startsWith("http")?linkUrl:`https://${linkUrl}`;
+                const display=linkText.trim()||url;
+                editorRef.current?.focus();
+                if(savedRange.current){
+                  const sel=window.getSelection();
+                  sel.removeAllRanges();
+                  sel.addRange(savedRange.current);
+                }
+                const html=`<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:${T.navy};text-decoration:underline;">${display}</a>`;
+                document.execCommand("insertHTML",false,html);
+                handleInput();
+                setLinkModal(false);
+                setLinkUrl("");
+                setLinkText("");
+              }}
+              style={{flex:1,padding:"8px",borderRadius:8,background:T.navy,
+                border:"none",color:"#fff",fontSize:12,fontWeight:600,
+                cursor:"pointer",fontFamily:T.font}}>
+              הוספה
+            </button>
+            <button
+              onMouseDown={e=>{e.preventDefault();setLinkModal(false);}}
+              style={{flex:1,padding:"8px",borderRadius:8,background:T.bg,
+                border:`1px solid ${T.border}`,color:T.textMid,fontSize:12,
+                fontWeight:600,cursor:"pointer",fontFamily:T.font}}>
+              ביטול
+            </button>
+          </div>
+        </div>
+      )}
       <style>{`
         .rte-editor:empty:before{content:attr(data-placeholder);color:#a8a29e;pointer-events:none;}
         .rte-editor a{color:${T.navy};text-decoration:underline;cursor:pointer;}

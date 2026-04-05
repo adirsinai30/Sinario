@@ -2582,11 +2582,16 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           max_tokens:4000,
-          system:`אתה עוזר שמחלץ מתכונים מתמונות. החזר תמיד JSON בלבד, ללא טקסט נוסף, בפורמט:
+          system:mode==="recipe"
+  ?`אתה עוזר שמחלץ מתכונים מתמונות. החזר תמיד JSON בלבד, ללא טקסט נוסף, בפורמט:
 {"name":"שם המתכון","servings":"4","categories":[],"ingredients":[{"item":"","qty":"","unit":""}],"steps":[""],"prepNotes":""}
 - steps: כל שלב כטקסט נפרד
 - ingredients: רשימת מצרכים
-- אם אינך רואה מתכון ברור, החזר {"error":"לא זוהה מתכון בתמונה"}`,
+- אם אינך רואה מתכון ברור, החזר {"error":"לא זוהה מתכון בתמונה"}`
+  :`אתה עוזר שמחלץ תפריטים מתמונות. החזר תמיד JSON בלבד, ללא טקסט נוסף, בפורמט:
+{"name":"שם התפריט","servings":"","categories":[],"sections":[{"title":"שם החלק","dishes":["מנה 1","מנה 2"]}],"notes":""}
+- sections: חלקי התפריט (מנות ראשונות, עיקריות, קינוחים וכו')
+- אם אינך רואה תפריט ברור, החזר {"error":"לא זוהה תפריט בתמונה"}`,
           messages:[{
             role:"user",
             content:[
@@ -2610,17 +2615,30 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
         parsed={name:nameMatch?.[1]||"מתכון מהתמונה",ingredients:[{item:"",qty:"",unit:""}],steps:[""]};
       }
       if(parsed.error){alert(parsed.error);return;}
-      setForm({
-        type:"recipe",
-        name:parsed.name||"",
-        categories:parsed.categories||[],
-        servings:String(parsed.servings||""),
-        ingredients:parsed.ingredients?.length?parsed.ingredients:[{item:"",qty:"",unit:""}],
-        steps:parsed.steps?.length?parsed.steps:[""],
-        prepNotes:parsed.prepNotes||"",
-        concepts:[],
-      });
-      setNotesHtml(parsed.prepNotes||"");
+      if(mode==="recipe"){
+        setForm({
+          type:"recipe",
+          name:parsed.name||"",
+          categories:parsed.categories||[],
+          servings:String(parsed.servings||""),
+          ingredients:parsed.ingredients?.length?parsed.ingredients:[{item:"",qty:"",unit:""}],
+          steps:parsed.steps?.length?parsed.steps:[""],
+          prepNotes:parsed.prepNotes||"",
+          concepts:[],
+        });
+        setNotesHtml(parsed.prepNotes||"");
+      } else {
+        setForm({
+          type:"menu",
+          name:parsed.name||"",
+          categories:parsed.categories||[],
+          servings:String(parsed.servings||""),
+          sections:parsed.sections?.length?parsed.sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],
+          notes:parsed.notes||"",
+          concepts:[],
+        });
+        setNotesHtml(parsed.notes||"");
+      }
       setEditId(null);
       setShowForm(true);
     }catch(e){
@@ -2706,6 +2724,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
               e.target.value="";
             }}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
             <button onClick={()=>imageInputRef.current?.click()} disabled={imageLoading}
               style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",
                 borderRadius:10,border:`1px solid ${T.navyBorder}`,background:T.navyLight,
@@ -2720,9 +2739,8 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                     stroke={T.navy} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
-              {imageLoading?"קורא…":"מתמונה"}
+              {imageLoading?"מנתח תמונה...":"העלאת תמונה"}
             </button>
-            <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
           </div>
           {!editId&&showForm&&(
             <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>

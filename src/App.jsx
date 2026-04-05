@@ -3379,9 +3379,9 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
               <div style={{fontSize:13,fontWeight:700,color:T.navy}}>קטגוריות הוצאות שוטפות</div>
               <Btn onClick={()=>{setEditId("__new__");setForm(blank);}} style={{padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
             </div>
-            {editId&&(
+            {editId==="__new__"&&(
               <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:12,padding:14,marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:600,color:T.navy,marginBottom:10}}>{editId==="__new__"?"קטגוריה חדשה":"עריכת קטגוריה"}</div>
+                <div style={{fontSize:12,fontWeight:600,color:T.navy,marginBottom:10}}>קטגוריה חדשה</div>
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   <Inp placeholder="שם קטגוריה" value={form.label} onChange={e=>setForm({...form,label:e.target.value})}/>
                   <Inp type="number" placeholder="תקציב חודשי" value={form.budget||""} onChange={e=>setForm({...form,budget:e.target.value?+e.target.value:0})}/>
@@ -3394,6 +3394,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
               </div>
             )}
             {cats.map((c,i)=>(
+              <>
               <div key={c.id}
                 draggable
                 onDragStart={()=>setDragIdx(i)}
@@ -3427,17 +3428,23 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
                   <div style={{fontSize:13,fontWeight:600,color:T.text}}>{c.label}</div>
                   <div style={{fontSize:11,color:T.textSub}}>תקציב: {fmt(c.budget)}</div>
                 </div>
-                <div style={{display:"flex",gap:6}}>
-                  <button onClick={()=>{setEditId(c.id);setForm({label:c.label,budget:c.budget,icon:c.icon||"home",color:c.color||T.navy});}}
-                    style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>
-                    <Icon name="pencil" size={12} color={T.navy}/>
-                  </button>
-                  <button onClick={()=>cats.length>1?setConfirmCatId(c.id):null}
-                    style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>
-                    <Icon name="trash" size={12} color={T.danger}/>
-                  </button>
-                </div>
+                <ActionBtns onEdit={()=>{setEditId(c.id);setForm({label:c.label,budget:c.budget,icon:c.icon||"home",color:c.color||T.navy});}} onDelete={()=>cats.length>1?setConfirmCatId(c.id):null}/>
               </div>
+              {editId===c.id&&(
+                <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:12,padding:14,marginBottom:6}}>
+                  <div style={{fontSize:12,fontWeight:600,color:T.navy,marginBottom:10}}>עריכת קטגוריה</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    <Inp placeholder="שם קטגוריה" value={form.label} onChange={e=>setForm({...form,label:e.target.value})}/>
+                    <Inp type="number" placeholder="תקציב חודשי" value={form.budget||""} onChange={e=>setForm({...form,budget:e.target.value?+e.target.value:0})}/>
+                    <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>אייקון</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{ICONS.map(ic=><button key={ic} onClick={()=>setForm({...form,icon:ic})} style={{width:36,height:36,borderRadius:9,background:form.icon===ic?T.navy+"18":T.bg,border:`2px solid ${form.icon===ic?T.navy:T.border}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name={ic} size={15} color={form.icon===ic?T.navy:T.textSub}/></button>)}</div>
+                    <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>צבע</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{COLORS.map(col=><button key={col} onClick={()=>setForm({...form,color:col})} style={{width:26,height:26,borderRadius:"50%",background:col,cursor:"pointer",border:`3px solid ${form.color===col?"#1c1917":"transparent"}`}}/>)}</div>
+                    <div style={{display:"flex",gap:8}}><Btn onClick={saveEdit} style={{flex:1,padding:"9px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>setEditId(null)} style={{flex:1,padding:"9px"}}>ביטול</Btn></div>
+                  </div>
+                </div>
+              )}
+              </>
             ))}
           </Card>
           <Card>

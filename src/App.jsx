@@ -3458,7 +3458,11 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
     await fetch('/api/subscribe',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({...sub.toJSON(),device_id:localStorage.getItem('device_id')||""})
+      body:JSON.stringify({
+        ...sub.toJSON(),
+        device_id:localStorage.getItem('device_id')||"",
+        owner:localStorage.getItem('device_owner')||""
+      })
     });
     alert('התראות הופעלו בהצלחה!');
   }catch(e){

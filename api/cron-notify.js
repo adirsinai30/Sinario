@@ -102,9 +102,11 @@ export default async function handler(req, res) {
       try{
         const now=new Date();
         const year=now.getFullYear();
-        const month=now.getMonth();
-        const startOfMonth=new Date(year,month,1).toISOString().slice(0,10);
-        const endOfMonth=new Date(year,month+1,0).toISOString().slice(0,10);
+        // חודש קודם
+        const month=now.getMonth()===0?11:now.getMonth()-1;
+        const year2=now.getMonth()===0?now.getFullYear()-1:now.getFullYear();
+        const startOfMonth=new Date(year2,month,1).toISOString().slice(0,10);
+        const endOfMonth=new Date(year2,month+1,0).toISOString().slice(0,10);
 
         const [{data:expData},{data:spData}]=await Promise.all([
           supabase.from('expenses').select('amount,who')

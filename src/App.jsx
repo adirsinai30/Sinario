@@ -3446,6 +3446,9 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   }
   try{
     const reg=await navigator.serviceWorker.ready;
+    // בטל subscription קיים אם יש
+    const existing=await reg.pushManager.getSubscription();
+    if(existing) await existing.unsubscribe();
     const vapidKey=import.meta.env.VITE_VAPID_PUBLIC_KEY;
     const sub=await reg.pushManager.subscribe({
       userVisibleOnly:true,

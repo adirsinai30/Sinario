@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef } from "react";
 import { supabase } from './supabase.js';
 
 const fontLink = document.createElement("link");
@@ -210,9 +210,9 @@ function Btn({children,variant="primary",onClick,style={},disabled=false}){
   const v={primary:{background:T.navy,color:"#fff"},secondary:{background:T.bg,color:T.textMid,border:`1px solid ${T.border}`},danger:{background:T.dangerBg,color:T.danger,border:`1px solid ${T.dangerBorder}`}};
   return <button onClick={onClick} disabled={disabled} style={{fontFamily:T.font,fontSize:13,fontWeight:600,cursor:disabled?"not-allowed":"pointer",borderRadius:10,padding:"9px 18px",border:"none",transition:"all .15s",opacity:disabled?.5:1,...v[variant],...style}}>{children}</button>;
 }
-function Inp({value,onChange,placeholder,type="text",style={},onKeyDown}){
-  return <input type={type} inputMode="text" value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,width:"100%",...style}}/>;
-}
+const Inp=forwardRef(({value,onChange,placeholder,type="text",style={},onKeyDown,...props},ref)=>{
+  return <input ref={ref} type={type} inputMode="text" value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 14px",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,width:"100%",...style}} {...props}/>;
+});
 function PBar({value,max,color=T.navy,h=5}){
   const pct=Math.min(100,(value/(max||1))*100);
   return <div style={{background:"#ece8e2",borderRadius:99,height:h,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",borderRadius:99,background:value>max?T.danger:color,transition:"width .7s cubic-bezier(.22,1,.36,1)"}}/></div>;
@@ -667,7 +667,16 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
   const [confirmId,setConfirmId]=useState(null);
   const showSpecialForm=showSpecialAdd;
   const setShowSpecialForm=setShowSpecialAdd;
+  const newSpRef=useRef(null);
   const [editSpecialId,setEditSpecialId]=useState(null);
+  useEffect(()=>{
+    if(showSpecialForm&&!editSpecialId){
+      setTimeout(()=>{
+        newSpRef.current?.scrollIntoView({behavior:'smooth',block:'center'});
+        newSpRef.current?.focus();
+      },50);
+    }
+  },[showSpecialForm,editSpecialId]);
   const [confirmSpecialId,setConfirmSpecialId]=useState(null);
   const [showAll,setShowAll]=useState(false);
   const [searchQ,setSearchQ]=useState("");
@@ -780,32 +789,29 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           </div>
           {diff>5&&(
             <div style={{background:"#f7f6f3",border:"0.5px solid #e6e2db",borderRadius:12,
-              padding:"8px 12px",
-              display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <div style={{width:28,height:28,borderRadius:"50%",
-                  background:from==="אדיר"?"#1e3a5f":"#be185d",
-                  display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
-                    <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
-                  </svg>
-                </div>
-                <span style={{fontSize:13,color:T.text,fontWeight:600}}>
+              padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{width:28,height:28,borderRadius:"50%",
+                background:from==="אדיר"?"#1e3a5f":"#be185d",
+                display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
+                  <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
+                </svg>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:5,flex:1,justifyContent:"center"}}>
+                <span style={{fontSize:13,color:"#1c1917",fontWeight:500}}>
                   {from==="אדיר"?"אדיר מעביר":"ספיר מעבירה"} ל{from==="אדיר"?"ספיר:":"אדיר:"}
                 </span>
+                <span style={{fontSize:14,fontWeight:600,color:"#1e3a5f"}}>{fmt(diff)}</span>
+                <span style={{fontSize:11,color:"#78716c"}}>←</span>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:14,fontWeight:700,color:T.navy}}>{fmt(diff)}</span>
-                <span style={{fontSize:12,color:T.textSub}}>←</span>
-                <div style={{width:28,height:28,borderRadius:"50%",
-                  background:from==="אדיר"?"#be185d":"#1e3a5f",
-                  display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
-                    <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
-                  </svg>
-                </div>
+              <div style={{width:28,height:28,borderRadius:"50%",
+                background:from==="אדיר"?"#be185d":"#1e3a5f",
+                display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
+                  <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
+                </svg>
               </div>
             </div>
           )}
@@ -861,7 +867,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
             <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>הוצאה מיוחדת חדשה</div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <Inp placeholder="תיאור" value={spForm.desc} onChange={e=>setSpForm({...spForm,desc:e.target.value})}/>
+              <Inp ref={newSpRef} placeholder="תיאור" value={spForm.desc} onChange={e=>setSpForm({...spForm,desc:e.target.value})}/>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{specialCatsList.map(c=><button key={c.id} onClick={()=>setSpForm({...spForm,catId:c.id})} style={{padding:"6px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${spForm.catId===c.id?T.navy:T.border}`,background:spForm.catId===c.id?T.navyLight:"transparent",color:spForm.catId===c.id?T.navy:T.textMid}}>{c.label}</button>)}</div>
               <Inp type="number" placeholder="סכום" value={spForm.amount} onChange={e=>setSpForm({...spForm,amount:e.target.value})}/>
               <CurrencyField currency={spForm.currency} setCurrency={c=>setSpForm({...spForm,currency:c})} rate={spForm.rateUsed} setRate={r=>setSpForm({...spForm,rateUsed:r})} amount={spForm.amount}/>
@@ -1222,6 +1228,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={},a
 }
 
 function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct,showAssetFormExternal=false,setShowAssetFormExternal=()=>{},portfolioView,setPortfolioView}){
+  const newAssetRef=useRef(null);
   const [agentHistory,setAgentHistory]=useState([]);
   const [expandedId,setExpandedId]=useState(null);
   const [collapsed,setCollapsed]=useState({});
@@ -1310,6 +1317,14 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const totalRealized=assets.reduce((s,a)=>s+realizedPnLILS(a),0);
 
   const openAddAsset=()=>{setEditAssetId(null);setAssetForm(blankAsset);setShowAssetForm("new");setExpandedId(null);};
+  useEffect(()=>{
+    if(showAssetForm==="new"&&!editAssetId){
+      setTimeout(()=>{
+        newAssetRef.current?.scrollIntoView({behavior:'smooth',block:'center'});
+        newAssetRef.current?.focus();
+      },50);
+    }
+  },[showAssetForm,editAssetId]);
   useEffect(()=>{
     if(showAssetFormExternal){
       if(portfolioView==="active")setShowAssetForm("new");
@@ -1746,7 +1761,7 @@ ${newsContext}`;
               <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
                 <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>{editAssetId?"עריכת נייר ערך":"נייר ערך חדש"}</div>
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  <div><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>נייר ערך</div><Inp placeholder='למשל: Apple (AAPL) / ביטקוין (BTC)' value={assetForm.security} onChange={e=>setAssetForm({...assetForm,security:e.target.value})}/></div>
+                  <div><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>נייר ערך</div><Inp ref={newAssetRef} placeholder='למשל: Apple (AAPL) / ביטקוין (BTC)' value={assetForm.security} onChange={e=>setAssetForm({...assetForm,security:e.target.value})}/></div>
                   {!editAssetId&&(<>
                     <div style={{display:"flex",gap:8}}>
                       <div style={{flex:1}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>כמות יחידות</div><Inp type="number" placeholder="כמות" value={assetForm.shares} onChange={e=>setAssetForm({...assetForm,shares:e.target.value})}/></div>
@@ -2465,6 +2480,7 @@ function exportMenuPDF(menu){
 }
 
 function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{}}){
+  const newRecipeRef=useRef(null);
   const [mode,setMode]=useState("recipe");
   const [filterCat,setFilterCat]=useState("הכל");
   const [filterConcept,setFilterConcept]=useState("הכל");
@@ -2504,6 +2520,14 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
     if(showForm&&!editId)saveDraft(form,notesHtml);
   },[form,notesHtml,showForm,editId]);
   const openAdd=()=>{setEditId(null);const b=mode==="recipe"?blankR:{...blankM,sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}]};setForm(b);setNotesHtml("");setShowForm(true);};
+  useEffect(()=>{
+    if(showForm&&!editId){
+      setTimeout(()=>{
+        newRecipeRef.current?.scrollIntoView({behavior:'smooth',block:'center'});
+        newRecipeRef.current?.focus();
+      },50);
+    }
+  },[showForm,editId]);
   useEffect(()=>{
     if(showFormExternal){openAdd();setShowFormExternal(false);}
   },[showFormExternal]);
@@ -2572,7 +2596,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
             <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
               <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>{mode==="recipe"?"מתכון חדש":"תפריט חדש"}</div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{display:"flex",gap:8}}><Inp placeholder="תיאור" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} style={{flex:3}}/><Inp type="number" placeholder="כמות אנשים" value={form.servings} onChange={e=>setForm({...form,servings:e.target.value})} style={{flex:2,minWidth:120}}/></div>
+                <div style={{display:"flex",gap:8}}><Inp ref={newRecipeRef} placeholder="תיאור" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} style={{flex:3}}/><Inp type="number" placeholder="כמות אנשים" value={form.servings} onChange={e=>setForm({...form,servings:e.target.value})} style={{flex:2,minWidth:120}}/></div>
                 <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סוג ארוחה</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{mealTypesList.map(c=><button key={c} onClick={()=>toggleCat(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.categories||[]).includes(c)?T.navy:T.border}`,background:(form.categories||[]).includes(c)?T.navy:"transparent",color:(form.categories||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                 <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סגנון</div>
@@ -2767,6 +2791,7 @@ function NotesTab({notes,setNotes,defaultWho="א"}){
 }
 
 function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א",showNew,setShowNew}){
+  const newTripRef=useRef(null);
   const [sel,setSel]=useState(null);
   const [showItem,setShowItem]=useState(false);
   const [showAll,setShowAll]=useState(false);
@@ -2783,6 +2808,14 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א
   const [itf,setItf]=useState(blankItf);
   useEffect(()=>{setItf(f=>({...f,who:defaultWho}));},[defaultWho]);
   const tripTotal=t=>t.items.reduce((s,i)=>s+toILS(i),0);
+  useEffect(()=>{
+    if(showNew&&!editTripId){
+      setTimeout(()=>{
+        newTripRef.current?.scrollIntoView({behavior:'smooth',block:'center'});
+        newTripRef.current?.focus();
+      },50);
+    }
+  },[showNew,editTripId]);
   const openAddTrip=()=>{setEditTripId(null);setTf(blankTf);setShowNew(true);};
   const openEditTrip=trip=>{setEditTripId(trip.id);setTf({name:trip.name,budget:String(trip.budget),dateFrom:trip.dateFrom||"",dateTo:trip.dateTo||"",color:trip.color||T.navy});setShowNew(true);};
   const saveTrip=async()=>{
@@ -2848,7 +2881,7 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א
               <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
                 <div style={{fontSize:13,fontWeight:600,color:T.navy,marginBottom:12}}>חופשה חדשה</div>
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  <Inp placeholder="שם החופשה" value={tf.name} onChange={e=>setTf({...tf,name:e.target.value})}/>
+                  <Inp ref={newTripRef} placeholder="שם החופשה" value={tf.name} onChange={e=>setTf({...tf,name:e.target.value})}/>
                   <div style={{display:"flex",gap:8}}>
                     <div style={{flex:1}}><div style={{fontSize:11,color:T.textMid,fontWeight:600,marginBottom:4}}>מתאריך</div><Inp type="date" value={tf.dateFrom} onChange={e=>setTf({...tf,dateFrom:e.target.value})}/></div>
                     <div style={{flex:1}}><div style={{fontSize:11,color:T.textMid,fontWeight:600,marginBottom:4}}>עד תאריך</div><Inp type="date" value={tf.dateTo} onChange={e=>setTf({...tf,dateTo:e.target.value})}/></div>
@@ -3236,7 +3269,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
             </div>
             <div style={{display:"flex",gap:10}}>
               {[["א","אדיר"],["ס","ספיר"]].map(([val,label])=>(
-                <button key={val} onClick={()=>saveDeviceOwner&&saveDeviceOwner(val)} style={{flex: "1 1 0%", padding:"5px 16px",borderRadius:8,border:`1px solid ${defaultWho===val?T.navyBorder:T.border}`,background:defaultWho===val?T.navyLight:"transparent",color:defaultWho===val?T.navy:T.textMid,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{label}</button>
+                <button key={val} onClick={()=>saveDeviceOwner&&saveDeviceOwner(val)} style={{flex:"1 1 0%",padding:"5px 16px",borderRadius:8,border:`1px solid ${defaultWho===val?(label==="ספיר"?"#f9a8d4":T.navyBorder):T.border}`,background:defaultWho===val?(label==="ספיר"?"#fce7f3":T.navyLight):"transparent",color:defaultWho===val?(label==="ספיר"?"#be185d":T.navy):T.textMid,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{label}</button>
               ))}
             </div>
           </Card>

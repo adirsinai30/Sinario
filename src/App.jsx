@@ -3317,6 +3317,14 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   const [newMealType,setNewMealType]=useState("");
   const [editBudget,setEditBudget]=useState(false);
   const [budgetInput,setBudgetInput]=useState("");
+  const [dragIdx,setDragIdx]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const reorderCats=async(newCats)=>{
+    setCats(newCats);
+    await Promise.all(newCats.map((c,i)=>
+      supabase.from('categories').update({sort_order:i}).eq('id',c.id)
+    ));
+  };
   const blank={label:"",icon:"basket",color:T.navy,budget:""};
   const [form,setForm]=useState(blank);
   const ICONS=["basket","home","currency","wallet","sparkle","wifi","receipt","droplet","flame","building","music","bolt"];
@@ -3385,7 +3393,52 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
                 </div>
               </div>
             )}
-            {cats.map(c=>(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${T.border}`}}><CatIcon icon={c.icon} color={c.color} size={36}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:T.text}}>{c.label}</div><div style={{fontSize:11,color:T.textSub}}>תקציב: {fmt(c.budget)}</div></div><ActionBtns onEdit={()=>startEdit(c)} onDelete={()=>cats.length>1?setConfirmCatId(c.id):null}/></div>))}
+            {cats.map((c,i)=>(
+              <div key={c.id}
+                draggable
+                onDragStart={()=>setDragIdx(i)}
+                onDragOver={e=>{e.preventDefault();setDragOver(i);}}
+                onDragEnd={()=>{
+                  if(dragIdx===null||dragOver===null||dragIdx===dragOver){
+                    setDragIdx(null);setDragOver(null);return;
+                  }
+                  const next=[...cats];
+                  const [moved]=next.splice(dragIdx,1);
+                  next.splice(dragOver,0,moved);
+                  reorderCats(next);
+                  setDragIdx(null);setDragOver(null);
+                }}
+                style={{
+                  display:"flex",alignItems:"center",gap:10,
+                  padding:"10px 12px",borderRadius:10,
+                  background:dragOver===i?T.navyLight:T.surface,
+                  border:`1px solid ${dragOver===i?T.navyBorder:T.border}`,
+                  marginBottom:6,cursor:"grab",
+                  transition:"background .15s",
+                  opacity:dragIdx===i?0.5:1,
+                }}>
+                <div style={{display:"flex",flexDirection:"column",gap:3,flexShrink:0,cursor:"grab"}}>
+                  <div style={{width:16,height:1.5,background:T.textSub,borderRadius:2}}/>
+                  <div style={{width:16,height:1.5,background:T.textSub,borderRadius:2}}/>
+                  <div style={{width:16,height:1.5,background:T.textSub,borderRadius:2}}/>
+                </div>
+                <CatIcon icon={c.icon} color={c.color} size={30}/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:600,color:T.text}}>{c.label}</div>
+                  <div style={{fontSize:11,color:T.textSub}}>תקציב: {fmt(c.budget)}</div>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>{setEditId(c.id);setForm({label:c.label,budget:c.budget,icon:c.icon||"home",color:c.color||T.navy});}}
+                    style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>
+                    <Icon name="pencil" size={12} color={T.navy}/>
+                  </button>
+                  <button onClick={()=>cats.length>1?setConfirmCatId(c.id):null}
+                    style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>
+                    <Icon name="trash" size={12} color={T.danger}/>
+                  </button>
+                </div>
+              </div>
+            ))}
           </Card>
           <Card>
             <div style={{fontSize:13,fontWeight:700,color:T.navy,marginBottom:12}}>קטגוריות הוצאות מיוחדות</div>
@@ -3608,7 +3661,13 @@ export default function App(){
       supabase.from('price_snapshots').select('*')
     ]);
     if(expRes.data)setExpenses(expRes.data.map(e=>({id:e.id,desc:e.description,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,catId:e.cat_id,date:e.date,who:e.who||'א'})));
-    if(catRes.data)setCats(catRes.data.map(c=>({id:c.id,label:c.label,icon:c.icon||'basket',color:c.color||T.navy,budget:+c.budget||0})));
+    if(catRes.data){
+      setCats([...catRes.data].sort((a,b)=>(a.sort_order??0)-(b.sort_order??0)).map(c=>({
+        id:c.id,label:c.label,budget:c.budget||0,
+        icon:c.icon||"home",color:c.color||T.navy,
+        sort_order:c.sort_order??0
+      })));
+    }
     if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
     if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
     if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));

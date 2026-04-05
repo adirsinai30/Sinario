@@ -742,7 +742,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
       {editExp&&<AddExpenseDrawer cats={cats} initData={editExp} onAdd={doEdit} onClose={()=>setEditExp(null)}/>}
       <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
         {[["regular","הוצאות שוטפות"],["special","הוצאות מיוחדות"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{setExpMode(v);setSearchQ("");}} style={{flex:1,padding:"9px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:expMode===v?T.surface:"transparent",color:expMode===v?T.navy:T.textSub,boxShadow:expMode===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
+          <button key={v} onClick={()=>{setExpMode(v);setSearchQ("");}} style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",background:expMode===v?T.surface:"transparent",color:expMode===v?T.navy:T.textSub,boxShadow:expMode===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
         ))}
       </div>
       <SearchBar
@@ -1767,7 +1767,7 @@ ${newsContext}`;
           {/* ── סעיף 7ה: איפוס searchQ בטוגל ── */}
           <div style={{flex:1,display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
             {[["active",`פעיל (${activeAssets.length})`],["sold",`נמכר (${soldAssets.length})`]].map(([v,l])=>(
-              <button key={v} onClick={()=>{setPortfolioView(v);setSearchQ("");}} style={{flex:1,padding:"9px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:portfolioView===v?T.surface:"transparent",color:portfolioView===v?T.navy:T.textSub,boxShadow:portfolioView===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
+              <button key={v} onClick={()=>{setPortfolioView(v);setSearchQ("");}} style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",background:portfolioView===v?T.surface:"transparent",color:portfolioView===v?T.navy:T.textSub,boxShadow:portfolioView===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
             ))}
           </div>
           {/* ── סעיף 7ג: SearchBar ── */}
@@ -2714,7 +2714,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
         <>
           {/* ── סעיף 4ג: איפוס searchQ בטוגל ── */}
           <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
-            {[["recipe","מתכונים"],["menu","תפריטים"]].map(([v,l])=><button key={v} onClick={()=>{setMode(v);setFilterCat("הכל");setFilterConcept("הכל");setShowForm(false);setSearchQ("");}} style={{flex:1,padding:"8px",borderRadius:9,fontFamily:T.font,fontSize:13,fontWeight:600,cursor:"pointer",border:"none",background:mode===v?T.surface:"transparent",color:mode===v?T.navy:T.textSub,boxShadow:mode===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}
+            {[["recipe","מתכונים"],["menu","תפריטים"]].map(([v,l])=><button key={v} onClick={()=>{setMode(v);setFilterCat("הכל");setFilterConcept("הכל");setShowForm(false);setSearchQ("");}} style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",background:mode===v?T.surface:"transparent",color:mode===v?T.navy:T.textSub,boxShadow:mode===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}
           </div>
           {/* ── סעיף 4ד: SearchBar ── */}
           <SearchBar
@@ -3710,16 +3710,16 @@ export default function App(){
       <style>{globalCss}</style>
       <div style={{position:"sticky",top:0,zIndex:100,background:T.surface}}>
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px 6px 16px",boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
-  <div style={{maxWidth:720,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-    <div style={{flex:1,display:"flex",alignItems:"center"}}>
+  <div style={{maxWidth:720,margin:"0 auto",position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+    <div style={{display:"flex",alignItems:"center"}}>
       <button onClick={()=>setSection("settings")} style={{background:section==="settings"?T.navyLight:"transparent",border:`1px solid ${section==="settings"?T.navyBorder:"transparent"}`,borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",flexShrink:0}}>
         <Icon name="settings" size={15} color={section==="settings"?T.navy:T.textMid}/>
       </button>
     </div>
-    <div style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center"}}>
+    <div style={{position:"absolute",left:"50%",transform:"translateX(-50%)"}}>
       <PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/>
     </div>
-    <div style={{flex:1,display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8}}>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
       <div style={{fontFamily:"system-ui,sans-serif",color:T.navy,letterSpacing:"2px",fontWeight:300,fontSize:"16px",display:"flex",alignItems:"baseline",direction:"ltr"}}>SINARIO</div>
       <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${T.navy}33`}}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
@@ -3774,34 +3774,31 @@ export default function App(){
       )}
       <div style={{
         position:"fixed",bottom:0,left:0,right:0,
-        display:"flex",justifyContent:"center",
+        display:"flex",flexDirection:"column",
         background:T.surface,
         borderTop:`1px solid ${T.border}`,
         zIndex:200,
-        paddingBottom:"env(safe-area-inset-bottom)",
       }}>
-        <div style={{
-          width:"100%",maxWidth:720,
-          display:"flex",
-        }}>
-          {SECTIONS.map(s=>(
-            <button key={s.id}
-              onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}}
-              style={{
-                flex:1,display:"flex",flexDirection:"column",
-                alignItems:"center",justifyContent:"center",
-                gap:3,padding:"8px 0 6px",
-                background:"transparent",border:"none",
-                cursor:"pointer",
-                color:section===s.id?T.navy:T.textSub,
-              }}>
-              <Icon name={s.icon} size={20} color={section===s.id?T.navy:T.textSub}/>
-              <span style={{
-                fontSize:10,fontFamily:T.font,fontWeight:section===s.id?600:400,
-              }}>{s.label}</span>
-            </button>
-          ))}
+        <div style={{display:"flex",justifyContent:"center"}}>
+          <div style={{width:"100%",maxWidth:720,display:"flex"}}>
+            {SECTIONS.map(s=>(
+              <button key={s.id}
+                onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}}
+                style={{
+                  flex:1,display:"flex",flexDirection:"column",
+                  alignItems:"center",justifyContent:"center",
+                  gap:3,padding:"8px 0 6px",
+                  background:"transparent",border:"none",
+                  cursor:"pointer",
+                  color:section===s.id?T.navy:T.textSub,
+                }}>
+                <Icon name={s.icon} size={20} color={section===s.id?T.navy:T.textSub}/>
+                <span style={{fontSize:10,fontFamily:T.font,fontWeight:section===s.id?600:400}}>{s.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
+        <div style={{height:"env(safe-area-inset-bottom,0px)",background:T.surface}}/>
       </div>
     </div>
   );

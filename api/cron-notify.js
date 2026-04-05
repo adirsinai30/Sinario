@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
   try {
     const {data:assetsData}=await supabase
-      .from('assets').select('id,security,alert_pct').not('alert_pct','is',null);
+      .from('assets').select('id,security,alert_pct,alert_direction').not('alert_pct','is',null);
     const {data:snapshotsData}=await supabase
       .from('price_snapshots').select('*');
 
@@ -61,9 +61,14 @@ export default async function handler(req, res) {
           const snapshot=snapMap[ticker];
           if(!current||!snapshot||!a.alert_pct)return;
           const changePct=((current-snapshot)/snapshot)*100;
-          if(Math.abs(changePct)>=a.alert_pct){
-            const dir=current>snapshot?"עלה":"ירד";
-            triggered.push(`${a.security} ${dir} ${changePct.toFixed(2)}%`);
+          const absOk=Math.abs(changePct)>=a.alert_pct;
+          const direction=a.alert_direction||'both';
+          const dirOk=direction==='both'
+            ||(direction==='up'&&changePct>0)
+            ||(direction==='down'&&changePct<0);
+          if(absOk&&dirOk){
+            const dir=changePct>0?"↑ עלה":"↓ ירד";
+            triggered.push({msg:`${a.security} ${dir} ${Math.abs(changePct).toFixed(2)}%`});
           }
         });
 
@@ -73,7 +78,7 @@ export default async function handler(req, res) {
             for(const sub of subs){
               await sendPushNotification(sub,{
                 title:'התראת מחיר — Sinario',
-                body:triggered.join(' | ')
+                body:triggered.map(t=>t.msg).join(' | ')
               });
             }
           }
@@ -82,6 +87,58 @@ export default async function handler(req, res) {
     }
   } catch(e){
     console.error('price alert error:',e);
+  }
+
+  // ── התראת "מי מעביר למי" — ב-5 לחודש בלבד ──
+  const today=new Date();
+  if(today.getDate()===5){
+    try{
+      const now=new Date();
+      const year=now.getFullYear();
+      const month=now.getMonth();
+      const startOfMonth=new Date(year,month,1).toISOString();
+      const endOfMonth=new Date(year,month+1,0,23,59,59).toISOString();
+
+      const {data:expData}=await supabase
+        .from('expenses')
+        .select('amount,who')
+        .gte('date',startOfMonth.slice(0,10))
+        .lte('date',endOfMonth.slice(0,10));
+
+      const {data:spData}=await supabase
+        .from('special_expenses')
+        .select('amount,currency,rate_used,who')
+        .gte('date',startOfMonth.slice(0,10))
+        .lte('date',endOfMonth.slice(0,10));
+
+      if((expData||[]).length>0||(spData||[]).length>0){
+        const adirTotal=(expData||[]).filter(e=>e.who==="א").reduce((s,e)=>s+(+e.amount),0)
+          +(spData||[]).filter(e=>e.who==="א").reduce((s,e)=>s+(+e.amount*(+e.rate_used||1)),0);
+        const sapirTotal=(expData||[]).filter(e=>e.who==="ס").reduce((s,e)=>s+(+e.amount),0)
+          +(spData||[]).filter(e=>e.who==="ס").reduce((s,e)=>s+(+e.amount*(+e.rate_used||1)),0);
+
+        const diff=Math.abs(adirTotal-sapirTotal)/2;
+        if(diff>5){
+          const from=adirTotal>sapirTotal?"ספיר":"אדיר";
+          const to=from==="אדיר"?"ספיר":"אדיר";
+          const verb=from==="ספיר"?"מעבירה":"מעביר";
+          const MONTHS=["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+          const monthName=MONTHS[month];
+
+          const {data:subs}=await supabase.from('push_subscriptions').select('*');
+          if(subs?.length){
+            for(const sub of subs){
+              await sendPushNotification(sub,{
+                title:`Sinario — חלוקת הוצאות ${monthName}`,
+                body:`${from} ${verb} ל${to}: ₪${Math.round(diff).toLocaleString()}`
+              });
+            }
+          }
+        }
+      }
+    }catch(e){
+      console.error('split notification error:',e);
+    }
   }
 
   res.status(200).json({ sent: true });

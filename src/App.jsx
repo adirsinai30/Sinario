@@ -670,13 +670,16 @@ function PinScreen({onUnlock}){
   );
 }
 
-function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0,defaultWho="א",expMode,setExpMode,showExpenseAdd,setShowExpenseAdd,showSpecialAdd,setShowSpecialAdd}){
+function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0,defaultWho="א",expMode,setExpMode,showExpenseAdd,setShowExpenseAdd,showSpecialAdd,setShowSpecialAdd,onFormOpen=()=>{}}){
   const [editExp,setEditExp]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
   const showSpecialForm=showSpecialAdd;
   const setShowSpecialForm=setShowSpecialAdd;
   const newSpRef=useRef(null);
   const [editSpecialId,setEditSpecialId]=useState(null);
+  useEffect(()=>{
+    onFormOpen(showExpenseAdd||showSpecialForm||!!editSpecialId||!!editExp);
+  },[showExpenseAdd,showSpecialForm,editSpecialId,editExp,onFormOpen]);
   useEffect(()=>{
     if(showSpecialForm&&!editSpecialId){
       setTimeout(()=>{
@@ -1249,7 +1252,7 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={},a
   );
 }
 
-function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct,showAssetFormExternal=false,setShowAssetFormExternal=()=>{},portfolioView,setPortfolioView}){
+function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct,showAssetFormExternal=false,setShowAssetFormExternal=()=>{},portfolioView,setPortfolioView,onFormOpen=()=>{}}){
   const newAssetRef=useRef(null);
   const [agentHistory,setAgentHistory]=useState([]);
   const [expandedId,setExpandedId]=useState(null);
@@ -1268,6 +1271,9 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const [editSale,      setEditSale]      = useState(null); // {assetId, sale}
   const [editDiv,       setEditDiv]       = useState(null); // {assetId, dividend}
   const [addDividendId,setAddDividendId]=useState(null);
+  useEffect(()=>{
+    onFormOpen(!!showAssetForm||!!editPurch||!!editSale||!!editDiv||!!addPurchaseId||!!addSaleId||!!addDividendId);
+  },[showAssetForm,editPurch,editSale,editDiv,addPurchaseId,addSaleId,addDividendId,onFormOpen]);
   const [currentRates,setCurrentRates]=useState({});
   // ── סעיף 7א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
@@ -2501,7 +2507,7 @@ function exportMenuPDF(menu){
   w.document.close();
 }
 
-function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{}}){
+function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{},onFormOpen=()=>{}}){
   const newRecipeRef=useRef(null);
   const [imageLoading,setImageLoading]=useState(false);
   const [imagePreview,setImagePreview]=useState(null);
@@ -2511,6 +2517,9 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   const [filterConcept,setFilterConcept]=useState("הכל");
   const [selected,setSelected]=useState(null);
   const [showForm,setShowForm]=useState(false);
+  useEffect(()=>{
+    onFormOpen(showForm);
+  },[showForm,onFormOpen]);
   const [editId,setEditId]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
   // ── סעיף 4א: searchQ ──
@@ -2940,13 +2949,16 @@ function NotesTab({notes,setNotes,defaultWho="א"}){
   );
 }
 
-function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א",showNew,setShowNew}){
+function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א",showNew,setShowNew,onFormOpen=()=>{}}){
   const newTripRef=useRef(null);
   const [sel,setSel]=useState(null);
   const [showItem,setShowItem]=useState(false);
   const [showAll,setShowAll]=useState(false);
   const [editTripId,setEditTripId]=useState(null);
   const [editItemId,setEditItemId]=useState(null);
+  useEffect(()=>{
+    onFormOpen(showNew||showItem||!!editTripId||!!editItemId);
+  },[showNew,showItem,editTripId,editItemId,onFormOpen]);
   const [confirmTrip,setConfirmTrip]=useState(null);
   const [confirmItem,setConfirmItem]=useState(null);
   const [expandedItemId,setExpandedItemId]=useState(null);
@@ -3423,7 +3435,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="target" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>התראות</div></div>
-              <button onClick={async()=>{if(!('Notification' in window)){alert('הדפדפן לא תומך בהתראות');return;}const perm=await Notification.requestPermission();if(perm!=='granted'){alert('יש לאשר התראות בהגדרות הדפדפן');return;}const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:'BEE2qENi30F_U3FN4pTE1mdd_9zWvo992w1WtdG3tc_cbYZ5XzNullwLITjWpbh89Pmox61yy8bONIljmK7OU_w'});localStorage.setItem('push_subscription',JSON.stringify(sub));await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),device_id:localStorage.getItem('device_id')||""})});alert('התראות הופעלו בהצלחה!');}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
+              <button onClick={async()=>{if(!('Notification' in window)){alert('הדפדפן לא תומך בהתראות');return;}const perm=await Notification.requestPermission();if(perm!=='granted'){alert('יש לאשר התראות בהגדרות הדפדפן');return;}const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:import.meta.env.VITE_VAPID_PUBLIC_KEY});localStorage.setItem('push_subscription',JSON.stringify(sub));await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),device_id:localStorage.getItem('device_id')||""})});alert('התראות הופעלו בהצלחה!');}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
             </div>
             <div style={{fontSize:11,color:T.textSub}}>אפשר לאפליקציה לשלוח תזכורות ועדכונים</div>
           </Card>
@@ -3520,6 +3532,7 @@ export default function App(){
   const [showRecipeAdd,setShowRecipeAdd]=useState(false);
   const [showAssetAdd,setShowAssetAdd]=useState(false);
   const [portfolioView,setPortfolioView]=useState("active");
+  const [anyFormOpen,setAnyFormOpen]=useState(false);
   const [defaultWho, setDefaultWho]   =useState("א");
   const [savingsGoal, setSavingsGoal] =useStorage("kp-savings-goal",3000);
   const [month,       setMonth]       =useState(new Date().getMonth());
@@ -3690,16 +3703,17 @@ export default function App(){
 </div>
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
-        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd}/>}
+        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd} onFormOpen={setAnyFormOpen}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
-        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd}/>}
+        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
-        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho} showNew={showTripAdd} setShowNew={setShowTripAdd}/>}
-        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct} showAssetFormExternal={showAssetAdd} setShowAssetFormExternal={setShowAssetAdd} portfolioView={portfolioView} setPortfolioView={setPortfolioView}/>}
+        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho} showNew={showTripAdd} setShowNew={setShowTripAdd} onFormOpen={setAnyFormOpen}/>}
+        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct} showAssetFormExternal={showAssetAdd} setShowAssetFormExternal={setShowAssetAdd} portfolioView={portfolioView} setPortfolioView={setPortfolioView} onFormOpen={setAnyFormOpen}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>
-      {!(section==="invest"&&investTab==="portfolio"&&portfolioView==="sold")&&(
+      {!anyFormOpen&&
+       !(section==="invest"&&investTab==="portfolio"&&portfolioView==="sold")&&(
       <button
         onClick={()=>{
           if(section==="home"&&homeTab==="expenses"){

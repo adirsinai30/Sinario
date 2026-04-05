@@ -266,13 +266,13 @@ function CurrencyField({currency,setCurrency,rate,setRate,amount}){
 function PeriodPicker({month,year,setMonth,setYear}){
   const [open,setOpen]=useState(false);
   const [pickerYear,setPickerYear]=useState(year);
-  const [popupPos,setPopupPos]=useState({top:0,right:0});
+  const [popupPos,setPopupPos]=useState({top:0});
   const btnRef=useRef(null);
   const SHORT=["ינו","פבר","מרץ","אפר","מאי","יוני","יולי","אוג","ספט","אוק","נוב","דצמ"];
   function handleOpen(){
     if(btnRef.current){
       const r=btnRef.current.getBoundingClientRect();
-      setPopupPos({top:r.bottom+6,right:window.innerWidth-r.right});
+      setPopupPos({top:r.bottom+6});
     }
     setPickerYear(year);
     setOpen(o=>!o);
@@ -285,7 +285,7 @@ function PeriodPicker({month,year,setMonth,setYear}){
       {open&&(
         <>
           <div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:499}}/>
-          <div style={{position:"fixed",top:popupPos.top,right:popupPos.right,zIndex:500,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:"0 8px 32px rgba(0,0,0,.15)",padding:12,minWidth:220,direction:"rtl"}}>
+          <div style={{position:"fixed",top:popupPos.top,left:"50%",transform:"translateX(-50%)",zIndex:500,background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,boxShadow:"0 8px 32px rgba(0,0,0,.15)",padding:12,minWidth:220,direction:"rtl"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <button onClick={()=>setPickerYear(y=>y-1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:T.textMid,padding:"2px 6px"}}>‹</button>
               <span style={{fontFamily:T.font,fontSize:13,fontWeight:700,color:T.text}}>{pickerYear}</span>

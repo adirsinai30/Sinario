@@ -349,9 +349,39 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
         <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
         {toolBtn("● ☰",()=>exec("insertUnorderedList"),"רשימת תבליטים")}
         {toolBtn("1. ☰",()=>exec("insertOrderedList"),"רשימה ממוספרת")}
+        <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
+        {toolBtn("🔗",()=>{
+          const sel=window.getSelection();
+          const selectedText=sel?.toString()||"";
+          const url=window.prompt("הכנס כתובת קישור:",selectedText.startsWith("http")?selectedText:"https://");
+          if(url){
+            if(selectedText){
+              execVal("createLink",url);
+            } else {
+              const text=window.prompt("טקסט לתצוגה:",url)||url;
+              const html=`<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+              execVal("insertHTML",html);
+            }
+            editorRef.current?.querySelectorAll("a").forEach(a=>{
+              a.target="_blank";
+              a.rel="noopener noreferrer";
+            });
+          }
+        },"קישור")}
       </div>
-      <div ref={editorRef} contentEditable suppressContentEditableWarning className="rte-editor" onInput={handleInput} data-placeholder={placeholder||""} style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}/>
-      <style>{`.rte-editor:empty:before{content:attr(data-placeholder);color:#a8a29e;pointer-events:none;}`}</style>
+      <div ref={editorRef} contentEditable suppressContentEditableWarning className="rte-editor" onInput={handleInput} data-placeholder={placeholder||""}
+        onClick={e=>{
+          const a=e.target.closest("a");
+          if(a&&a.href){
+            e.preventDefault();
+            window.open(a.href,"_blank","noopener,noreferrer");
+          }
+        }}
+        style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}/>
+      <style>{`
+        .rte-editor:empty:before{content:attr(data-placeholder);color:#a8a29e;pointer-events:none;}
+        .rte-editor a{color:${T.navy};text-decoration:underline;cursor:pointer;}
+      `}</style>
     </div>
   );
 }

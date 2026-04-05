@@ -7,20 +7,16 @@ const supabase=createClient(
 export default async function handler(req,res){
   if(req.method!=='POST')return res.status(405).end();
   const {device_id,owner,...subscription}=req.body;
-  console.log('subscribe called, device_id:',device_id,'owner:',owner);
-  console.log('subscription keys:',Object.keys(subscription));
   try{
-    const {data,error}=await supabase.from('push_subscriptions').upsert({
+    const {error}=await supabase.from('push_subscriptions').upsert({
       subscription:subscription,
       device_id:device_id||null,
       owner:owner||null,
       updated_at:new Date().toISOString()
     },{onConflict:'device_id'});
-    console.log('upsert result - data:',data,'error:',error);
     if(error)throw error;
     res.status(200).json({success:true});
   }catch(e){
-    console.error('subscribe error:',e.message);
-    res.status(500).json({error:e.message});
+    res.status(500).json({error:'subscribe failed'});
   }
 }

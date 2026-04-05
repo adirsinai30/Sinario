@@ -3710,14 +3710,16 @@ export default function App(){
       <style>{globalCss}</style>
       <div style={{position:"sticky",top:0,zIndex:100,background:T.surface}}>
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px 6px 16px",boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
-  <div style={{maxWidth:720,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-    <div style={{display:"flex",alignItems:"center",gap:8}}>
+  <div style={{maxWidth:720,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+    <div style={{flex:1,display:"flex",alignItems:"center"}}>
       <button onClick={()=>setSection("settings")} style={{background:section==="settings"?T.navyLight:"transparent",border:`1px solid ${section==="settings"?T.navyBorder:"transparent"}`,borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",flexShrink:0}}>
         <Icon name="settings" size={15} color={section==="settings"?T.navy:T.textMid}/>
       </button>
+    </div>
+    <div style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center"}}>
       <PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/>
     </div>
-    <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <div style={{flex:1,display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8}}>
       <div style={{fontFamily:"system-ui,sans-serif",color:T.navy,letterSpacing:"2px",fontWeight:300,fontSize:"16px",display:"flex",alignItems:"baseline",direction:"ltr"}}>SINARIO</div>
       <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${T.navy}33`}}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
@@ -3725,19 +3727,18 @@ export default function App(){
     </div>
   </div>
 </div>
+{(section==="home"||section==="invest"||section==="reports"||section==="settings")&&(
 <div style={{background:T.surface,paddingTop:"2px"}}>
   <div>
-    <div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>
-      {SECTIONS.map(s=>(<button key={s.id} onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}} style={{flex:1,padding:"5px 4px",border:`1px solid ${section===s.id?T.navy:"#e0dbd4"}`,background:section===s.id?T.navy:"#f7f5f2",color:section===s.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:section===s.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5}}><span>{s.label}</span><Icon name={s.icon} size={13} color={section===s.id?"#fff":T.textSub}/></button>))}
-    </div>
-  </div>
   {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
   {section==="invest"&&(<div style={{marginTop:0}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
   {section==="reports"&&(<div style={{borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{[["monthly","חודשי"],["annual","שנתי"],["split","חלוקה"],["insights","תובנות"]].map(([id,l])=>(<button key={id} onClick={()=>setReportTab(id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${reportTab===id?T.navy:"#e0dbd4"}`,background:reportTab===id?T.navy:"#f7f5f2",color:reportTab===id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:reportTab===id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</button>))}</div></div>)}
   {section==="settings"&&(<div style={{borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{[["general","כללי"],["device","מכשיר"]].map(([id,l])=>(<button key={id} onClick={()=>setSettingsTab(id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${settingsTab===id?T.navy:"#e0dbd4"}`,background:settingsTab===id?T.navy:"#f7f5f2",color:settingsTab===id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:settingsTab===id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</button>))}</div></div>)}
 </div>
 </div>
-      <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
+)}
+</div>
+      <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 80px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd} onFormOpen={setAnyFormOpen}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen}/>}
@@ -3759,7 +3760,7 @@ export default function App(){
           if(section==="trips")setShowTripAdd(true);
           if(section==="invest"&&investTab==="portfolio")setShowAssetAdd(true);
         }}
-        style={{position:"fixed",bottom:24,left:20,zIndex:201,
+        style={{position:"fixed",bottom:60,left:20,zIndex:201,
           width:52,height:52,borderRadius:"50%",
           background:T.navy,border:"none",cursor:"pointer",
           boxShadow:"0 4px 16px rgba(30,58,95,.35)",
@@ -3771,6 +3772,37 @@ export default function App(){
         <Icon name="plus" size={22} color="#fff"/>
       </button>
       )}
+      <div style={{
+        position:"fixed",bottom:0,left:0,right:0,
+        display:"flex",justifyContent:"center",
+        background:T.surface,
+        borderTop:`1px solid ${T.border}`,
+        zIndex:200,
+        paddingBottom:"env(safe-area-inset-bottom)",
+      }}>
+        <div style={{
+          width:"100%",maxWidth:720,
+          display:"flex",
+        }}>
+          {SECTIONS.map(s=>(
+            <button key={s.id}
+              onClick={()=>{setSection(s.id);if(s.id==="home")setHomeTab("expenses");if(s.id==="invest")setInvestTab("portfolio");}}
+              style={{
+                flex:1,display:"flex",flexDirection:"column",
+                alignItems:"center",justifyContent:"center",
+                gap:3,padding:"8px 0 6px",
+                background:"transparent",border:"none",
+                cursor:"pointer",
+                color:section===s.id?T.navy:T.textSub,
+              }}>
+              <Icon name={s.icon} size={20} color={section===s.id?T.navy:T.textSub}/>
+              <span style={{
+                fontSize:10,fontFamily:T.font,fontWeight:section===s.id?600:400,
+              }}>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -55,6 +55,12 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+  console.log("API called, keys:", {
+    k1: !!process.env.GEMINI_KEY_1,
+    k2: !!process.env.GEMINI_KEY_2,
+    k3: !!process.env.GEMINI_KEY_3,
+  });
+  console.log("Body keys:", Object.keys(req.body||{}));
   const keys = getApiKeys();
   if (!keys.length) {
     return res.status(500).json({ error: "No Gemini API keys configured" });

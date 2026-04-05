@@ -3435,7 +3435,34 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
           <Card>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}><Icon name="target" size={15} color={T.navy}/><div style={{fontSize:13,fontWeight:700,color:T.navy}}>התראות</div></div>
-              <button onClick={async()=>{if(!('Notification' in window)){alert('הדפדפן לא תומך בהתראות');return;}const perm=await Notification.requestPermission();if(perm!=='granted'){alert('יש לאשר התראות בהגדרות הדפדפן');return;}const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:import.meta.env.VITE_VAPID_PUBLIC_KEY});localStorage.setItem('push_subscription',JSON.stringify(sub));await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),device_id:localStorage.getItem('device_id')||""})});alert('התראות הופעלו בהצלחה!');}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
+              <button onClick={async()=>{
+  if(!('Notification' in window)||!('serviceWorker' in navigator)){
+    alert('הדפדפן לא תומך בהתראות');return;
+  }
+  // בקש הרשאה מיד — חייב להיות ראשון לפני כל await אחר
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){
+    alert('יש לאשר התראות בהגדרות הדפדפן');return;
+  }
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const vapidKey=import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    const sub=await reg.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:vapidKey
+    });
+    localStorage.setItem('push_subscription',JSON.stringify(sub));
+    await fetch('/api/subscribe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...sub.toJSON(),device_id:localStorage.getItem('device_id')||""})
+    });
+    alert('התראות הופעלו בהצלחה!');
+  }catch(e){
+    console.error('push subscribe error:',e);
+    alert('שגיאה בהפעלת התראות: '+e.message);
+  }
+}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
             </div>
             <div style={{fontSize:11,color:T.textSub}}>אפשר לאפליקציה לשלוח תזכורות ועדכונים</div>
           </Card>

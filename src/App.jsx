@@ -3591,14 +3591,23 @@ export default function App(){
   },[authed,deviceAuthed,loadData]);
   useEffect(()=>{
     let lastLoad=Date.now();
+    let lastBlur=0;
+    const handleBlur=()=>{lastBlur=Date.now();};
     const handleFocus=()=>{
+      const timeSinceBlur=Date.now()-lastBlur;
+      // אם חזרנו תוך 10 שניות — כנראה file picker או חלון קטן, לא יציאה אמיתית
+      if(timeSinceBlur<60000)return;
       if(deviceAuthed&&authed&&Date.now()-lastLoad>60000&&section!=="invest"){
         lastLoad=Date.now();
         loadData();
       }
     };
     window.addEventListener('focus',handleFocus);
-    return()=>window.removeEventListener('focus',handleFocus);
+    window.addEventListener('blur',handleBlur);
+    return()=>{
+      window.removeEventListener('focus',handleFocus);
+      window.removeEventListener('blur',handleBlur);
+    };
   },[deviceAuthed,authed,loadData]);
   if(deviceChecking)return(
     <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#0d1f35 0%,#1e3a5f 55%,#2d5282 100%)`,display:"flex",alignItems:"center",justifyContent:"center"}}>

@@ -345,7 +345,7 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
     </button>
   );
   return(
-    <div style={{border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden",background:T.surface,position:"relative"}}>
+    <div style={{border:`1px solid ${T.border}`,borderRadius:10,background:T.surface,position:"relative"}}>
       <div style={{display:"flex",gap:4,padding:"6px 8px",borderBottom:`1px solid ${T.border}`,background:T.bg,flexWrap:"wrap",alignItems:"center"}}>
         {toolBtn("B",()=>exec("bold"),"מודגש")}
         {toolBtn("I",()=>exec("italic"),"נטוי")}
@@ -363,42 +363,38 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
           setLinkModal(true);
         },"קישור")}
       </div>
-      <div ref={editorRef} contentEditable suppressContentEditableWarning className="rte-editor" onInput={handleInput} data-placeholder={placeholder||""}
-        onClick={e=>{
-          const a=e.target.closest("a");
-          if(a&&a.href){
-            e.preventDefault();
-            window.open(a.href,"_blank","noopener,noreferrer");
-          }
-        }}
-        style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}/>
       {linkModal&&(
-        <div style={{position:"absolute",top:"100%",right:0,left:0,zIndex:400,
-          background:T.surface,border:`1px solid ${T.navyBorder}`,
-          borderRadius:10,padding:12,boxShadow:"0 8px 24px rgba(0,0,0,.12)",
-          display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
-          <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:2}}>הוספת קישור</div>
+        <div style={{borderTop:`1px solid ${T.navyBorder}`,padding:12,
+          background:"#f0f5fb",display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.navy}}>הוספת קישור</div>
           <input
             autoFocus
-            placeholder="טקסט לתצוגה"
+            placeholder="טקסט לתצוגה (אופציונלי)"
             value={linkText}
             onChange={e=>setLinkText(e.target.value)}
-            style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,
+            style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,
               padding:"8px 10px",fontSize:13,color:T.text,outline:"none",
               fontFamily:T.font,direction:"rtl",width:"100%",boxSizing:"border-box"}}
           />
           <input
-            placeholder="כתובת אתר (https://...)"
+            placeholder="כתובת אתר"
             value={linkUrl}
             onChange={e=>setLinkUrl(e.target.value)}
-            style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,
-              padding:"8px 10px",fontSize:13,color:T.text,outline:"none",
-              fontFamily:T.font,direction:"ltr",width:"100%",boxSizing:"border-box"}}
-          />
-          <div style={{display:"flex",gap:6}}>
-            <button
-              onMouseDown={e=>{
+            onKeyDown={e=>{
+              if(e.key==="Enter"){
                 e.preventDefault();
+                e.currentTarget.closest("[data-link-modal]")
+                  ?.querySelector("[data-save]")?.click();
+              }
+              if(e.key==="Escape")setLinkModal(false);
+            }}
+            style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,
+              padding:"8px 10px",fontSize:13,color:T.text,outline:"none",
+              fontFamily:T.font,direction:"rtl",width:"100%",boxSizing:"border-box"}}
+          />
+          <div data-link-modal style={{display:"flex",gap:6}}>
+            <button data-save
+              onClick={()=>{
                 if(!linkUrl.trim()){setLinkModal(false);return;}
                 const url=linkUrl.startsWith("http")?linkUrl:`https://${linkUrl}`;
                 const display=linkText.trim()||url;
@@ -411,9 +407,7 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
                 const html=`<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:${T.navy};text-decoration:underline;">${display}</a>`;
                 document.execCommand("insertHTML",false,html);
                 handleInput();
-                setLinkModal(false);
-                setLinkUrl("");
-                setLinkText("");
+                setLinkModal(false);setLinkUrl("");setLinkText("");
               }}
               style={{flex:1,padding:"8px",borderRadius:8,background:T.navy,
                 border:"none",color:"#fff",fontSize:12,fontWeight:600,
@@ -421,8 +415,8 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
               הוספה
             </button>
             <button
-              onMouseDown={e=>{e.preventDefault();setLinkModal(false);}}
-              style={{flex:1,padding:"8px",borderRadius:8,background:T.bg,
+              onClick={()=>setLinkModal(false)}
+              style={{flex:1,padding:"8px",borderRadius:8,background:T.surface,
                 border:`1px solid ${T.border}`,color:T.textMid,fontSize:12,
                 fontWeight:600,cursor:"pointer",fontFamily:T.font}}>
               ביטול
@@ -430,6 +424,15 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
           </div>
         </div>
       )}
+      <div ref={editorRef} contentEditable suppressContentEditableWarning className="rte-editor" onInput={handleInput} data-placeholder={placeholder||""}
+        onClick={e=>{
+          const a=e.target.closest("a");
+          if(a&&a.href){
+            e.preventDefault();
+            window.open(a.href,"_blank","noopener,noreferrer");
+          }
+        }}
+        style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}/>
       <style>{`
         .rte-editor:empty:before{content:attr(data-placeholder);color:#a8a29e;pointer-events:none;}
         .rte-editor a{color:${T.navy};text-decoration:underline;cursor:pointer;}
@@ -659,16 +662,16 @@ function PinScreen({onUnlock}){
   );
 }
 
-function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0,defaultWho="א"}){
-  const [expMode,setExpMode]=useState("regular");
-  const [showAdd,setShowAdd]=useState(false);
+function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0,defaultWho="א",expMode,setExpMode,showExpenseAdd,setShowExpenseAdd,showSpecialAdd,setShowSpecialAdd}){
   const [editExp,setEditExp]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
-  const [showSpecialForm,setShowSpecialForm]=useState(false);
+  const showSpecialForm=showSpecialAdd;
+  const setShowSpecialForm=setShowSpecialAdd;
   const [editSpecialId,setEditSpecialId]=useState(null);
   const [confirmSpecialId,setConfirmSpecialId]=useState(null);
   const [showAll,setShowAll]=useState(false);
   const [searchQ,setSearchQ]=useState("");
+  const [catPopup,setCatPopup]=useState(null);
   const blankSp={desc:"",catId:"home",amount:"",currency:"ILS",rateUsed:"1",date:today()};
   const [spForm,setSpForm]=useState(blankSp);
   useEffect(()=>{setSpForm(f=>({...f,who:defaultWho}));},[defaultWho]);
@@ -726,9 +729,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
         placeholder={expMode==="regular" ? "חיפוש הוצאה, קטגוריה, סכום…" : "חיפוש הוצאה מיוחדת…"}
       />
       {expMode==="regular"&&(<>
-        <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
-          <Btn onClick={()=>setShowAdd(true)} style={{padding:"8px 16px",fontSize:13,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
-        </div>
+        {!searchQ ? (<>
         <Card style={{padding:18}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
             <div>
@@ -747,17 +748,67 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
               </div>
             );
           })()}
-          <div style={{display:"flex",gap:8,marginBottom:diff>5?8:0}}>
-            {[["אדיר",adir],["ספיר",sapir]].map(([name,amt])=>(
-              <div key={name} style={{flex:1,background:T.bg,borderRadius:10,padding:"8px 12px",border:`1px solid ${T.border}`}}>
-                <div style={{fontSize:12,color:T.textSub,marginBottom:2}}>{name}</div>
-                <div style={{fontSize:16,fontWeight:600,color:T.text}}>{fmt(amt)} <span style={{fontSize:12,color:T.textSub,fontWeight:400}}></span></div>
+          <div style={{display:"flex",gap:8,marginBottom:diff>5?10:0}}>
+            <div style={{flex:1,background:T.surface,borderRadius:99,
+              border:`1px solid ${T.border}`,padding:"8px 12px",
+              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:"#1e3a5f",
+                display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
+                  <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
+                </svg>
               </div>
-            ))}
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,color:T.textSub,marginBottom:2}}>אדיר</div>
+                <div style={{fontSize:17,fontWeight:600,color:T.text}}>{fmt(adir)}</div>
+              </div>
+            </div>
+            <div style={{flex:1,background:T.surface,borderRadius:99,
+              border:`1px solid ${T.border}`,padding:"8px 12px",
+              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:"#be185d",
+                display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
+                  <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
+                </svg>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,color:T.textSub,marginBottom:2}}>ספיר</div>
+                <div style={{fontSize:17,fontWeight:600,color:T.text}}>{fmt(sapir)}</div>
+              </div>
+            </div>
           </div>
           {diff>5&&(
-            <div style={{background:T.navyLight,borderRadius:10,padding:"8px 12px",border:`1px solid ${T.navyBorder}`,fontSize:14,color:T.navy,fontWeight:600,textAlign:"center"}}>
-              העברה: {from} ← {fmt(diff)}
+            <div style={{background:T.navyLight,borderRadius:99,padding:"8px 12px",
+              border:`1px solid ${T.navyBorder}`,
+              display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:28,height:28,borderRadius:"50%",
+                  background:from==="אדיר"?"#1e3a5f":"#be185d",
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
+                    <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
+                  </svg>
+                </div>
+                <span style={{fontSize:13,color:T.text,fontWeight:600}}>
+                  {from==="אדיר"?"אדיר מעביר":"ספיר מעבירה"} ל{from==="אדיר"?"ספיר":"אדיר"}
+                </span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:14,fontWeight:700,color:T.navy}}>{fmt(diff)}</span>
+                <span style={{fontSize:12,color:T.textSub}}>←</span>
+                <div style={{width:28,height:28,borderRadius:"50%",
+                  background:from==="אדיר"?"#be185d":"#1e3a5f",
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="8" r="4" fill="rgba(255,255,255,0.92)"/>
+                    <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
+                  </svg>
+                </div>
+              </div>
             </div>
           )}
           {liveSpecialTotal>0&&<div style={{fontSize:12,color:T.textSub,marginTop:6,textAlign:"center"}}>כולל {fmt(liveSpecialTotal)} הוצאות מיוחדות</div>}
@@ -767,7 +818,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חלוקה לקטגוריות</div>
               {[...cats].sort((a,b)=>catSpent(b.id)-catSpent(a.id)).map(c=>{const sp=catSpent(c.id);return(
-                <div key={c.id} style={{marginBottom:11}}>
+                <div key={c.id} onClick={()=>setCatPopup({catId:c.id,label:c.label})} style={{marginBottom:11,cursor:"pointer"}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}><CatIcon icon={c.icon} color={c.color} size={28}/><span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span></div>
                     <span style={{fontSize:12,color:sp>c.budget?T.danger:T.textSub,flexShrink:0,fontWeight:sp>c.budget?600:400}}>{fmt(sp)}</span>
@@ -779,6 +830,7 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
             <Donut slices={cats.map(c=>({val:catSpent(c.id),color:c.color}))} size={140}/>
           </div>
         </Card>
+        </>) : null}
         <Card>
           <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>{searchQ?`תוצאות (${filteredExp.length})`:"הוצאות אחרונות"}</div>
           {filteredExp.map((ex,i)=>{const cat=cats.find(c=>c.id===ex.catId);return(
@@ -794,12 +846,9 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           );})}
           {expenses.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין הוצאות עדיין</div>}
         </Card>
-        {showAdd&&<AddExpenseDrawer cats={cats} defaultWho={defaultWho} onAdd={async e=>{await supabase.from('expenses').insert({id:e.id,description:e.desc,amount:e.amount,currency:e.currency||'ILS',rate_used:e.rateUsed||1,cat_id:e.catId,date:e.date,who:e.who||'א'});setExpenses(prev=>[e,...prev]);}} onClose={()=>setShowAdd(false)}/>}
+        {showExpenseAdd&&<AddExpenseDrawer cats={cats} defaultWho={defaultWho} onAdd={async e=>{await supabase.from('expenses').insert({id:e.id,description:e.desc,amount:e.amount,currency:e.currency||'ILS',rate_used:e.rateUsed||1,cat_id:e.catId,date:e.date,who:e.who||'א'});setExpenses(prev=>[e,...prev]);}} onClose={()=>setShowExpenseAdd(false)}/>}
       </>)}
       {expMode==="special"&&(<>
-        <div style={{display:"flex",justifyContent:"end",alignItems:"center"}}>
-          <Btn onClick={openAddSp} style={{padding:"8px 16px",display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
-        </div>
         <Card style={{background:"rgb(235, 240, 247)",border:"1px solid rgb(195, 212, 232)",padding:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
@@ -853,6 +902,36 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
         ];})}
         {periodSpecial.length===0&&<div style={{textAlign:"center",color:T.textSub,padding:32,fontSize:13}}>{showAll?"אין הוצאות מיוחדות":`אין הוצאות מיוחדות ב${MONTHS[month]} ${year}`}</div>}
       </>)}
+      {catPopup&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(28,25,23,.45)",backdropFilter:"blur(4px)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          onClick={()=>setCatPopup(null)}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 16px 40px",width:"100%",maxWidth:480,fontFamily:T.font,direction:"rtl",animation:"slideUp .25s cubic-bezier(.22,1,.36,1)"}}>
+            <div style={{width:32,height:3,borderRadius:2,background:T.border,margin:"0 auto 16px"}}/>
+            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>{catPopup.label}</div>
+            <div style={{fontSize:12,color:T.textSub,marginBottom:16}}>{MONTHS[month]} {year}</div>
+            {expenses
+              .filter(e=>e.catId===catPopup.catId)
+              .sort((a,b)=>new Date(b.date)-new Date(a.date))
+              .map((ex,i,arr)=>{
+                const cat=cats.find(c=>c.id===ex.catId);
+                return(
+                  <div key={ex.id}
+                    style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<arr.length-1?`1px solid ${T.border}`:"none"}}>
+                    <div>
+                      <div style={{fontSize:13,color:T.text,fontWeight:500}}>{ex.desc||"הוצאה"}</div>
+                      <div style={{fontSize:11,color:T.textSub,marginTop:2}}>{ex.who==="א"?"אדיר":"ספיר"} · {new Date(ex.date).toLocaleDateString("he-IL")}</div>
+                    </div>
+                    <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(ex.amount)}</div>
+                  </div>
+                );
+              })}
+            {expenses.filter(e=>e.catId===catPopup.catId).length===0&&(
+              <div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין הוצאות בקטגוריה זו החודש</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1653,7 +1732,7 @@ ${newsContext}`;
                 {pricesLoading?"טוען…":"מחירים"}
                 {pricesLoading?<div style={{width:12,height:12,borderRadius:"50%",border:`2px solid ${T.navy}`,borderTopColor:"transparent",animation:"spin 1s linear infinite"}}/>:<Icon name="trending" size={13} color={T.navy}/>}
               </button>
-              <Btn onClick={openAddAsset} style={{padding:"8px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
+              <button onClick={openAddAsset} style={{width:40,height:40,borderRadius:"50%",background:T.navy,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(30,58,95,.25)",flexShrink:0,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}><Icon name="plus" size={18} color="#fff"/></button>
             </>)}
           </div>
           {pricesError&&<div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:10,padding:"10px 14px",fontSize:12,color:T.danger}}>{pricesError}</div>}
@@ -2483,7 +2562,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
           <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:13,color:T.textSub}}>{filtered.length} {mode==="recipe"?"מתכונים":"תפריטים"}</div>
-            <Btn onClick={openAdd} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
+            <button onClick={openAdd} style={{width:40,height:40,borderRadius:"50%",background:T.navy,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(30,58,95,.25)",flexShrink:0,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}><Icon name="plus" size={18} color="#fff"/></button>
           </div>
           {!editId&&showForm&&(
             <Card style={{border:`1px solid ${T.navyBorder}`,background:T.navyLight}}>
@@ -2759,7 +2838,7 @@ function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א
                 <div style={{fontSize:14,fontWeight:600,color:T.text}}>{filteredTrips.length} חופשות</div>
                 <button onClick={()=>setShowAll(v=>!v)} style={{fontSize:11,color:showAll?T.navy:T.textSub,fontFamily:T.font,background:showAll?T.navyLight:"transparent",border:`1px solid ${showAll?T.navyBorder:T.border}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>{showAll?"לפי תקופה":"צפייה בהכל"}</button>
               </div>
-              <Btn onClick={openAddTrip} style={{padding:"7px 14px",fontSize:12,display:"flex",alignItems:"center",gap:4}}>הוספה<Icon name="plus" size={13} color="#fff"/></Btn>
+              <button onClick={openAddTrip} style={{width:40,height:40,borderRadius:"50%",background:T.navy,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(30,58,95,.25)",flexShrink:0,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}><Icon name="plus" size={18} color="#fff"/></button>
             </div>
             {/* ── סעיף 6ג: SearchBar ── */}
             <SearchBar value={searchQ} onChange={setSearchQ} placeholder="חיפוש חופשה, יעד…" />
@@ -3257,6 +3336,9 @@ export default function App(){
   const [investTab,   setInvestTab]   =useState("portfolio");
   const [reportTab,   setReportTab]   =useState("monthly");
   const [settingsTab, setSettingsTab] =useState("general");
+  const [expMode,     setExpMode]     =useState("regular");
+  const [showExpenseAdd,setShowExpenseAdd]=useState(false);
+  const [showSpecialAdd,setShowSpecialAdd]=useState(false);
   const [defaultWho, setDefaultWho]   =useState("א");
   const [savingsGoal, setSavingsGoal] =useStorage("kp-savings-goal",3000);
   const [month,       setMonth]       =useState(new Date().getMonth());
@@ -3418,7 +3500,7 @@ export default function App(){
 </div>
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 40px",overscrollBehavior:"none"}}>
-        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho}/>}
+        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
@@ -3427,6 +3509,24 @@ export default function App(){
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>
+      <button
+        onClick={()=>{
+          if(section==="home"&&homeTab==="expenses"){
+            if(expMode==="regular")setShowExpenseAdd(true);
+            else setShowSpecialAdd(true);
+          }
+        }}
+        style={{position:"fixed",bottom:24,left:20,zIndex:201,
+          width:52,height:52,borderRadius:"50%",
+          background:T.navy,border:"none",cursor:"pointer",
+          boxShadow:"0 4px 16px rgba(30,58,95,.35)",
+          display:(section==="home"&&homeTab==="expenses")?"flex":"none",
+          alignItems:"center",justifyContent:"center",
+          transition:"transform .15s"}}
+        onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"}
+        onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+        <Icon name="plus" size={22} color="#fff"/>
+      </button>
     </div>
   );
 }

@@ -3638,6 +3638,7 @@ export default function App(){
     const deviceId=localStorage.getItem('device_id');
     if(!deviceId)return;
     await supabase.from('devices').upsert({device_id:deviceId,owner},{onConflict:'device_id'});
+    localStorage.setItem('device_owner',owner);
     setDefaultWho(owner);
   },[]);
   const saveAssetAlertPct=async(assetId,pct,direction='both',currentPrice=null,ticker=null)=>{

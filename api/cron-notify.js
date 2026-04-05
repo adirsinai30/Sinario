@@ -25,7 +25,9 @@ async function sendPushNotification(sub, { title, body }) {
 
 export default async function handler(req, res) {
   // וודא שזה קריאה מ-Vercel Cron
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  const isVercelCron=req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
+  const isTestMode=req.query.test==="1"&&(process.env.NODE_ENV==="development"||req.query.secret===process.env.CRON_SECRET);
+  if(!isVercelCron&&!isTestMode){
     return res.status(401).end();
   }
 

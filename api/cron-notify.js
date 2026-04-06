@@ -103,7 +103,7 @@ export default async function handler(req, res) {
               for(const [deviceId,msgs] of Object.entries(byDevice)){
                 const targets=deviceId==='all'?subs:subs.filter(s=>s.device_id===deviceId);
                 for(const sub of targets){
-                  await sendPushNotification(sub,{title:'התראת מחיר - Sinario',body:msgs.join('• <br>')});
+                  await sendPushNotification(sub,{title:`התראת מחיר - Sinario (${msgs.length})`,body:msgs.join('\n')});
                 }
               }
             }

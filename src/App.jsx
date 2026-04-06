@@ -768,16 +768,21 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
                 if(savingsGoal>0) return(
                   <div style={{marginTop:4}}>
                     <div style={{fontSize:11,fontWeight:600,color:T.success}}>נותר {fmt(remaining)}</div>
-                    {saved>=0
-                      ? <div style={{fontSize:11,color:T.success,fontWeight:600}}>✓ נחסכו {fmt(saved)} מעבר ליעד</div>
-                      : <div style={{fontSize:11,color:"#d97706",fontWeight:600}}>עוד {fmt(Math.abs(saved))} ליעד החיסכון</div>
-                    }
                   </div>
                 );
                 return <div style={{fontSize:11,fontWeight:600,color:T.success,marginTop:4}}>נותר {fmt(remaining)}</div>;
               })()}
             </div>
-            <div style={{fontSize:30,fontWeight:700,color:combinedTotal>totalBudget?T.danger:T.navy,lineHeight:1,marginTop:4}}>{Math.round((combinedTotal/(totalBudget||1))*100)}%</div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+              <div style={{fontSize:30,fontWeight:700,color:combinedTotal>totalBudget?T.danger:T.navy,lineHeight:1,marginTop:4}}>
+                {Math.round((combinedTotal/(totalBudget||1))*100)}%
+              </div>
+              {savingsGoal>0&&!(combinedTotal>totalBudget)&&(totalBudget-combinedTotal)>savingsGoal&&(
+                <div style={{fontSize:11,fontWeight:600,color:T.success,textAlign:"left"}}>
+                  ✓ נחסכו {fmt(totalBudget-combinedTotal)}
+                </div>
+              )}
+            </div>
           </div>
           {(()=>{
             const pct=(combinedTotal/(totalBudget||1))*100;

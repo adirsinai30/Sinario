@@ -3833,14 +3833,64 @@ export default function App(){
   </div>
 </div>
 {(section==="home"||section==="invest"||section==="reports"||section==="settings")&&(
-<div style={{background:T.surface,paddingTop:"2px"}}>
-  <div>
-  {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${homeTab===t.id?T.navy:"transparent"}`,color:homeTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:400,cursor:"pointer",transition:"color .15s"}}>{t.label}</button>))}</div></div>)}
-  {section==="invest"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${investTab===t.id?T.navy:"transparent"}`,color:investTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:400,cursor:"pointer",transition:"color .15s"}}>{t.label}</button>))}</div></div>)}
-  {section==="reports"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{[["monthly","חודשי"],["annual","שנתי"],["split","חלוקה"],["insights","תובנות"]].map(([id,l])=>(<button key={id} onClick={()=>setReportTab(id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${reportTab===id?T.navy:"transparent"}`,color:reportTab===id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:reportTab===id?600:400,cursor:"pointer",transition:"color .15s"}}>{l}</button>))}</div></div>)}
-  {section==="settings"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{[["general","כללי"],["device","מכשיר"]].map(([id,l])=>(<button key={id} onClick={()=>setSettingsTab(id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${settingsTab===id?T.navy:"transparent"}`,color:settingsTab===id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:settingsTab===id?600:400,cursor:"pointer",transition:"color .15s"}}>{l}</button>))}</div></div>)}
-</div>
-</div>
+  <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`}}>
+    {section==="home"&&(
+      <div style={{maxWidth:720,margin:"0 auto",display:"flex"}}>
+        {HOME_TABS.map(t=>(
+          <button key={t.id} onClick={()=>setHomeTab(t.id)}
+            style={{flex:1,padding:"10px 4px 8px",border:"none",
+              borderBottom:`2px solid ${homeTab===t.id?T.navy:"transparent"}`,
+              background:"transparent",color:homeTab===t.id?T.navy:T.textSub,
+              fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:400,
+              cursor:"pointer",transition:"color .15s",textAlign:"center"}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+    )}
+    {section==="invest"&&(
+      <div style={{maxWidth:720,margin:"0 auto",display:"flex"}}>
+        {INVEST_TABS.map(t=>(
+          <button key={t.id} onClick={()=>setInvestTab(t.id)}
+            style={{flex:1,padding:"10px 4px 8px",border:"none",
+              borderBottom:`2px solid ${investTab===t.id?T.navy:"transparent"}`,
+              background:"transparent",color:investTab===t.id?T.navy:T.textSub,
+              fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:400,
+              cursor:"pointer",transition:"color .15s",textAlign:"center"}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+    )}
+    {section==="reports"&&(
+      <div style={{maxWidth:720,margin:"0 auto",display:"flex"}}>
+        {[["monthly","חודשי"],["annual","שנתי"],["split","חלוקה"],["insights","תובנות"]].map(([id,l])=>(
+          <button key={id} onClick={()=>setReportTab(id)}
+            style={{flex:1,padding:"10px 4px 8px",border:"none",
+              borderBottom:`2px solid ${reportTab===id?T.navy:"transparent"}`,
+              background:"transparent",color:reportTab===id?T.navy:T.textSub,
+              fontFamily:T.font,fontSize:11,fontWeight:reportTab===id?600:400,
+              cursor:"pointer",transition:"color .15s",textAlign:"center"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+    )}
+    {section==="settings"&&(
+      <div style={{maxWidth:720,margin:"0 auto",display:"flex"}}>
+        {[["general","כללי"],["device","מכשיר"]].map(([id,l])=>(
+          <button key={id} onClick={()=>setSettingsTab(id)}
+            style={{flex:1,padding:"10px 4px 8px",border:"none",
+              borderBottom:`2px solid ${settingsTab===id?T.navy:"transparent"}`,
+              background:"transparent",color:settingsTab===id?T.navy:T.textSub,
+              fontFamily:T.font,fontSize:11,fontWeight:settingsTab===id?600:400,
+              cursor:"pointer",transition:"color .15s",textAlign:"center"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
 )}
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 80px",overscrollBehavior:"none"}}>

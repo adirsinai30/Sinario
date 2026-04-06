@@ -39,17 +39,11 @@ const DEFAULT_CATS = [
   {id:"c4",label:"בילויים",     icon:"sparkle",color:"#7c3aed", budget:800 },
   {id:"c5",label:"בריאות",      icon:"heart",  color:"#be185d", budget:600 },
 ];
-const DEFAULT_SPECIAL_CATS = [
-  {id:"home",label:"בית ורהיטים"},{id:"tech",label:"טכנולוגיה"},
-  {id:"clothing",label:"ביגוד"},{id:"gift",label:"מתנות"},
-  {id:"medical",label:"רפואה"},{id:"other",label:"אחר"},
-];
 const DEFAULT_GROCERY = [
   {id:"g1",name:"חלב",checked:false,qty:"1",price:7},
   {id:"g2",name:"לחם",checked:false,qty:"1",price:12},
   {id:"g3",name:"ביצים",checked:false,qty:"1",price:18},
 ];
-const DEFAULT_MENU_CONCEPTS = ["אסייתי","ים תיכוני","איטלקי","מקסיקני","ישראלי","חלבי","בשרי","דגים","מהיר","חגיגי"];
 const TCAT  = ["טיסות","מלון","ביטוח","תחבורה מקומית","אוכל","בילויים","כרטיסים","אחר"];
 
 
@@ -670,7 +664,7 @@ function PinScreen({onUnlock}){
   );
 }
 
-function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0,defaultWho="א",expMode,setExpMode,showExpenseAdd,setShowExpenseAdd,showSpecialAdd,setShowSpecialAdd,onFormOpen=()=>{}}){
+function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpecialItems,specialCatsList,monthSpecialTotal=0,defaultWho="א",expMode,setExpMode,showExpenseAdd,setShowExpenseAdd,showSpecialAdd,setShowSpecialAdd,onFormOpen=()=>{},savingsGoal=0}){
   const [editExp,setEditExp]=useState(null);
   const [confirmId,setConfirmId]=useState(null);
   const showSpecialForm=showSpecialAdd;
@@ -763,7 +757,25 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
             <div>
               <div style={{fontSize:12,color:T.textSub,fontWeight:600,letterSpacing:1,marginBottom:4,textTransform:"uppercase"}}>הוצאות {MONTHS[month]}</div>
               <div style={{fontSize:34,fontWeight:300,color:T.text,letterSpacing:-1,lineHeight:1.1}}>{fmt(combinedTotal)}</div>
-              <div style={{fontSize:11,fontWeight:600,color:combinedTotal>totalBudget?T.danger:T.success,marginTop:4}}>{combinedTotal>totalBudget?`חריגה של ${fmt(combinedTotal-totalBudget)}`:`נותר ${fmt(totalBudget-combinedTotal)}`}</div>
+              {(()=>{
+                const remaining=totalBudget-combinedTotal;
+                const saved=remaining-savingsGoal;
+                if(combinedTotal>totalBudget) return(
+                  <div style={{fontSize:11,fontWeight:600,color:T.danger,marginTop:4}}>
+                    חריגה של {fmt(combinedTotal-totalBudget)}
+                  </div>
+                );
+                if(savingsGoal>0) return(
+                  <div style={{marginTop:4}}>
+                    <div style={{fontSize:11,fontWeight:600,color:T.success}}>נותר {fmt(remaining)}</div>
+                    {saved>=0
+                      ? <div style={{fontSize:11,color:T.success,fontWeight:600}}>✓ נחסכו {fmt(saved)} מעבר ליעד</div>
+                      : <div style={{fontSize:11,color:"#d97706",fontWeight:600}}>עוד {fmt(Math.abs(saved))} ליעד החיסכון</div>
+                    }
+                  </div>
+                );
+                return <div style={{fontSize:11,fontWeight:600,color:T.success,marginTop:4}}>נותר {fmt(remaining)}</div>;
+              })()}
             </div>
             <div style={{fontSize:30,fontWeight:700,color:combinedTotal>totalBudget?T.danger:T.navy,lineHeight:1,marginTop:4}}>{Math.round((combinedTotal/(totalBudget||1))*100)}%</div>
           </div>
@@ -1586,10 +1598,12 @@ const fetchNews = async (force=false) => {
 
       if(Object.keys(result).length){
         setPrices(result);
-        const upserts=Object.entries(result).map(([ticker,price])=>({
-          ticker,price,updated_at:new Date().toISOString()
-        }));
-        supabase.from('price_snapshots').upsert(upserts,{onConflict:'ticker'}).then(()=>{});
+        // עדכן snapshot רק לניירות ערך ללא התראה פעילה
+        const alertTickers=new Set(assets.filter(a=>a.alertPct).map(a=>extractTicker(a.security)));
+        const upserts=Object.entries(result)
+          .filter(([ticker])=>!alertTickers.has(ticker))
+          .map(([ticker,price])=>({ticker,price,updated_at:new Date().toISOString()}));
+        if(upserts.length) supabase.from('price_snapshots').upsert(upserts,{onConflict:'ticker'}).then(()=>{});
         setPriceSnapshots(prev=>({...prev,...result}));
         setLastUpdated(new Date());
       } else {
@@ -3407,7 +3421,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
               {editGoal&&(
                 <div style={{display:"flex",gap:8,marginTop:8}}>
                   <Inp type="number" placeholder="יעד חיסכון ₪" value={goalInput} onChange={e=>setGoalInput(e.target.value)} style={{flex:1}}/>
-                  <Btn onClick={()=>{setSavingsGoal&&setSavingsGoal(+goalInput||0);setEditGoal(false);}} style={{padding:"10px 16px"}}>שמירה</Btn>
+                  <Btn onClick={async()=>{const newGoal=+goalInput||0;setSavingsGoal&&setSavingsGoal(newGoal);await supabase.from('settings').upsert({key:'savings_goal',value:String(newGoal)},{onConflict:'key'});setEditGoal(false);}} style={{padding:"10px 16px"}}>שמירה</Btn>
                 </div>
               )}
             </div>
@@ -3640,14 +3654,14 @@ export default function App(){
   const [monthlyBudget,    setMonthlyBudget]    =useState(8100);
   const [dataLoading,      setDataLoading]      =useState(true);
   const [special,          setSpecial]          =useState([]);
-  const [specialCatsList,  setSpecialCatsList]  =useState(DEFAULT_SPECIAL_CATS);
+  const [specialCatsList,  setSpecialCatsList]  =useState([]);
   const [trips,            setTrips]            =useState([]);
   const [assets,           setAssets]           =useState([]);
   const [dividends,        setDividends]        =useState([]);
   const [watchlist,        setWatchlist]        =useState([]);
   const [priceSnapshots,   setPriceSnapshots]   =useState({});
-  const [menuConceptsList, setMenuConceptsList] =useState(DEFAULT_MENU_CONCEPTS);
-  const [mealTypesList,    setMealTypesList]    =useState(["ארוחות בוקר","ארוחות צהריים","ארוחות ערב","קינוחים","טאפסים","אחר"]);
+  const [menuConceptsList, setMenuConceptsList] =useState([]);
+  const [mealTypesList,    setMealTypesList]    =useState([]);
   const [recipes,          setRecipes]          =useState([]);
   const [notes,            setNotes]            =useState([]);
   const [groceryLists,setGroceryLists]=useState([{id:"default",name:"רשימה ראשית",items:[]}]);
@@ -3687,10 +3701,11 @@ export default function App(){
   },[]);
   const loadData=useCallback(async()=>{
     setDataLoading(true);
-    const [expRes,catRes,budRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,mealTypesRes,groceryRes,deviceRes,snapshotsRes]=await Promise.all([
+    const [expRes,catRes,budRes,savingsGoalRes,spRes,spCatRes,tripsRes,tripItemsRes,recipesRes,notesRes,conceptsRes,assetsRes,txRes,divRes,watchlistRes,mealTypesRes,groceryRes,deviceRes,snapshotsRes]=await Promise.all([
       supabase.from('expenses').select('*').order('date',{ascending:false}),
       supabase.from('categories').select('*'),
       supabase.from('settings').select('*').eq('key','monthly_budget').single(),
+      supabase.from('settings').select('*').eq('key','savings_goal').single(),
       supabase.from('special_expenses').select('*').order('date',{ascending:false}),
       supabase.from('special_categories').select('*'),
       supabase.from('trips').select('*').order('date_from',{ascending:false}),
@@ -3716,19 +3731,20 @@ export default function App(){
       })));
     }
     if(budRes.data)setMonthlyBudget(Number(budRes.data.value));
+    if(savingsGoalRes?.data?.value)setSavingsGoal(+savingsGoalRes.data.value);
     if(spRes.data)setSpecial(spRes.data.map(e=>({id:e.id,desc:e.description,catId:e.cat_id,amount:e.amount,currency:e.currency||'ILS',rateUsed:e.rate_used||1,date:e.date,who:e.who||'א'})));
-    if(spCatRes.data&&spCatRes.data.length>0)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
+    if(spCatRes.data)setSpecialCatsList(spCatRes.data.map(c=>({id:c.id,label:c.label})));
     if(tripsRes.data){const items=tripItemsRes.data||[];setTrips(tripsRes.data.map(t=>({id:t.id,name:t.name,budget:t.budget,color:t.color||T.navy,dateFrom:t.date_from,dateTo:t.date_to,notes:t.notes||'',items:items.filter(i=>i.trip_id===t.id).map(i=>({id:i.id,cat:i.cat,label:i.label,amount:i.amount,currency:i.currency||'ILS',rateUsed:i.rate_used||1,notes:i.notes||'',who:i.who||'א'}))})));}
     if(recipesRes.data)setRecipes(recipesRes.data.map(r=>({id:r.id,type:r.type,name:r.name,categories:r.categories||[],servings:r.servings,prepTime:r.prep_time,cookTime:r.cook_time,ingredients:r.ingredients||[],steps:r.steps||[],sections:r.sections||[],notes:r.notes||'',prepNotes:r.prep_notes||'',concepts:r.concepts||[]})));
     if(notesRes.data)setNotes(notesRes.data.map(n=>({id:n.id,text:n.text,who:n.who||'א',date:n.date})));
-    if(conceptsRes.data&&conceptsRes.data.length>0)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
+    if(conceptsRes.data)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
     if(assetsRes.data){
       const txs=txRes.data||[];const divs=divRes.data||[];
       setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,alertPct:a.alert_pct||null,alertDirection:a.alert_direction||'both',purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
       setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
     }
     if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
-    if(mealTypesRes.data&&mealTypesRes.data.length>0)setMealTypesList(mealTypesRes.data.map(c=>c.label));
+    if(mealTypesRes.data)setMealTypesList(mealTypesRes.data.map(c=>c.label));
     if(groceryRes.data&&groceryRes.data.length>0){
       setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:l.items||[]})));
     }
@@ -3748,9 +3764,12 @@ export default function App(){
     setDefaultWho(owner);
   },[]);
   const saveAssetAlertPct=async(assetId,pct,direction='both',currentPrice=null,ticker=null)=>{
-    await supabase.from('assets')
-      .update({alert_pct:pct||null,alert_direction:pct?direction:null})
-      .eq('id',assetId);
+    const deviceId=localStorage.getItem('device_id')||null;
+    await supabase.from('assets').update({
+      alert_pct:pct||null,
+      alert_direction:pct?direction:null,
+      alert_device_id:pct?deviceId:null
+    }).eq('id',assetId);
     if(pct&&currentPrice&&ticker){
       await supabase.from('price_snapshots')
         .upsert({ticker,price:currentPrice,updated_at:new Date().toISOString()},{onConflict:'ticker'});
@@ -3815,7 +3834,7 @@ export default function App(){
     <div style={{background:T.bg,minHeight:"100dvh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text,overscrollBehavior:"none"}}>
       <style>{globalCss}</style>
       <div style={{position:"sticky",top:0,zIndex:100,background:T.surface,borderBottom:`1px solid ${T.border}`}}>
-      <div style={{background:T.surface,padding:"10px 16px 6px 16px"}}>
+      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px 6px 16px"}}>
   <div style={{maxWidth:720,margin:"0 auto",position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
     <div style={{display:"flex",alignItems:"center"}}>
       <button onClick={()=>setSection("settings")} style={{background:section==="settings"?T.navyLight:"transparent",border:`1px solid ${section==="settings"?T.navyBorder:"transparent"}`,borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",flexShrink:0}}>
@@ -3833,7 +3852,7 @@ export default function App(){
   </div>
 </div>
 {(section==="home"||section==="invest"||section==="reports"||section==="settings")&&(
-  <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`}}>
+  <div style={{background:T.surface}}>
     {section==="home"&&(
       <div style={{maxWidth:720,margin:"0 auto",display:"flex"}}>
         {HOME_TABS.map(t=>(
@@ -3894,7 +3913,7 @@ export default function App(){
 )}
 </div>
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 80px",overscrollBehavior:"none"}}>
-        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd} onFormOpen={setAnyFormOpen}/>}
+        {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd} onFormOpen={setAnyFormOpen} savingsGoal={savingsGoal}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedRecipe}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}

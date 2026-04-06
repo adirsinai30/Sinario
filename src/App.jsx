@@ -3529,7 +3529,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
     console.error('push subscribe error:',e);
     alert('שגיאה בהפעלת התראות: '+e.message);
   }
-}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעל התראות</button>
+}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעלת התראות</button>
             </div>
             <div style={{fontSize:11,color:T.textSub}}>אפשר לאפליקציה לשלוח תזכורות ועדכונים</div>
           </Card>

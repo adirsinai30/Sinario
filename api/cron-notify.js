@@ -29,6 +29,10 @@ async function sendPushNotification(sub, { title, body }) {
 }
 
 export default async function handler(req, res) {
+  console.log('cron-notify handler started, method:', req.method);
+  console.log('VAPID email:', process.env.VAPID_EMAIL);
+  console.log('VAPID public key exists:', !!process.env.VAPID_PUBLIC_KEY);
+  console.log('VAPID private key exists:', !!process.env.VAPID_PRIVATE_KEY);
   // וודא שזה קריאה מ-Vercel Cron
   const validAuth=req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
   const validTest=req.query.secret===process.env.CRON_SECRET;

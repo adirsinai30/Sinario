@@ -34,8 +34,11 @@ export default async function handler(req, res) {
   if(!validAuth&&!validTest){
     return res.status(401).end();
   }
-  res.setHeader('Cache-Control','no-store,no-cache,must-revalidate');
-  res.setHeader('Pragma','no-cache');
+  // אפשר POST בלבד לVercel Cron, GET רק לבדיקות
+  if(req.method!=="POST"&&req.method!=="GET"){
+    return res.status(405).end();
+  }
+  res.setHeader('Cache-Control','no-store');
 
   try {
     try {

@@ -79,7 +79,8 @@ export default async function handler(req, res) {
             const snapshot=snapMap[ticker];
             if(!current||!snapshot||!a.alert_pct)return;
             const changePct=((current-snapshot)/snapshot)*100;
-            const absOk=true; // TEST MODE
+            // const absOk=true; // TEST MODE
+            const absOk=Math.abs(changePct)>=a.alert_pct;
             const direction=a.alert_direction||'both';
             const dirOk=direction==='both'
               ||(direction==='up'&&changePct>0)

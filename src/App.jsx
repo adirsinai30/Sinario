@@ -1931,8 +1931,8 @@ ${newsContext}`;
                   </div>
                 </div>
                 {isExpanded&&(
-                  <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:14}}>
-                    <div style={{marginTop:10,paddingTop:10,marginBottom:12}}>
+                  <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:4}}>
+                    <div style={{marginTop:10,marginBottom:12}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <Icon name="target" size={13} color={T.textMid}/>

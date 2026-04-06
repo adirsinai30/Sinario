@@ -786,10 +786,10 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
                   <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
                 </svg>
               </div>
-              <div>
+              <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:10,color:"#2d5282",marginBottom:1,fontWeight:600}}>אדיר</div>
                 <div style={{fontSize:16,fontWeight:600,color:"#1e3a5f",lineHeight:1.2}}>{fmt(adir)}</div>
-                {adirSpecial>0&&<div style={{fontSize:10,color:"#2d5282",marginTop:2}}>כולל {fmt(adirSpecial)} מיוחדות</div>}
+                {adirSpecial>0&&<div style={{fontSize:10,color:"#2d5282",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>כולל {fmt(adirSpecial)} מיוחדות</div>}
               </div>
             </div>
             <div style={{flex:1,background:"#fce7f3",borderRadius:12,padding:"10px 12px",
@@ -801,10 +801,10 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
                   <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="rgba(255,255,255,0.92)"/>
                 </svg>
               </div>
-              <div>
+              <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:10,color:"#9d174d",marginBottom:1,fontWeight:600}}>ספיר</div>
                 <div style={{fontSize:16,fontWeight:600,color:"#be185d",lineHeight:1.2}}>{fmt(sapir)}</div>
-                {sapirSpecial>0&&<div style={{fontSize:10,color:"#9d174d",marginTop:2}}>כולל {fmt(sapirSpecial)} מיוחדות</div>}
+                {sapirSpecial>0&&<div style={{fontSize:10,color:"#9d174d",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>כולל {fmt(sapirSpecial)} מיוחדות</div>}
               </div>
             </div>
           </div>
@@ -3814,8 +3814,8 @@ export default function App(){
   return(
     <div style={{background:T.bg,minHeight:"100dvh",width:"100%",fontFamily:T.font,direction:"rtl",color:T.text,overscrollBehavior:"none"}}>
       <style>{globalCss}</style>
-      <div style={{position:"sticky",top:0,zIndex:100,background:T.surface}}>
-      <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"10px 16px 6px 16px",boxShadow:"0 1px 0 rgba(0,0,0,.04)"}}>
+      <div style={{position:"sticky",top:0,zIndex:100,background:T.surface,borderBottom:`1px solid ${T.border}`}}>
+      <div style={{background:T.surface,padding:"10px 16px 6px 16px"}}>
   <div style={{maxWidth:720,margin:"0 auto",position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
     <div style={{display:"flex",alignItems:"center"}}>
       <button onClick={()=>setSection("settings")} style={{background:section==="settings"?T.navyLight:"transparent",border:`1px solid ${section==="settings"?T.navyBorder:"transparent"}`,borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s",flexShrink:0}}>

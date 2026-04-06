@@ -2571,34 +2571,47 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
     if(!file)return;
     setImageLoading(true);
     try{
-      const compressImage=async(file)=>{
-        return new Promise((resolve)=>{
-          const img=new Image();
-          const url=URL.createObjectURL(file);
-          img.onload=()=>{
-            const canvas=document.createElement('canvas');
-            const maxSize=1024;
-            let w=img.width,h=img.height;
-            if(w>maxSize||h>maxSize){
-              if(w>h){h=Math.round(h*maxSize/w);w=maxSize;}
-              else{w=Math.round(w*maxSize/h);h=maxSize;}
-            }
-            canvas.width=w;canvas.height=h;
-            canvas.getContext('2d').drawImage(img,0,0,w,h);
-            canvas.toBlob(blob=>resolve(blob),'image/jpeg',0.8);
-            URL.revokeObjectURL(url);
-          };
-          img.src=url;
+      let base64,mediaType;
+      if(file.type==="application/pdf"||file.type==="text/plain"){
+        // PDF או טקסט — שלח ישירות
+        base64=await new Promise((res,rej)=>{
+          const r=new FileReader();
+          r.onload=()=>res(r.result.split(",")[1]);
+          r.onerror=rej;
+          r.readAsDataURL(file);
         });
-      };
-      const compressed=await compressImage(file);
-      const base64=await new Promise((res,rej)=>{
-        const r=new FileReader();
-        r.onload=()=>res(r.result.split(",")[1]);
-        r.onerror=rej;
-        r.readAsDataURL(compressed);
-      });
-      const mediaType="image/jpeg";
+        mediaType=file.type;
+      } else {
+        // תמונה — דחוס קודם
+        const compressImage=async(f)=>{
+          return new Promise((resolve)=>{
+            const img=new Image();
+            const url=URL.createObjectURL(f);
+            img.onload=()=>{
+              const canvas=document.createElement('canvas');
+              const maxSize=1024;
+              let w=img.width,h=img.height;
+              if(w>maxSize||h>maxSize){
+                if(w>h){h=Math.round(h*maxSize/w);w=maxSize;}
+                else{w=Math.round(w*maxSize/h);h=maxSize;}
+              }
+              canvas.width=w;canvas.height=h;
+              canvas.getContext('2d').drawImage(img,0,0,w,h);
+              canvas.toBlob(blob=>resolve(blob),'image/jpeg',0.8);
+              URL.revokeObjectURL(url);
+            };
+            img.src=url;
+          });
+        };
+        const compressed=await compressImage(file);
+        base64=await new Promise((res,rej)=>{
+          const r=new FileReader();
+          r.onload=()=>res(r.result.split(",")[1]);
+          r.onerror=rej;
+          r.readAsDataURL(compressed);
+        });
+        mediaType="image/jpeg";
+      }
       const resp=await fetch("/api/anthropic",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -2617,8 +2630,11 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
           messages:[{
             role:"user",
             content:[
-              {type:"image",source:{type:"base64",media_type:mediaType,data:base64}},
-              {type:"text",text:"חלץ את המתכון מהתמונה והחזר JSON בלבד"}
+              file.type==="text/plain"
+                ?{type:"text",text:atob(base64)}
+                :{type:file.type==="application/pdf"?"document":"image",
+                  source:{type:"base64",media_type:mediaType,data:base64}},
+              {type:"text",text:`חלץ את ${mode==="recipe"?"המתכון":"התפריט"} מהקובץ והחזר JSON בלבד`}
             ]
           }]
         })
@@ -2747,7 +2763,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
             {["הכל",...mealTypesList].map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterCat===c?T.navy:T.border}`,background:filterCat===c?T.navy:"transparent",color:filterCat===c?"#fff":T.textSub}}>{c}</button>)}
           </div>
           <div style={{display:"flex",gap:4,overflowX:"auto",scrollbarWidth:"none"}}>{["הכל",...menuConceptsList].map(c=><button key={c} onClick={()=>setFilterConcept(c)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontFamily:T.font,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${filterConcept===c?T.navyMid:T.border}`,background:filterConcept===c?T.navyMid:"transparent",color:filterConcept===c?"#fff":T.textSub}}>{c}</button>)}</div>
-          <input ref={imageInputRef} type="file" accept="image/*" style={{display:"none"}}
+          <input ref={imageInputRef} type="file" accept="image/*,application/pdf,text/plain" style={{display:"none"}}
             onChange={e=>{
               const f=e.target.files?.[0];
               if(f){setImagePreview(URL.createObjectURL(f));readRecipeFromImage(f);}
@@ -2769,7 +2785,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                     stroke={T.navy} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
-              {imageLoading?"מנתח תמונה...":"העלאת תמונה"}
+              {imageLoading?"מנתח קובץ...":"העלאת קובץ"}
             </button>
           </div>
           {!editId&&showForm&&(

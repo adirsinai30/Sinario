@@ -1603,13 +1603,6 @@ const fetchNews = async (force=false) => {
 
       if(Object.keys(result).length){
         setPrices(result);
-        // עדכן snapshot רק לניירות ערך ללא התראה פעילה
-        const alertTickers=new Set(assets.filter(a=>a.alertPct).map(a=>extractTicker(a.security)));
-        const upserts=Object.entries(result)
-          .filter(([ticker])=>!alertTickers.has(ticker))
-          .map(([ticker,price])=>({ticker,price,updated_at:new Date().toISOString()}));
-        if(upserts.length) supabase.from('price_snapshots').upsert(upserts,{onConflict:'ticker'}).then(()=>{});
-        setPriceSnapshots(prev=>({...prev,...result}));
         setLastUpdated(new Date());
       } else {
         setPricesError("לא ניתן לקבל מחירים כרגע");

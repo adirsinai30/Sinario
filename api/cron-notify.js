@@ -110,7 +110,8 @@ export default async function handler(req, res) {
 
     // ── התראת "מי מעביר למי" — ב-5 לחודש בלבד ──
     const todayDate=new Date();
-    if(true){ // TEST MODE - remove before production
+    const forceRun=req.query.force==="1";
+    if(forceRun||todayDate.getDate()===5){
       console.log('its the 5th, running split notification');
       try{
         console.log('fetching expenses for split...');

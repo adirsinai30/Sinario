@@ -742,7 +742,13 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
       {editExp&&<AddExpenseDrawer cats={cats} initData={editExp} onAdd={doEdit} onClose={()=>setEditExp(null)}/>}
       <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
         {[["regular","הוצאות שוטפות"],["special","הוצאות מיוחדות"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{setExpMode(v);setSearchQ("");}} style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",background:expMode===v?T.surface:"transparent",color:expMode===v?T.navy:T.textSub,boxShadow:expMode===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
+          <button key={v} onClick={()=>{setExpMode(v);setSearchQ("");}}
+            style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,
+              cursor:"pointer",border:"none",
+              background:expMode===v?T.surface:"transparent",
+              color:expMode===v?T.navy:T.textSub,
+              boxShadow:expMode===v?"0 1px 4px rgba(0,0,0,.08)":"none",
+              transition:"all .15s"}}>{l}</button>
         ))}
       </div>
       <SearchBar
@@ -1765,9 +1771,15 @@ ${newsContext}`;
       {tab==="portfolio"&&(
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           {/* ── סעיף 7ה: איפוס searchQ בטוגל ── */}
-          <div style={{flex:1,display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
+          <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
             {[["active",`פעיל (${activeAssets.length})`],["sold",`נמכר (${soldAssets.length})`]].map(([v,l])=>(
-              <button key={v} onClick={()=>{setPortfolioView(v);setSearchQ("");}} style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",background:portfolioView===v?T.surface:"transparent",color:portfolioView===v?T.navy:T.textSub,boxShadow:portfolioView===v?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>
+              <button key={v} onClick={()=>{setPortfolioView(v);setSearchQ("");}}
+                style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,
+                  cursor:"pointer",border:"none",
+                  background:portfolioView===v?T.surface:"transparent",
+                  color:portfolioView===v?T.navy:T.textSub,
+                  boxShadow:portfolioView===v?"0 1px 4px rgba(0,0,0,.08)":"none",
+                  transition:"all .15s"}}>{l}</button>
             ))}
           </div>
           {/* ── סעיף 7ג: SearchBar ── */}
@@ -2507,7 +2519,7 @@ function exportMenuPDF(menu){
   w.document.close();
 }
 
-function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{},onFormOpen=()=>{}}){
+function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{},onFormOpen=()=>{},onSelectChange=()=>{}}){
   const newRecipeRef=useRef(null);
   const [imageLoading,setImageLoading]=useState(false);
   const [imagePreview,setImagePreview]=useState(null);
@@ -2516,6 +2528,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   const [filterCat,setFilterCat]=useState("הכל");
   const [filterConcept,setFilterConcept]=useState("הכל");
   const [selected,setSelected]=useState(null);
+  useEffect(()=>{onSelectChange(selected);},[selected,onSelectChange]);
   const [showForm,setShowForm]=useState(false);
   useEffect(()=>{
     onFormOpen(showForm);
@@ -2714,7 +2727,15 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
         <>
           {/* ── סעיף 4ג: איפוס searchQ בטוגל ── */}
           <div style={{display:"flex",background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,gap:3}}>
-            {[["recipe","מתכונים"],["menu","תפריטים"]].map(([v,l])=><button key={v} onClick={()=>{setMode(v);setFilterCat("הכל");setFilterConcept("הכל");setShowForm(false);setSearchQ("");}} style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",background:mode===v?T.surface:"transparent",color:mode===v?T.navy:T.textSub,boxShadow:mode===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}
+            {[["recipe","מתכונים"],["menu","תפריטים"]].map(([v,l])=>(
+              <button key={v} onClick={()=>{setMode(v);setFilterCat("הכל");setFilterConcept("הכל");setShowForm(false);setSearchQ("");}}
+                style={{flex:1,padding:"7px",borderRadius:9,fontFamily:T.font,fontSize:12,fontWeight:600,
+                  cursor:"pointer",border:"none",
+                  background:mode===v?T.surface:"transparent",
+                  color:mode===v?T.navy:T.textSub,
+                  boxShadow:mode===v?"0 1px 4px rgba(0,0,0,.08)":"none",
+                  transition:"all .15s"}}>{l}</button>
+            ))}
           </div>
           {/* ── סעיף 4ד: SearchBar ── */}
           <SearchBar
@@ -2949,9 +2970,10 @@ function NotesTab({notes,setNotes,defaultWho="א"}){
   );
 }
 
-function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א",showNew,setShowNew,onFormOpen=()=>{}}){
+function TripsSection({trips,setTrips,month,year,setMonth,setYear,defaultWho="א",showNew,setShowNew,onFormOpen=()=>{},onSelectChange=()=>{}}){
   const newTripRef=useRef(null);
   const [sel,setSel]=useState(null);
+  useEffect(()=>{onSelectChange(sel);},[sel,onSelectChange]);
   const [showItem,setShowItem]=useState(false);
   const [showAll,setShowAll]=useState(false);
   const [editTripId,setEditTripId]=useState(null);
@@ -3624,6 +3646,8 @@ export default function App(){
   const [showSpecialAdd,setShowSpecialAdd]=useState(false);
   const [showTripAdd,setShowTripAdd]=useState(false);
   const [showRecipeAdd,setShowRecipeAdd]=useState(false);
+  const [selectedRecipe,setSelectedRecipe]=useState(null);
+  const [selectedTrip,setSelectedTrip]=useState(null);
   const [showAssetAdd,setShowAssetAdd]=useState(false);
   const [portfolioView,setPortfolioView]=useState("active");
   const [anyFormOpen,setAnyFormOpen]=useState(false);
@@ -3786,7 +3810,6 @@ export default function App(){
       <PeriodPicker month={month} year={year} setMonth={setMonth} setYear={setYear}/>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8}}>
-      <div style={{fontFamily:"system-ui,sans-serif",color:T.navy,letterSpacing:"2px",fontWeight:300,fontSize:"12px",display:"flex",alignItems:"baseline",direction:"ltr"}}>SINARIO</div>
       <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${T.navy},${T.navyMid})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 8px ${T.navy}33`}}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="19" cy="6" r="3" fill="#f0c040" stroke="#fff" strokeWidth="1.2"/></svg>
       </div>
@@ -3796,10 +3819,10 @@ export default function App(){
 {(section==="home"||section==="invest"||section==="reports"||section==="settings")&&(
 <div style={{background:T.surface,paddingTop:"2px"}}>
   <div>
-  {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${homeTab===t.id?T.navy:"#e0dbd4"}`,background:homeTab===t.id?T.navy:"#f7f5f2",color:homeTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-  {section==="invest"&&(<div style={{marginTop:0}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${investTab===t.id?T.navy:"#e0dbd4"}`,background:investTab===t.id?T.navy:"#f7f5f2",color:investTab===t.id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{t.label}</button>))}</div></div>)}
-  {section==="reports"&&(<div style={{borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{[["monthly","חודשי"],["annual","שנתי"],["split","חלוקה"],["insights","תובנות"]].map(([id,l])=>(<button key={id} onClick={()=>setReportTab(id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${reportTab===id?T.navy:"#e0dbd4"}`,background:reportTab===id?T.navy:"#f7f5f2",color:reportTab===id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:reportTab===id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</button>))}</div></div>)}
-  {section==="settings"&&(<div style={{borderBottom:`1px solid ${T.border}`}}><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"6px 12px",gap:4}}>{[["general","כללי"],["device","מכשיר"]].map(([id,l])=>(<button key={id} onClick={()=>setSettingsTab(id)} style={{flex:1,padding:"5px 4px",border:`1px solid ${settingsTab===id?T.navy:"#e0dbd4"}`,background:settingsTab===id?T.navy:"#f7f5f2",color:settingsTab===id?"#fff":T.textMid,fontFamily:T.font,fontSize:11,fontWeight:settingsTab===id?600:500,cursor:"pointer",borderRadius:12,transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center"}}>{l}</button>))}</div></div>)}
+  {section==="home"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{HOME_TABS.map(t=>(<button key={t.id} onClick={()=>setHomeTab(t.id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${homeTab===t.id?T.navy:"transparent"}`,color:homeTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:homeTab===t.id?600:400,cursor:"pointer",transition:"color .15s"}}>{t.label}</button>))}</div></div>)}
+  {section==="invest"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{INVEST_TABS.map(t=>(<button key={t.id} onClick={()=>setInvestTab(t.id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${investTab===t.id?T.navy:"transparent"}`,color:investTab===t.id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:investTab===t.id?600:400,cursor:"pointer",transition:"color .15s"}}>{t.label}</button>))}</div></div>)}
+  {section==="reports"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{[["monthly","חודשי"],["annual","שנתי"],["split","חלוקה"],["insights","תובנות"]].map(([id,l])=>(<button key={id} onClick={()=>setReportTab(id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${reportTab===id?T.navy:"transparent"}`,color:reportTab===id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:reportTab===id?600:400,cursor:"pointer",transition:"color .15s"}}>{l}</button>))}</div></div>)}
+  {section==="settings"&&(<div><div style={{maxWidth:720,margin:"0 auto",display:"flex",padding:"0 12px",borderBottom:`1px solid ${T.border}`,background:T.surface}}>{[["general","כללי"],["device","מכשיר"]].map(([id,l])=>(<button key={id} onClick={()=>setSettingsTab(id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",borderBottom:`2px solid ${settingsTab===id?T.navy:"transparent"}`,color:settingsTab===id?T.navy:T.textSub,fontFamily:T.font,fontSize:11,fontWeight:settingsTab===id?600:400,cursor:"pointer",transition:"color .15s"}}>{l}</button>))}</div></div>)}
 </div>
 </div>
 )}
@@ -3807,15 +3830,17 @@ export default function App(){
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 80px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd} onFormOpen={setAnyFormOpen}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
-        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen}/>}
+        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedRecipe}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
-        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho} showNew={showTripAdd} setShowNew={setShowTripAdd} onFormOpen={setAnyFormOpen}/>}
+        {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho} showNew={showTripAdd} setShowNew={setShowTripAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedTrip}/>}
         {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct} showAssetFormExternal={showAssetAdd} setShowAssetFormExternal={setShowAssetAdd} portfolioView={portfolioView} setPortfolioView={setPortfolioView} onFormOpen={setAnyFormOpen}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>
       {!anyFormOpen&&
-       !(section==="invest"&&investTab==="portfolio"&&portfolioView==="sold")&&(
+       !(section==="invest"&&investTab==="portfolio"&&portfolioView==="sold")&&
+       !(section==="home"&&homeTab==="recipes"&&!!selectedRecipe)&&
+       !(section==="trips"&&!!selectedTrip)&&(
       <button
         onClick={()=>{
           if(section==="home"&&homeTab==="expenses"){

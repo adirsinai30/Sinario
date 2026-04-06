@@ -103,7 +103,7 @@ export default async function handler(req, res) {
               for(const [deviceId,msgs] of Object.entries(byDevice)){
                 const targets=deviceId==='all'?subs:subs.filter(s=>s.device_id===deviceId);
                 for(const sub of targets){
-                  await sendPushNotification(sub,{title:`התראת מחיר - Sinario (${msgs.length})`,body:msgs.join('\n')});
+                  await sendPushNotification(sub,{title:`שינוי במחירי ניירות (${msgs.length})`,body:msgs.join('\n')});
                 }
               }
             }
@@ -161,7 +161,7 @@ export default async function handler(req, res) {
             for(const sub of subs){
               console.log('sending to device:',sub.device_id,'owner:',sub.owner);
               await sendPushNotification(sub,{
-                title:`Sinario - חלוקת הוצאות ${MONTHS_HE[month]}`,
+                title:`חלוקת הוצאות - ${MONTHS_HE[month]}`,
                 body:`${from} ${verb} ל${to}: ₪${Math.round(diff).toLocaleString('he-IL')}`
               });
             }

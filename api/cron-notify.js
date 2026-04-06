@@ -44,6 +44,7 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
   res.setHeader('Cache-Control','no-store');
+  console.log('auth passed, starting price alerts');
 
   try {
     try {
@@ -105,11 +106,14 @@ export default async function handler(req, res) {
     } catch(e){
       console.error('price alert error:',e);
     }
+    console.log('price alerts done, checking split notification');
 
     // ── התראת "מי מעביר למי" — ב-5 לחודש בלבד ──
     const todayDate=new Date();
     if(todayDate.getDate()===5){
+      console.log('its the 5th, running split notification');
       try{
+        console.log('fetching expenses for split...');
         const now=new Date();
         const year=now.getFullYear();
         // חודש קודם

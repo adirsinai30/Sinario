@@ -22,6 +22,7 @@ async function sendPushNotification(sub, { title, body }) {
       subscription,
       JSON.stringify({ title, body })
     );
+    console.log('push sent successfully to:',subscription.endpoint?.slice(0,50));
   } catch (e) {
     console.error('push error:', e.message);
   }
@@ -132,9 +133,11 @@ export default async function handler(req, res) {
           const verb=from==="ספיר"?"מעבירה":"מעביר";
           const MONTHS_HE=["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
-          const {data:subs}=await supabase.from('push_subscriptions').select('*');
+          const {data:subs,error:subsError}=await supabase.from('push_subscriptions').select('*');
+          console.log('subs count:',subs?.length,'error:',subsError);
           if(subs?.length){
             for(const sub of subs){
+              console.log('sending to device:',sub.device_id,'owner:',sub.owner);
               await sendPushNotification(sub,{
                 title:`Sinario - חלוקת הוצאות ${MONTHS_HE[month]}`,
                 body:`${from} ${verb} ל${to}: ₪${Math.round(diff).toLocaleString('he-IL')}`

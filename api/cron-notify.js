@@ -85,7 +85,7 @@ export default async function handler(req, res) {
               ||(direction==='up'&&changePct>0)
               ||(direction==='down'&&changePct<0);
             if(absOk&&dirOk){
-              const dir=changePct>0?"↑":"↓";
+              const dir=changePct>0?" ↑":" ↓";
               triggered.push({msg:`${a.security}: ${Math.abs(changePct).toFixed(2)}%${dir}`,deviceId:a.alert_device_id||'all',ticker});
             }
           });

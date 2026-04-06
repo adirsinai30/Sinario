@@ -79,27 +79,40 @@ export default async function handler(req, res) {
             const snapshot=snapMap[ticker];
             if(!current||!snapshot||!a.alert_pct)return;
             const changePct=((current-snapshot)/snapshot)*100;
-            const absOk=Math.abs(changePct)>=a.alert_pct;
+            const absOk=true; // TEST MODE
             const direction=a.alert_direction||'both';
             const dirOk=direction==='both'
               ||(direction==='up'&&changePct>0)
               ||(direction==='down'&&changePct<0);
             if(absOk&&dirOk){
               const dir=changePct>0?"↑ עלה":"↓ ירד";
-              triggered.push({msg:`${a.security} ${dir} ${Math.abs(changePct).toFixed(2)}%`});
+              triggered.push({msg:`${a.security} ${dir} ${Math.abs(changePct).toFixed(2)}%`,deviceId:a.alert_device_id||'all',ticker});
             }
           });
 
           if(triggered.length){
             const {data:subs}=await supabase.from('push_subscriptions').select('*');
             if(subs?.length){
-              for(const sub of subs){
-                await sendPushNotification(sub,{
-                  title:'התראת מחיר - Sinario',
-                  body:triggered.map(t=>t.msg).join(' | ')
-                });
+              // קבץ התראות לפי device_id
+              const byDevice={};
+              triggered.forEach(t=>{
+                const did=t.deviceId||'all';
+                if(!byDevice[did])byDevice[did]=[];
+                byDevice[did].push(t.msg);
+              });
+              for(const [deviceId,msgs] of Object.entries(byDevice)){
+                const targets=deviceId==='all'?subs:subs.filter(s=>s.device_id===deviceId);
+                for(const sub of targets){
+                  await sendPushNotification(sub,{title:'התראת מחיר — Sinario',body:msgs.join(' | ')});
+                }
               }
             }
+            // אפס snapshots שהתראה נשלחה עליהם
+            const resetUpserts=triggered.map(t=>{
+              const price=currentPrices[t.ticker];
+              return t.ticker&&price?{ticker:t.ticker,price,updated_at:new Date().toISOString()}:null;
+            }).filter(Boolean);
+            if(resetUpserts.length) await supabase.from('price_snapshots').upsert(resetUpserts,{onConflict:'ticker'});
           }
         }
       }

@@ -554,7 +554,7 @@ function AccessScreen({onAccess}){
       setAttempts(att);
       if(att>=3){
         setLocked(true);
-        setError('חסום לאחר 3 ניסיונות כושלים. נסה שוב מאוחר יותר.');
+        setError('חסימה לאחר 3 ניסיונות כושלים. נסו שוב מאוחר יותר.');
       } else {
         setError(`קוד שגוי. נותרו ${3-att} ניסיונות.`);
       }
@@ -1554,8 +1554,10 @@ const fetchNews = async (force=false) => {
 
       setNewsItems(results);
       setNewsLastFetch(new Date());
-    } catch {
-      setNewsError("שגיאה בטעינת חדשות");
+    } catch(err) {
+      setNewsError(err?.message?.includes("עמוס")||err?.message?.includes("503")
+        ?"השירות עמוס כרגע, נסו שוב בעוד מספר דקות"
+        :"שגיאה בטעינת חדשות");
     }
     setNewsLoading(false);
   };
@@ -1704,6 +1706,12 @@ ${newsContext}`;
         })
       });
       const data = await resp.json();
+      if(data?.error?.includes("עמוס")||resp?.status===503){
+        setAgentHistory(h=>[...h,{role:"assistant",
+          content:"השירות עמוס כרגע, נסו שוב בעוד מספר דקות"}]);
+        setAgentLoading(false);
+        return;
+      }
       const text = (data.content||[]).map(b=>b.text||"").join("") || data.error || "שגיאה - נסו שוב";
       setAgentHistory(h=>[...h,{id:uid(),q:question,a:text,date:new Date().toISOString()}]);
     } catch {
@@ -2630,15 +2638,8 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
         body:JSON.stringify({
           max_tokens:4000,
           system:mode==="recipe"
-  ?`אתה עוזר שמחלץ מתכונים מתמונות. החזר תמיד JSON בלבד, ללא טקסט נוסף, בפורמט:
-{"name":"שם המתכון","servings":"4","categories":[],"ingredients":[{"item":"","qty":"","unit":""}],"steps":[""],"prepNotes":""}
-- steps: כל שלב כטקסט נפרד
-- ingredients: רשימת מצרכים
-- אם אינך רואה מתכון ברור, החזר {"error":"לא זוהה מתכון בתמונה"}`
-  :`אתה עוזר שמחלץ תפריטים מתמונות. החזר תמיד JSON בלבד, ללא טקסט נוסף, בפורמט:
-{"name":"שם התפריט","servings":"","categories":[],"sections":[{"title":"שם החלק","dishes":["מנה 1","מנה 2"]}],"notes":""}
-- sections: חלקי התפריט (מנות ראשונות, עיקריות, קינוחים וכו')
-- אם אינך רואה תפריט ברור, החזר {"error":"לא זוהה תפריט בתמונה"}`,
+  ?`אתה עוזר שמחלץ מתכונים מתמונות/קבצים. החזר JSON בלבד ללא backticks וללא טקסט נוסף. פורמט מחייב: {"name":"שם","servings":"4","categories":[],"ingredients":[{"item":"","qty":"","unit":""}],"steps":[""],"prepNotes":""} אם לא ניתן לחלץ: {"error":"לא זוהה מתכון"}`
+  :`אתה עוזר שמחלץ תפריטים מתמונות/קבצים. החזר JSON בלבד ללא backticks וללא טקסט נוסף. פורמט מחייב: {"name":"שם","servings":"","categories":[],"sections":[{"title":"","dishes":[""]}],"notes":""} אם לא ניתן לחלץ: {"error":"לא זוהה תפריט"}`,
           messages:[{
             role:"user",
             content:[
@@ -2654,15 +2655,22 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       const data=await resp.json();
       const text=(data.content||[]).map(b=>b.text||"").join("").trim();
       let clean=text.replace(/```json|```/g,"").trim();
-      // תקן JSON קטוע — מצא את הסגירה האחרונה התקינה
+      const firstBrace=clean.indexOf('{');
       const lastBrace=clean.lastIndexOf('}');
-      if(lastBrace>0&&lastBrace<clean.length-1)clean=clean.slice(0,lastBrace+1);
+      if(firstBrace>=0)clean=clean.slice(firstBrace);
+      if(lastBrace>=0&&lastBrace<clean.length-1)clean=clean.slice(0,lastBrace+1);
       let parsed;
-      try{parsed=JSON.parse(clean);}
-      catch{
-        // נסה לחלץ לפחות שם
-        const nameMatch=clean.match(/"name"\s*:\s*"([^"]+)"/);
-        parsed={name:nameMatch?.[1]||"מתכון מהתמונה",ingredients:[{item:"",qty:"",unit:""}],steps:[""]};
+      try{
+        parsed=JSON.parse(clean);
+      }catch{
+        try{
+          const fixed=clean.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
+          parsed=JSON.parse(fixed);
+        }catch{
+          const nameMatch=clean.match(/"name"\s*:\s*"([^"]+)"/);
+          parsed={name:nameMatch?.[1]||"מתכון מהקובץ",
+            ingredients:[{item:"",qty:"",unit:""}],steps:[""]};
+        }
       }
       if(parsed.error){alert(parsed.error);return;}
       if(mode==="recipe"){
@@ -2692,7 +2700,10 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       setEditId(null);
       setShowForm(true);
     }catch(e){
-      alert("שגיאה בקריאת המתכון: "+e.message);
+      const msg=e.message?.includes("503")||e.message?.includes("עמוס")
+        ?"השירות עמוס כרגע, נסו שוב בעוד מספר דקות"
+        :"שגיאה בקריאת הקובץ: "+e.message;
+      alert(msg);
     }finally{
       setImageLoading(false);
       setImagePreview(null);
@@ -3581,7 +3592,7 @@ function SettingsSection({cats,setCats,specialCatsList,setSpecialCatsList,menuCo
   }
 }} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,color:T.navy,fontFamily:T.font,fontWeight:600}}>הפעלת התראות</button>
             </div>
-            <div style={{fontSize:11,color:T.textSub}}>אפשר לאפליקציה לשלוח תזכורות ועדכונים</div>
+            <div style={{fontSize:11,color:T.textSub}}>אפשרו לאפליקציה לשלוח תזכורות ועדכונים</div>
           </Card>
         </>)}
       </div>

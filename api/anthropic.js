@@ -127,7 +127,7 @@ const keys = getApiKeys();
       const currentIndex = (startIndex + attempt) % keys.length;
       try {
         response = await callGemini(keys[currentIndex], geminiBody);
-        if (response.status === 429) {
+        if (response.status === 429 || response.status === 503) {
           console.warn(`GEMINI_KEY_${currentIndex + 1} hit rate limit, trying next...`);
           response = null;
           continue;
@@ -142,7 +142,20 @@ const keys = getApiKeys();
     }
 
     if (!response) {
-      return res.status(429).json({ error: "כל ה-API keys הגיעו ללימיט. נסה שוב מאוחר יותר." });
+      await new Promise(r=>setTimeout(r,8000));
+      for (let attempt = 0; attempt < keys.length; attempt++) {
+        const currentIndex = (startIndex + attempt) % keys.length;
+        try {
+          response = await callGemini(keys[currentIndex], geminiBody);
+          if (response.status === 429 || response.status === 503) { response = null; continue; }
+          keyIndex = (currentIndex + 1) % keys.length;
+          break;
+        } catch { response = null; continue; }
+      }
+    }
+
+    if (!response) {
+      return res.status(503).json({ error: "השירות עמוס כרגע, נסה שוב בעוד מספר דקות." });
     }
 
     const geminiData = await response.json();

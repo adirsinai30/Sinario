@@ -1679,6 +1679,7 @@ const fetchNews = async (force=false) => {
       id:convId,
       title,
       messages:history,
+      who:agentWho||"א",
       updated_at:new Date().toISOString()
     },{onConflict:'id'});
     setCurrentConvId(convId);
@@ -1686,14 +1687,14 @@ const fetchNews = async (force=false) => {
   };
   const loadConversations=async()=>{
     const {data}=await supabase.from('agent_conversations')
-      .select('id,title,updated_at')
+      .select('id,title,updated_at,who')
       .order('updated_at',{ascending:false})
       .limit(20);
     if(data)setSavedConversations(data);
   };
 
   const runAgent = async (overrideQuery) => {
-    const question = (overrideQuery||agentQuery).trim();
+    const question=(overrideQuery||agentQuery.replace(/<[^>]+>/g," ").replace(/s+/g," ")).trim();
     if (!question) return;
     if(!overrideQuery)setAgentQuery("");
     setAgentLoading(true);
@@ -2505,6 +2506,9 @@ ${newsContext}`;
               <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>
                 {conv.title}
               </span>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.5)",flexShrink:0,marginRight:4}}>
+                {conv.who==="ס"?"ספיר":"אדיר"}
+              </span>
               <span style={{fontSize:10,color:"rgba(255,255,255,.4)",flexShrink:0,marginRight:8}}>
                 {new Date(conv.updated_at).toLocaleDateString("he-IL")}
               </span>
@@ -2598,66 +2602,70 @@ ${newsContext}`;
     )}
 
     <div style={{position:"sticky",bottom:0,paddingTop:8,background:T.bg}}>
-      <div style={{display:"flex",gap:6,marginBottom:6}}>
-        {[["א","אדיר"],["ס","ספיר"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setAgentWho(v)}
-            style={whoBtn(v,agentWho===v)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      {agentFiles.length>0&&(
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
-          {agentFiles.map((f,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:4,
-              background:T.navyLight,border:`1px solid ${T.navyBorder}`,
-              borderRadius:99,padding:"3px 10px"}}>
-              <span style={{fontSize:11,color:T.navy,maxWidth:100,
-                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                {f.name}
-              </span>
-              <button onClick={()=>setAgentFiles(prev=>prev.filter((_,j)=>j!==i))}
-                style={{background:"none",border:"none",cursor:"pointer",
-                  color:T.textSub,fontSize:14,lineHeight:1,padding:0}}>×</button>
-            </div>
-          ))}
-        </div>
-      )}
-      <input ref={agentFileRef} type="file"
-        accept="image/*,application/pdf,text/plain"
-        multiple
-        style={{display:"none"}}
-        onChange={e=>{
-          const files=Array.from(e.target.files||[]);
-          setAgentFiles(prev=>[...prev,...files]);
-          e.target.value="";
-        }}/>
-      <div style={{display:"flex",gap:8,alignItems:"flex-end",background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"8px 8px 8px 12px"}}>
-        <textarea value={agentQuery}
-          onChange={e=>{
-            setAgentQuery(e.target.value);
-            e.target.style.height="auto";
-            e.target.style.height=Math.min(e.target.scrollHeight,160)+"px";
-          }}
-          onKeyDown={e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();runAgent();}}}
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:"hidden"}}>
+        <RichTextEditor
+          value={agentQuery}
+          onChange={setAgentQuery}
           placeholder="שאלו שאלה על התיק שלכם…"
-          style={{flex:1,background:"transparent",border:"none",color:T.text,
-            fontSize:14,outline:"none",fontFamily:T.font,resize:"none",
-            direction:"rtl",lineHeight:1.5,minHeight:40,maxHeight:160,overflow:"auto"}}/>
-        <button onClick={()=>agentFileRef.current?.click()}
-          style={{width:36,height:36,borderRadius:10,flexShrink:0,
-            background:agentFiles.length>0?T.navyLight:T.bg,
-            border:`1px solid ${agentFiles.length>0?T.navyBorder:T.border}`,
-            cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
-              stroke={agentFiles.length>0?T.navy:T.textSub} strokeWidth="1.8" strokeLinecap="round"/>
-          </svg>
-        </button>
-        <button onClick={()=>runAgent()} disabled={agentLoading||(!agentQuery.trim()&&agentFiles.length===0)}
-          style={{width:36,height:36,borderRadius:10,flexShrink:0,background:(agentQuery.trim()||agentFiles.length>0)?T.navy:T.border,border:"none",cursor:(agentQuery.trim()||agentFiles.length>0)?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
-          <span style={{transform:"scaleX(-1)",display:"flex"}}><Icon name="plane" size={15} color="#fff"/></span>
-        </button>
+          minHeight={40}/>
+        <div style={{display:"flex",gap:8,alignItems:"center",padding:"6px 8px",
+          borderTop:`1px solid ${T.border}`}}>
+          <div style={{display:"flex",gap:4}}>
+            {[["א","אדיר"],["ס","ספיר"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setAgentWho(v)}
+              style={{padding:"6px 12px",borderRadius:99,fontFamily:T.font,fontSize:12,
+                fontWeight:600,cursor:"pointer",
+                border:`1px solid ${agentWho===v?(v==="ס"?"#f9a8d4":T.navy):T.border}`,
+                background:agentWho===v?(v==="ס"?"#fce7f3":T.navyLight):"transparent",
+                color:agentWho===v?(v==="ס"?"#be185d":T.navy):T.textMid}}>
+              {l}
+            </button>
+          ))}
+          </div>
+          <div style={{flex:1}}/>
+          {agentFiles.length>0&&(
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {agentFiles.map((f,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:3,
+                  background:T.navyLight,border:`1px solid ${T.navyBorder}`,
+                  borderRadius:99,padding:"2px 8px"}}>
+                  <span style={{fontSize:10,color:T.navy,maxWidth:80,
+                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</span>
+                  <button onClick={()=>setAgentFiles(p=>p.filter((_,j)=>j!==i))}
+                    style={{background:"none",border:"none",cursor:"pointer",
+                      color:T.textSub,fontSize:12,lineHeight:1,padding:0}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input ref={agentFileRef} type="file"
+            accept="image/*,application/pdf,text/plain"
+            multiple style={{display:"none"}}
+            onChange={e=>{
+              setAgentFiles(p=>[...p,...Array.from(e.target.files||[])]);
+              e.target.value="";
+            }}/>
+          <button onClick={()=>agentFileRef.current?.click()}
+            style={{width:32,height:32,borderRadius:8,flexShrink:0,
+              background:agentFiles.length>0?T.navyLight:T.bg,
+              border:`1px solid ${agentFiles.length>0?T.navyBorder:T.border}`,
+              cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
+                stroke={agentFiles.length>0?T.navy:T.textSub} strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <button onClick={()=>runAgent()}
+            disabled={agentLoading||!agentQuery.replace(/<[^>]+>/g,"").trim()}
+            style={{width:32,height:32,borderRadius:8,flexShrink:0,
+              background:agentQuery.replace(/<[^>]+>/g,"").trim()?T.navy:T.border,
+              border:"none",cursor:agentQuery.replace(/<[^>]+>/g,"").trim()?"pointer":"default",
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <span style={{transform:"scaleX(-1)",display:"flex"}}>
+              <Icon name="plane" size={13} color="#fff"/>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

@@ -240,6 +240,31 @@ function ConfirmModal({message,onConfirm,onCancel}){
     </div>
   );
 }
+function AlertModal({message,onClose}){
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(28,25,23,.45)",
+      backdropFilter:"blur(4px)",zIndex:400,display:"flex",
+      alignItems:"center",justifyContent:"center",padding:20}}
+      onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()}
+        style={{background:T.surface,borderRadius:20,padding:"24px 20px",
+          width:"100%",maxWidth:320,fontFamily:T.font,direction:"rtl",
+          textAlign:"center"}}>
+        <div style={{width:44,height:44,borderRadius:"50%",
+          background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,
+          display:"flex",alignItems:"center",justifyContent:"center",
+          margin:"0 auto 14px"}}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+              stroke={T.danger} strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div style={{fontSize:14,color:T.text,lineHeight:1.6,marginBottom:20}}>{message}</div>
+        <Btn onClick={onClose} style={{width:"100%",padding:"11px"}}>הבנתי</Btn>
+      </div>
+    </div>
+  );
+}
 function CurrencyField({currency,setCurrency,rate,setRate,amount}){
   const [loading,setLoading]=useState(false);
   useEffect(()=>{if(currency==="ILS"){setRate("1");return;}setLoading(true);fetchRate(currency).then(r=>{setRate(String(r));setLoading(false);});},[currency]);
@@ -777,9 +802,9 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
               <div style={{fontSize:30,fontWeight:700,color:combinedTotal>totalBudget?T.danger:T.navy,lineHeight:1,marginTop:4}}>
                 {Math.round((combinedTotal/(totalBudget||1))*100)}%
               </div>
-              {savingsGoal>0&&!(combinedTotal>totalBudget)&&(totalBudget-combinedTotal)>savingsGoal&&(
+              {savingsGoal>0&&combinedTotal<=totalBudget&&(totalBudget-combinedTotal)>=savingsGoal&&(
                 <div style={{fontSize:11,fontWeight:600,color:T.success,textAlign:"left"}}>
-                  ✓ נחסכו {fmt(totalBudget-combinedTotal)}
+                  ✓ יעד החיסכון הושג
                 </div>
               )}
             </div>
@@ -1275,9 +1300,27 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={},a
   );
 }
 
-function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct,showAssetFormExternal=false,setShowAssetFormExternal=()=>{},portfolioView,setPortfolioView,onFormOpen=()=>{}}){
+function renderMarkdown(text){
+  if(!text)return "";
+  var html=text;
+  html=html.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+  html=html.replace(/\*(.+?)\*/g,"<em>$1</em>");
+  html=html.replace(/^#{1,3} (.+)$/gm,function(_,p){return "<b style=\"color:#1e3a5f\">"+p+"</b><br/>";});
+  html=html.replace(/^[•\-] (.+)$/gm,function(_,p){return "• "+p+"<br/>";});
+  html=html.replace(/^\d+\. (.+)$/gm,function(_,p){return "· "+p+"<br/>";});
+  html=html.replace(/\n/g,"<br/>");
+  return html;
+}
+
+function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watchlist,setWatchlist,priceSnapshots={},setPriceSnapshots=()=>{},saveAssetAlertPct,showAssetFormExternal=false,setShowAssetFormExternal=()=>{},portfolioView,setPortfolioView,onFormOpen=()=>{},defaultWho="א"}){
   const newAssetRef=useRef(null);
   const [agentHistory,setAgentHistory]=useState([]);
+  const [savedConversations,setSavedConversations]=useState([]);
+  const [currentConvId,setCurrentConvId]=useState(null);
+  const [showConvList,setShowConvList]=useState(false);
+  const [agentWho,setAgentWho]=useState(defaultWho);
+  const [agentFiles,setAgentFiles]=useState([]);
+  const agentFileRef=useRef(null);
   const [expandedId,setExpandedId]=useState(null);
   const [collapsed,setCollapsed]=useState({});
   const toggleSection=(aid,sec)=>setCollapsed(c=>({...c,[`${aid}_${sec}`]:!c[`${aid}_${sec}`]}));
@@ -1290,6 +1333,7 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const [confirmPurch,  setConfirmPurch]  = useState(null);
   const [confirmSale,   setConfirmSale]   = useState(null);
   const [confirmDiv,    setConfirmDiv]    = useState(null);
+  const [alertMsg,setAlertMsg]=useState(null);
   const [editPurch,     setEditPurch]     = useState(null); // {assetId, purchase}
   const [editSale,      setEditSale]      = useState(null); // {assetId, sale}
   const [editDiv,       setEditDiv]       = useState(null); // {assetId, dividend}
@@ -1558,6 +1602,7 @@ const fetchNews = async (force=false) => {
       setNewsError(err?.message?.includes("עמוס")||err?.message?.includes("503")
         ?"השירות עמוס כרגע, נסו שוב בעוד מספר דקות"
         :"שגיאה בטעינת חדשות");
+      setAlertMsg("השירות עמוס כרגע, נסה שוב בעוד מספר דקות");
     }
     setNewsLoading(false);
   };
@@ -1626,6 +1671,27 @@ const fetchNews = async (force=false) => {
 
     setPricesLoading(false);
   };
+  const saveConversation=async(history,id=null)=>{
+    if(!history.length)return;
+    const convId=id||uid();
+    const title=history[0].q.slice(0,40)+(history[0].q.length>40?"…":"");
+    await supabase.from('agent_conversations').upsert({
+      id:convId,
+      title,
+      messages:history,
+      updated_at:new Date().toISOString()
+    },{onConflict:'id'});
+    setCurrentConvId(convId);
+    return convId;
+  };
+  const loadConversations=async()=>{
+    const {data}=await supabase.from('agent_conversations')
+      .select('id,title,updated_at')
+      .order('updated_at',{ascending:false})
+      .limit(20);
+    if(data)setSavedConversations(data);
+  };
+
   const runAgent = async (overrideQuery) => {
     const question = (overrideQuery||agentQuery).trim();
     if (!question) return;
@@ -1665,7 +1731,8 @@ const fetchNews = async (force=false) => {
       ? newsItems.map(g=>`${g.label} (${g.trend}): ${g.summary||"אין סיכום"}`).join("\n")
       : "חדשות לא נטענו";
 
-    const systemPrompt = `אתה יועץ השקעות אישי ומקצועי של המשתמש. שמך סינריו.
+    const systemPrompt = `אתה יועץ השקעות אישי ומקצועי. עונה ישירות לשאלה ללא הקדמות, ללא הצגה עצמית וללא סיום מנומס.
+המשתמש הנוכחי: ${agentWho==="א"?"אדיר":"ספיר"}.
 עונה תמיד בעברית. סגנון: ישיר, מקצועי, ממוקד נתונים.
 
 כללי ייעוץ:
@@ -1695,14 +1762,31 @@ ${newsContext}`;
       { role: "assistant", content: h.a }
     ]);
 
+    const userContent=[];
+    if(agentFiles.length>0){
+      for(const file of agentFiles){
+        const base64=await new Promise((res,rej)=>{
+          const r=new FileReader();
+          r.onload=()=>res(r.result.split(',')[1]);
+          r.onerror=rej;
+          r.readAsDataURL(file);
+        });
+        if(file.type==='text/plain'){
+          userContent.push({type:'text',text:atob(base64)});
+        } else {
+          userContent.push({type:file.type==='application/pdf'?'document':'image',source:{type:'base64',media_type:file.type,data:base64}});
+        }
+      }
+    }
+    if(question)userContent.push({type:'text',text:question});
     try {
-      const resp = await fetch("/api/anthropic", {
+      const resp = await fetch('/api/anthropic', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           max_tokens: 8192,
           system: systemPrompt,
-          messages: [...conversationHistory, { role: "user", content: question }]
+          messages: [...conversationHistory, { role: "user", content: userContent.length>0?userContent:question }]
         })
       });
       const data = await resp.json();
@@ -1713,7 +1797,10 @@ ${newsContext}`;
         return;
       }
       const text = (data.content||[]).map(b=>b.text||"").join("") || data.error || "שגיאה - נסו שוב";
-      setAgentHistory(h=>[...h,{id:uid(),q:question,a:text,date:new Date().toISOString()}]);
+      const newHistory=[...agentHistory,{id:uid(),q:question,a:text,date:new Date().toISOString()}];
+      setAgentHistory(newHistory);
+      setAgentFiles([]);
+      saveConversation(newHistory,currentConvId).then(id=>{if(id)setCurrentConvId(id);});
     } catch {
       setAgentHistory(h=>[...h,{id:uid(),q:question,a:"שגיאה בחיבור. נסו שוב.",date:new Date().toISOString()}]);
     }
@@ -1728,6 +1815,7 @@ ${newsContext}`;
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:0,animation:"fadeUp .25s ease"}}>
+      {alertMsg&&<AlertModal message={alertMsg} onClose={()=>setAlertMsg(null)}/>}
       {confirmAsset&&<ConfirmModal message="למחוק נייר ערך זה לצמיתות?" onConfirm={()=>deleteAsset(confirmAsset)} onCancel={()=>setConfirmAsset(null)}/>}
       {confirmPurch&&<ConfirmModal message="למחוק קנייה זו?" onConfirm={()=>deletePurchase(confirmPurch)} onCancel={()=>setConfirmPurch(null)}/>}
       {confirmSale&&<ConfirmModal message="למחוק מכירה זו?" onConfirm={()=>deleteSale(confirmSale)} onCancel={()=>setConfirmSale(null)}/>}
@@ -2374,13 +2462,56 @@ ${newsContext}`;
             {Object.keys(prices).length>0?"מחירים עדכניים ✓":"ללא מחירים - רעננו לניתוח מדויק"}
           </div>
         </div>
-        {agentHistory.length>0&&(
-          <button onClick={()=>setAgentHistory([])}
-            style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,color:"rgba(255,255,255,.8)",fontFamily:T.font,fontWeight:600}}>
-            שיחה חדשה
+        <div style={{display:"flex",gap:6}}>
+          {agentHistory.length>0&&(
+            <button onClick={()=>{setAgentHistory([]);setCurrentConvId(null);setShowConvList(false);}}
+              style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",
+                borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,
+                color:"rgba(255,255,255,.8)",fontFamily:T.font,fontWeight:600}}>
+              שיחה חדשה
+            </button>
+          )}
+          <button onClick={async()=>{await loadConversations();setShowConvList(v=>!v);}}
+            style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",
+              borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,
+              color:"rgba(255,255,255,.8)",fontFamily:T.font,fontWeight:600}}>
+            שיחות שמורות
           </button>
-        )}
+        </div>
       </div>
+      {showConvList&&(
+        <div style={{marginTop:8,borderTop:"1px solid rgba(255,255,255,.15)",paddingTop:10,
+          display:"flex",flexDirection:"column",gap:4}}>
+          {savedConversations.length===0&&(
+            <div style={{fontSize:11,color:"rgba(255,255,255,.4)",textAlign:"center",padding:8}}>
+              אין שיחות שמורות
+            </div>
+          )}
+          {savedConversations.map(conv=>(
+            <button key={conv.id}
+              onClick={async()=>{
+                const {data}=await supabase.from('agent_conversations')
+                  .select('messages').eq('id',conv.id).single();
+                if(data?.messages){
+                  setAgentHistory(data.messages);
+                  setCurrentConvId(conv.id);
+                  setShowConvList(false);
+                }
+              }}
+              style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.12)",
+                borderRadius:8,padding:"8px 12px",cursor:"pointer",fontFamily:T.font,
+                fontSize:11,color:"rgba(255,255,255,.85)",textAlign:"right",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>
+                {conv.title}
+              </span>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.4)",flexShrink:0,marginRight:8}}>
+                {new Date(conv.updated_at).toLocaleDateString("he-IL")}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       {agentHistory.length===0&&!agentLoading&&(
         <div style={{borderTop:"1px solid rgba(255,255,255,.15)",paddingTop:12,display:"flex",flexDirection:"column",gap:6,direction:"rtl"}}>
           <div style={{fontSize:11,color:"rgba(255,255,255,.5)",fontWeight:700,marginBottom:4}}>התחלת שיחה</div>
@@ -2449,9 +2580,8 @@ ${newsContext}`;
           </div>
         </div>
         <div style={{display:"flex",justifyContent:"flex-end"}}>
-          <div style={{maxWidth:"85%",background:T.surface,border:`1px solid ${T.border}`,borderRadius:"14px 14px 2px 14px",padding:"12px 14px",fontSize:13,color:T.text,lineHeight:1.8,direction:"rtl",whiteSpace:"pre-wrap"}}>
-            {h.a}
-          </div>
+          <div style={{maxWidth:"85%",background:T.surface,border:`1px solid ${T.border}`,borderRadius:"14px 14px 2px 14px",padding:"12px 14px",fontSize:13,color:T.text,lineHeight:1.8,direction:"rtl"}}
+  dangerouslySetInnerHTML={{__html:renderMarkdown(h.a)}}/>
         </div>
       </div>
     ))}
@@ -2468,14 +2598,64 @@ ${newsContext}`;
     )}
 
     <div style={{position:"sticky",bottom:0,paddingTop:8,background:T.bg}}>
+      <div style={{display:"flex",gap:6,marginBottom:6}}>
+        {[["א","אדיר"],["ס","ספיר"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setAgentWho(v)}
+            style={whoBtn(v,agentWho===v)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {agentFiles.length>0&&(
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+          {agentFiles.map((f,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:4,
+              background:T.navyLight,border:`1px solid ${T.navyBorder}`,
+              borderRadius:99,padding:"3px 10px"}}>
+              <span style={{fontSize:11,color:T.navy,maxWidth:100,
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {f.name}
+              </span>
+              <button onClick={()=>setAgentFiles(prev=>prev.filter((_,j)=>j!==i))}
+                style={{background:"none",border:"none",cursor:"pointer",
+                  color:T.textSub,fontSize:14,lineHeight:1,padding:0}}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <input ref={agentFileRef} type="file"
+        accept="image/*,application/pdf,text/plain"
+        multiple
+        style={{display:"none"}}
+        onChange={e=>{
+          const files=Array.from(e.target.files||[]);
+          setAgentFiles(prev=>[...prev,...files]);
+          e.target.value="";
+        }}/>
       <div style={{display:"flex",gap:8,alignItems:"flex-end",background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:"8px 8px 8px 12px"}}>
-        <textarea value={agentQuery} onChange={e=>setAgentQuery(e.target.value)}
+        <textarea value={agentQuery}
+          onChange={e=>{
+            setAgentQuery(e.target.value);
+            e.target.style.height="auto";
+            e.target.style.height=Math.min(e.target.scrollHeight,160)+"px";
+          }}
           onKeyDown={e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();runAgent();}}}
           placeholder="שאלו שאלה על התיק שלכם…"
-          rows={2}
-          style={{flex:1,background:"transparent",border:"none",color:T.text,fontSize:14,outline:"none",fontFamily:T.font,resize:"none",direction:"rtl",lineHeight:1.5}}/>
-        <button onClick={()=>runAgent()} disabled={agentLoading||!agentQuery.trim()}
-          style={{width:36,height:36,borderRadius:10,flexShrink:0,background:agentQuery.trim()?T.navy:T.border,border:"none",cursor:agentQuery.trim()?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
+          style={{flex:1,background:"transparent",border:"none",color:T.text,
+            fontSize:14,outline:"none",fontFamily:T.font,resize:"none",
+            direction:"rtl",lineHeight:1.5,minHeight:40,maxHeight:160,overflow:"auto"}}/>
+        <button onClick={()=>agentFileRef.current?.click()}
+          style={{width:36,height:36,borderRadius:10,flexShrink:0,
+            background:agentFiles.length>0?T.navyLight:T.bg,
+            border:`1px solid ${agentFiles.length>0?T.navyBorder:T.border}`,
+            cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
+              stroke={agentFiles.length>0?T.navy:T.textSub} strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        </button>
+        <button onClick={()=>runAgent()} disabled={agentLoading||(!agentQuery.trim()&&agentFiles.length===0)}
+          style={{width:36,height:36,borderRadius:10,flexShrink:0,background:(agentQuery.trim()||agentFiles.length>0)?T.navy:T.border,border:"none",cursor:(agentQuery.trim()||agentFiles.length>0)?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
           <span style={{transform:"scaleX(-1)",display:"flex"}}><Icon name="plane" size={15} color="#fff"/></span>
         </button>
       </div>
@@ -2541,6 +2721,7 @@ function exportMenuPDF(menu){
 
 function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{},onFormOpen=()=>{},onSelectChange=()=>{}}){
   const newRecipeRef=useRef(null);
+  const [alertMsg,setAlertMsg]=useState(null);
   const [imageLoading,setImageLoading]=useState(false);
   const [imagePreview,setImagePreview]=useState(null);
   const imageInputRef=useRef(null);
@@ -2672,7 +2853,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
             ingredients:[{item:"",qty:"",unit:""}],steps:[""]};
         }
       }
-      if(parsed.error){alert(parsed.error);return;}
+      if(parsed.error){setAlertMsg(parsed.error);return;}
       if(mode==="recipe"){
         setForm({
           type:"recipe",
@@ -2703,7 +2884,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       const msg=e.message?.includes("503")||e.message?.includes("עמוס")
         ?"השירות עמוס כרגע, נסו שוב בעוד מספר דקות"
         :"שגיאה בקריאת הקובץ: "+e.message;
-      alert(msg);
+      setAlertMsg(msg);
     }finally{
       setImageLoading(false);
       setImagePreview(null);
@@ -2761,6 +2942,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   const removeDish=(sid,di)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:s.dishes.filter((_,i)=>i!==di)}:s)}));
   return(  
     <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
+      {alertMsg&&<AlertModal message={alertMsg} onClose={()=>setAlertMsg(null)}/>}
       {confirmId&&<ConfirmModal message="למחוק לצמיתות?" onConfirm={()=>doDelete(confirmId)} onCancel={()=>setConfirmId(null)}/>}
       {!selected?(
         <>
@@ -3927,7 +4109,7 @@ export default function App(){
         {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedRecipe}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho} showNew={showTripAdd} setShowNew={setShowTripAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedTrip}/>}
-        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct} showAssetFormExternal={showAssetAdd} setShowAssetFormExternal={setShowAssetAdd} portfolioView={portfolioView} setPortfolioView={setPortfolioView} onFormOpen={setAnyFormOpen}/>}
+        {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct} showAssetFormExternal={showAssetAdd} setShowAssetFormExternal={setShowAssetAdd} portfolioView={portfolioView} setPortfolioView={setPortfolioView} onFormOpen={setAnyFormOpen} defaultWho={defaultWho}/>}
         {section==="reports" &&<ReportsSection expenses={expenses} specialItems={special} cats={cats} month={month} year={year} setMonth={setMonth} setYear={setYear} reportTab={reportTab} setReportTab={setReportTab} savingsGoal={savingsGoal}/>}
         {section==="settings"&&<SettingsSection cats={cats} setCats={setCats} specialCatsList={specialCatsList} setSpecialCatsList={setSpecialCatsList} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} setMealTypesList={setMealTypesList} tab={settingsTab} setTab={setSettingsTab} defaultWho={defaultWho} saveDeviceOwner={saveDeviceOwner} savingsGoal={savingsGoal} setSavingsGoal={setSavingsGoal}/>}
       </div>

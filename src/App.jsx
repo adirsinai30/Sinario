@@ -2572,7 +2572,7 @@ ${newsContext}`;
     )}
 
     {agentView==="chat"&&(<>
-      <Card style={{background:`linear-gradient(135deg,#1e3a5f 0%,#2d5282 100%)`,border:"none",padding:18}}>
+      <Card style={{background:`linear-gradient(135deg,#1e3a5f 0%,#2d5282 100%)`,border:"none",padding:18,paddingBottom:160}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
           <div style={{width:34,height:34,borderRadius:11,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <Icon name="sparkle" size={17} color="#fff"/>
@@ -2672,7 +2672,8 @@ ${newsContext}`;
         )}
       </Card>
 
-      <div style={{position:"sticky",bottom:80,paddingTop:8,background:T.bg,zIndex:10}}>
+      <div style={{position:"fixed",bottom:50,left:0,right:0,zIndex:150,background:T.bg}}>
+      <div style={{maxWidth:720,margin:"0 auto",padding:"6px 16px 4px"}}>
       <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,overflow:"hidden"}}>
         <div style={{border:"none"}}>
           <style>{".agent-rte > div:first-child{border:none!important;border-radius:0!important;border-bottom:1px solid "+T.border+"!important}"}</style>
@@ -2741,6 +2742,7 @@ ${newsContext}`;
             </span>
           </button>
         </div>
+      </div>
       </div>
     </div>
     </>)}

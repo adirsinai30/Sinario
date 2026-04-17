@@ -1274,7 +1274,7 @@ function DividendPreview({amount, rateUsed, taxRate}){
 function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={},avgBuyPrice=0}){
   const isBuy=mode==="buy";
   const curSym=CURRENCIES.find(c=>c.code===currency)?.symbol||currency;
-  const r=currency!=="ILS"?(+form.rateUsed||3.68):1;
+  const r=currency!=="ILS"?(+form.rateUsed||1):1;
   const shares=+form.shares||0;
   const price=+form.price||0;
   const commission=+form.commission||0;
@@ -1481,10 +1481,10 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const [newsError,     setNewsError]     = useState("");
   const [newsLastFetch, setNewsLastFetch] = useState(null);
   const NEWS_CACHE_MIN = 60; // דקות בין רענונים
-  const blankAsset={security:"",shares:"",price:"",commission:"0",date:today(),currency:"USD",rateUsed:"3.68"};
+  const blankAsset={security:"",shares:"",price:"",commission:"0",date:today(),currency:"USD",rateUsed:""};
   const blankPurchase={shares:"",price:"",commission:"",date:today()};
   const blankSale     = { shares:"", price:"", commission:"", date:today(), taxRate:"25", rateUsed:"0" };
-  const blankDividend = { amount:"", currency:"USD", rateUsed:"3.68", date:today(), taxRate:"25" };
+  const blankDividend = { amount:"", currency:"USD", rateUsed:"", date:today(), taxRate:"25" };
   const [assetForm,setAssetForm]=useState(blankAsset);
   const [purchaseForm,setPurchaseForm]=useState(blankPurchase);
   const [saleForm,setSaleForm]=useState(blankSale);
@@ -1503,9 +1503,9 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   function extractTicker(security){const m=security.match(/\(([^)]+)\)/);return m?m[1].toUpperCase():security.split(" ")[0].toUpperCase();}
   const totalShares=a=>a.purchases.reduce((s,p)=>s+ +p.shares,0)-(a.sales||[]).reduce((s,p)=>s+ +p.shares,0);
   const avgBuyPrice=a=>{const tc=a.purchases.reduce((s,p)=>s+ +p.shares*(+p.price+(+p.commission||0)/+p.shares),0);const ts=a.purchases.reduce((s,p)=>s+ +p.shares,0);return ts>0?tc/ts:0;};
-  const costBasisILS=a=>{const rate=a.currency!=="ILS"?+a.rateUsed:1;return a.purchases.reduce((s,p)=>s+(+p.shares*+p.price+(+p.commission||0))*rate,0);};
+  const costBasisILS=a=>{const rate=a.currency!=="ILS"?+a.rateUsed:1;return a.purchases.reduce((s,p)=>s+(+p.shares*+p.price+(+p.commission||0))*(+p.rateUsed||rate||1),0);};
   const currentPriceFor=a=>prices[extractTicker(a.security)]||null;
-  const currentValILS=a=>{const price=currentPriceFor(a);const rate=a.currency!=="ILS"?(currentRates[a.currency]||+a.rateUsed):1;const shrs=totalShares(a);return price?price*shrs*rate:avgBuyPrice(a)*shrs*rate;};
+  const currentValILS=a=>{const price=currentPriceFor(a);const rate=a.currency!=="ILS"?(currentRates[a.currency]||+a.rateUsed||1):1;const shrs=totalShares(a);return price?price*shrs*rate:avgBuyPrice(a)*shrs*rate;};
   const soldCostILS=a=>{const rate=a.currency!=="ILS"?+a.rateUsed:1;const avg=avgBuyPrice(a);return(a.sales||[]).reduce((s,p)=>s+ +p.shares*avg*rate,0);};
   const unrealizedPnLILS=a=>currentValILS(a)-(costBasisILS(a)-soldCostILS(a));
   const realizedPnLILS=a=>{
@@ -1554,14 +1554,14 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const saveAsset=async()=>{
     if(!assetForm.security||!assetForm.shares||!assetForm.price)return;
     const assetId=editAssetId||uid();
-    const dbAsset={id:assetId,security:assetForm.security,label:assetForm.security,currency:assetForm.currency||'USD',rate_used:+assetForm.rateUsed||3.68};
+    const dbAsset={id:assetId,security:assetForm.security,label:assetForm.security,currency:assetForm.currency||'USD',rate_used:+assetForm.rateUsed||null};
     if(editAssetId){
       await supabase.from('assets').update(dbAsset).eq('id',editAssetId);
       setAssets(assets.map(a=>a.id===editAssetId?{...a,security:assetForm.security,currency:assetForm.currency,rateUsed:+assetForm.rateUsed}:a));
     } else {
       const purchase={id:uid(),shares:+assetForm.shares,price:+assetForm.price,commission:+assetForm.commission||0,date:assetForm.date};
       await supabase.from('assets').insert(dbAsset);
-      await supabase.from('asset_transactions').insert({id:purchase.id,asset_id:assetId,type:'buy',shares:purchase.shares,price:purchase.price,commission:purchase.commission,date:purchase.date,rate_used:+assetForm.rateUsed||3.68});
+      await supabase.from('asset_transactions').insert({id:purchase.id,asset_id:assetId,type:'buy',shares:purchase.shares,price:purchase.price,commission:purchase.commission,date:purchase.date,rate_used:+assetForm.rateUsed||null});
       setAssets([...assets,{...dbAsset,rateUsed:+assetForm.rateUsed,purchases:[purchase],sales:[]}]);
     }
     setShowAssetForm(false);setEditAssetId(null);setAssetForm(blankAsset);
@@ -1569,7 +1569,7 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
   const savePurchase=async(assetId)=>{
     if(!purchaseForm.shares||!purchaseForm.price)return;
     const p={id:uid(),shares:+purchaseForm.shares,price:+purchaseForm.price,commission:+purchaseForm.commission||0,date:purchaseForm.date};
-    await supabase.from('asset_transactions').insert({id:p.id,asset_id:assetId,type:'buy',shares:p.shares,price:p.price,commission:p.commission,date:p.date,rate_used:assets.find(a=>a.id===assetId)?.rateUsed||3.68});
+    await supabase.from('asset_transactions').insert({id:p.id,asset_id:assetId,type:'buy',shares:p.shares,price:p.price,commission:p.commission,date:p.date,rate_used:assets.find(a=>a.id===assetId)?.rateUsed||null});
     setAssets(assets.map(a=>a.id===assetId?{...a,purchases:[...a.purchases,p]}:a));
     setAddPurchaseId(null);setPurchaseForm(blankPurchase);
   };
@@ -1577,13 +1577,13 @@ function InvestSection({tab,setTab,assets,setAssets,dividends,setDividends,watch
     if(!saleForm.shares||!saleForm.price)return;
     const asset=assets.find(a=>a.id===assetId);
     if(+saleForm.shares>totalShares(asset))return;
-    const s={id:uid(),shares:+saleForm.shares,price:+saleForm.price,commission:+saleForm.commission||0,date:saleForm.date,taxRate:+saleForm.taxRate||25,rateUsed:+saleForm.rateUsed||asset.rateUsed||3.68};
+    const s={id:uid(),shares:+saleForm.shares,price:+saleForm.price,commission:+saleForm.commission||0,date:saleForm.date,taxRate:+saleForm.taxRate||25,rateUsed:+saleForm.rateUsed||asset.rateUsed||null};
     await supabase.from('asset_transactions').insert({id:s.id,asset_id:assetId,type:'sell',shares:s.shares,price:s.price,commission:s.commission,date:s.date,tax_rate:s.taxRate,rate_used:s.rateUsed});
     setAssets(assets.map(a=>a.id===assetId?{...a,sales:[...(a.sales||[]),s]}:a));
     setAddSaleId(null);setSaleForm(blankSale);
   };
   const updatePurchase=async({assetId,purchase})=>{
-    await supabase.from('asset_transactions').update({shares:purchase.shares,price:purchase.price,commission:purchase.commission||0,date:purchase.date,rate_used:purchase.rateUsed||3.68}).eq('id',purchase.id);
+    await supabase.from('asset_transactions').update({shares:purchase.shares,price:purchase.price,commission:purchase.commission||0,date:purchase.date,rate_used:purchase.rateUsed||null}).eq('id',purchase.id);
     setAssets(assets.map(a=>a.id===assetId?{...a,purchases:a.purchases.map(p=>p.id===purchase.id?purchase:p)}:a));
     setEditPurch(null);
   };
@@ -2227,9 +2227,9 @@ ${newsContext}`;
                       </div>
                     </div>
                     <div style={{display:"flex",gap:6,marginBottom:12}}>
-                      <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
-                      {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(currentRates?.USD||3.68),avgBuyPrice:String(avgBuyPrice(a))});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger}}>מכירה +</button>}
-                      <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm({...blankDividend,rateUsed:String(currentRates?.[a.currency]||currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.successBg,border:"1px solid #bbf7d0",color:T.success}}>דיבידנד +</button>
+                      <button onClick={()=>{setAddPurchaseId(a.id);setAddSaleId(null);setPurchaseForm({...blankPurchase,rateUsed:String(currentRates?.USD||"")});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.navyLight,border:`1px solid ${T.navyBorder}`,color:T.navy}}>קנייה +</button>
+                      {portfolioView==="active"&&shrs>0&&<button onClick={()=>{setAddSaleId(a.id);setAddPurchaseId(null);setSaleForm({...blankSale,rateUsed:String(currentRates?.USD||""),avgBuyPrice:String(avgBuyPrice(a))});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,color:T.danger}}>מכירה +</button>}
+                      <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm({...blankDividend,rateUsed:String(currentRates?.[a.currency]||currentRates?.USD||"")});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.successBg,border:"1px solid #bbf7d0",color:T.success}}>דיבידנד +</button>
                     </div>
                     <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:8,display:"flex",alignItems:"center"}}>
                   <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}}
@@ -2241,7 +2241,7 @@ ${newsContext}`;
                     {isOpen(a.id,"p")&&(
                       <div style={{borderRadius:10,overflow:"hidden",border:`1px solid ${T.navyBorder}`}}>
                         {a.purchases.sort((x,y)=>new Date(y.date)-new Date(x.date)).map((p,pi)=>{
-                          const rate=a.currency!=="ILS"?(+p.rateUsed||+a.rateUsed||currentRates?.USD||3.68):1;
+                          const rate=a.currency!=="ILS"?(+p.rateUsed||+a.rateUsed||currentRates?.USD||1):1;
                           const totalFx=+p.shares*+p.price+(+p.commission||0);
                           const totalIls=totalFx*rate;
                           return[
@@ -2284,7 +2284,7 @@ ${newsContext}`;
                           editPurch?.assetId===a.id&&editPurch?.purchase?.id===p.id&&(()=>{
                             const ep=editPurch.purchase;
                             const curSym=CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency;
-                            const r=a.currency!=="ILS"?(+ep.rateUsed||+a.rateUsed||3.68):1;
+                            const r=a.currency!=="ILS"?(+ep.rateUsed||+a.rateUsed||1):1;
                             const shares=+ep.shares||0;
                             const price=+ep.price||0;
                             const commission=+ep.commission||0;
@@ -2317,7 +2317,7 @@ ${newsContext}`;
                                     </div>
                                   )}
                                   <div style={{display:"flex",gap:8}}>
-                                    <Btn onClick={()=>updatePurchase({assetId:a.id,purchase:{...ep,shares:+ep.shares,price:+ep.price,commission:+ep.commission||0,rateUsed:+ep.rateUsed||+a.rateUsed||3.68}})} style={{flex:1,padding:"10px"}}>שמירה</Btn>
+                                    <Btn onClick={()=>updatePurchase({assetId:a.id,purchase:{...ep,shares:+ep.shares,price:+ep.price,commission:+ep.commission||0,rateUsed:+ep.rateUsed||+a.rateUsed||null}})} style={{flex:1,padding:"10px"}}>שמירה</Btn>
                                     <Btn variant="secondary" onClick={()=>setEditPurch(null)} style={{flex:1,padding:"10px"}}>ביטול</Btn>
                                   </div>
                                 </div>
@@ -2351,7 +2351,7 @@ ${newsContext}`;
                         {editSale?.assetId===a.id&&(()=>{
                           const es=editSale.sale;
                           const curSym=CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency;
-                          const r=a.currency!=="ILS"?(+es.rateUsed||+a.rateUsed||3.68):1;
+                          const r=a.currency!=="ILS"?(+es.rateUsed||+a.rateUsed||1):1;
                           const shares=+es.shares||0;
                           const price=+es.price||0;
                           const commission=+es.commission||0;
@@ -2921,7 +2921,7 @@ function exportMenuPDF(menu){
   const w=window.open("","_blank");if(!w)return;
   const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
   const hasNotes=(menu.notes||"").replace(/<[^>]+>/g,"").trim().length>0;
-  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Assistant',sans-serif;font-size:16px;color:#1c1917;background:#fff;padding:16px 48px;direction:rtl;text-align:center;min-height:unset;}.frame{border:1px solid #c8c2b8;padding:32px 48px;display:inline-block;width:100%;}.title{font-family:'Playfair Display',serif;font-size:52px;font-weight:400;font-style:italic;color:#1c1917;letter-spacing:1px;margin-bottom:40px;}.section{margin-bottom:16px;}.section:first-of-type{margin-top:32px;}.section-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:12px;}.section-title::before,.notes-title::before{content:"- ";}.section-title::after,.notes-title::after{content:" -";}.dish{font-family:'Playfair Display',serif;font-size:26px;font-weight:400;color:#1c1917;line-height:1.4;margin-bottom:2px;}.section-divider{width:300px;height:1px;background:#c8c2b8;margin:16px auto;}.notes-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:16px;}.notes-content{font-family:'Assistant',sans-serif;font-size:18px;font-weight:300;color:#57534e;line-height:2;}.notes-content ul,.notes-content ol{display:inline-block;text-align:right;padding-right:20px;list-style-position:outside;}.notes-content ul{list-style-type:disc;}.notes-content ol{list-style-type:decimal;}.notes-content li{margin-bottom:4px;}@page{size:A4 portrait;margin:0;}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{padding:12px 32px;width:210mm;min-height:297mm;display:flex;flex-direction:column;justify-content:center;}.frame{flex:1;display:flex;flex-direction:column;justify-content:center;page-break-inside:avoid;break-inside:avoid;}.section{page-break-inside:avoid;break-inside:avoid;}}</style></head><body><div class="frame"><div class="title">${menu.name}</div>${sections.length>0?sections.map((sec,i)=>`<div class="section"><div class="section-title">${(sec.title||"").replace(/^מנות\s*/,"")}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish">${d}</div>`).join("")}</div>${i<sections.length-1?'<div class="section-divider"></div>':""}`).join(""):""}${menu.notes?`<div class="section-divider"></div><div class="notes-title">תוספות</div><div class="notes-content">${menu.notes}</div>`:""}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:system-ui,sans-serif;font-size:16px;color:#1c1917;background:#fff;padding:16px 48px;direction:rtl;text-align:center;min-height:unset;}.frame{border:1px solid #c8c2b8;padding:32px 48px;display:inline-block;width:100%;}.title{font-family:system-ui,sans-serif;font-size:45px;font-weight:400;font-style:italic;color:#1c1917;letter-spacing:1px;margin-bottom:40px;}.section{margin-bottom:16px;}.section:first-of-type{margin-top:32px;}.section-title{font-family:system-ui,sans-serif;font-size:15px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:12px;}.section-title::before,.notes-title::before{content:"- ";}.section-title::after,.notes-title::after{content:" -";}.dish{font-family:system-ui,sans-serif;font-size:22px;font-weight:400;color:#1c1917;line-height:1.4;margin-bottom:2px;}.section-divider{width:300px;height:1px;background:#c8c2b8;margin:16px auto;}.notes-title{font-family:system-ui,sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:16px;}.notes-content{font-family:system-ui,sans-serif;font-size:18px;font-weight:300;color:#57534e;line-height:2;}.notes-content ul,.notes-content ol{display:inline-block;text-align:center;list-style-position:inside;}.notes-content ul{list-style-type:disc;}.notes-content ol{list-style-type:decimal;}.notes-content li{margin-bottom:4px;}@page{size:A4 portrait;margin:0;}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{padding:12px 32px;width:210mm;min-height:297mm;display:flex;flex-direction:column;justify-content:center;}.frame{flex:1;display:flex;flex-direction:column;justify-content:center;page-break-inside:avoid;break-inside:avoid;}.section{page-break-inside:avoid;break-inside:avoid;}}</style></head><body><div class="frame"><div class="title">${menu.name}</div>${sections.length>0?sections.map((sec,i)=>`<div class="section"><div class="section-title">${(sec.title||"").replace(/^מנות\s*/,"")}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish">${d}</div>`).join("")}</div>${i<sections.length-1?'<div class="section-divider"></div>':""}`).join(""):""}${menu.notes?`<div class="section-divider"></div><div class="notes-title">תוספות</div><div class="notes-content">${menu.notes}</div>`:""}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
   w.document.close();
 }
 
@@ -3359,7 +3359,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:groceryLoading?"wait":"pointer",
                   opacity:groceryLoading?0.6:1}}>
                   <Icon name="basket" size={13} color={T.navy}/>
-                  {groceryLoading?"מייצר...":"לרשימת קניות"}
+                  {groceryLoading?"מנתח...":"לרשימת קניות"}
                 </button>
               )}
               <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>
@@ -4210,7 +4210,7 @@ export default function App(){
     if(conceptsRes.data)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
     if(assetsRes.data){
       const txs=txRes.data||[];const divs=divRes.data||[];
-      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,alertPct:a.alert_pct||null,alertDirection:a.alert_direction||'both',purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,rateUsed:t.rate_used||a.rate_used||3.68})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
+      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||null,alertPct:a.alert_pct||null,alertDirection:a.alert_direction||'both',purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,rateUsed:t.rate_used||a.rate_used||null})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
       setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
     }
     if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));

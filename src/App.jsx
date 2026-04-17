@@ -2971,7 +2971,27 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       const text=data.content?.[0]?.text||data.text||"";
       const match=text.match(/\{[\s\S]*\}/);
       if(!match)throw new Error("תשובה לא תקינה");
-      const parsed=JSON.parse(match[0]);
+      const clean=match[0];
+      let parsed;
+      try{
+        parsed=JSON.parse(clean);
+      }catch{
+        try{
+          const fixed=clean
+            .replace(/,\s*}/g,'}')
+            .replace(/,\s*]/g,']')
+            .replace(/([{,]\s*)(\w+):/g,'$1"$2":')
+            .replace(/:\s*'([^']*)'/g,':"$1"');
+          parsed=JSON.parse(fixed);
+        }catch{
+          const itemMatches=[...clean.matchAll(/"name"\s*:\s*"([^"]+)"[^}]*"qty"\s*:\s*"([^"]*)"[^}]*"unit"\s*:\s*"([^"]*)"/g)];
+          if(itemMatches.length>0){
+            parsed={items:itemMatches.map(m=>({name:m[1],qty:m[2]||"1",unit:m[3]||"יח'"}))} ;
+          }else{
+            throw new Error("לא ניתן לפרסר את התשובה מה-AI");
+          }
+        }
+      }
       const groceryItems=(parsed.items||[]).map(i=>({id:uid(),name:i.name,qty:i.qty||"1",unit:i.unit||"יח'",checked:false}));
       if(groceryItems.length===0)throw new Error("לא נמצאו מצרכים");
       const listId=uid();
@@ -3372,8 +3392,10 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,
                   color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:groceryLoading?"wait":"pointer",
                   opacity:groceryLoading?0.6:1}}>
-                  <Icon name="basket" size={13} color={T.navy}/>
-                  {groceryLoading?"מנתח...":"לרשימת קניות"}
+                  {groceryLoading
+                    ?<div style={{width:13,height:13,borderRadius:"50%",border:"2px solid rgba(30,58,95,.3)",borderTop:"2px solid "+T.navy,animation:"spin 1s linear infinite"}}/>
+                    :<Icon name="basket" size={13} color={T.navy}/>}
+                  <span>{groceryLoading?"מנתח...":"לרשימת קניות"}</span>
                 </button>
               )}
               <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>

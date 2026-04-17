@@ -129,12 +129,19 @@ function useStorage(key,init){
 async function fetchRate(code){
   if(code==="ILS")return 1;
   try{
-    const r=await fetch(`https://api.exchangerate-api.com/v4/latest/${code}`);
-    const d=await r.json();
-    if(d.rates?.ILS) return Math.round((d.rates.ILS)*1000)/1000;
+    const pair=`${code}ILS=X`;
+    const r=await fetch(`/api/prices`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tickers:[pair]})
+    });
+    if(r.ok){
+      const d=await r.json();
+      if(d[pair]&&+d[pair]>0) return Math.round(+d[pair]*1000)/1000;
+    }
   }catch{}
   try{
-    const r2=await fetch("https://api.frankfurter.app/latest?from="+code+"&to=ILS");
+    const r2=await fetch(`https://api.frankfurter.app/latest?from=${code}&to=ILS`);
     const d2=await r2.json();
     if(d2.rates?.ILS) return Math.round(d2.rates.ILS*1000)/1000;
   }catch{}
@@ -380,6 +387,45 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
       {label}
     </button>
   );
+  const createCheckboxLine=(insertAfter=null)=>{
+    const div=document.createElement('div');
+    div.className='cb-line';
+    div.style.cssText='display:flex;align-items:center;gap:6px;margin:2px 0;direction:rtl';
+    const span=document.createElement('span');
+    span.className='cb-text';
+    span.contentEditable='true';
+    span.style.cssText='flex:1;outline:none;min-width:4px;direction:rtl;text-align:right';
+    span.innerHTML='\u200B';
+    const cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.style.cssText='width:14px;height:14px;cursor:pointer;flex-shrink:0';
+    cb.addEventListener('change',()=>{
+      span.style.textDecoration=cb.checked?'line-through':'none';
+      span.style.color=cb.checked?'#a8a29e':'inherit';
+    });
+    div.appendChild(cb);
+    div.appendChild(span);
+    if(insertAfter&&insertAfter.parentNode){
+      insertAfter.parentNode.insertBefore(div,insertAfter.nextSibling);
+    } else {
+      const lastChild=editorRef.current?.lastChild;
+      if(lastChild?.nodeName==='BR'||(lastChild?.innerHTML||'')==='<br>'){
+        editorRef.current.removeChild(lastChild);
+      }
+      editorRef.current?.appendChild(div);
+    }
+    setTimeout(()=>{
+      const range=document.createRange();
+      const sel=window.getSelection();
+      range.setStart(span.firstChild||span,0);
+      range.collapse(true);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      span.focus();
+    },10);
+    isInternalChange.current=true;
+    onChange(editorRef.current?.innerHTML||"");
+  };
   return(
     <div style={{border:`1px solid ${T.border}`,borderRadius:10,background:T.surface,position:"relative"}}>
       <div style={{display:"flex",gap:4,padding:"6px 8px",borderBottom:`1px solid ${T.border}`,background:T.bg,flexWrap:"wrap",alignItems:"center"}}>
@@ -389,6 +435,11 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
         <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
         {toolBtn("● ☰",()=>exec("insertUnorderedList"),"רשימת תבליטים")}
         {toolBtn("1. ☰",()=>exec("insertOrderedList"),"רשימה ממוספרת")}
+        {toolBtn("☑",()=>{
+          if(!editorRef.current)return;
+          editorRef.current.focus();
+          createCheckboxLine();
+        },"תיבת סימון")}
         <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
         {toolBtn("🔗",()=>{
           const sel=window.getSelection();
@@ -467,6 +518,16 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
             e.preventDefault();
             window.open(a.href,"_blank","noopener,noreferrer");
           }
+        }}
+        onKeyDown={e=>{
+          if(e.key!=="Enter")return;
+          const sel=window.getSelection();
+          const node=sel?.anchorNode;
+          const el=node?.nodeType===3?node.parentElement:node;
+          const cbLine=el?.closest?.('.cb-line');
+          if(!cbLine)return;
+          e.preventDefault();
+          createCheckboxLine(cbLine);
         }}
         style={{padding:"10px 14px",minHeight,background:T.surface,outline:"none",direction:"rtl",textAlign:"right"}}/>
       <style>{`
@@ -1615,6 +1676,13 @@ const fetchNews = async (force=false) => {
       });
 
       const data = await resp.json();
+      if(!resp.ok||data.error){
+        const msg=data.error||"שגיאה בטעינת חדשות";
+        setNewsError(msg);
+        setAlertMsg(msg);
+        setNewsLoading(false);
+        return;
+      }
       const text = (data.content||[]).map(b=>b.text||"").join("").trim();
 
       // פרסור JSON
@@ -2816,6 +2884,10 @@ const exportRecipePDF=(recipe)=>{
   .step-row{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;}
   .step-num{width:26px;height:26px;border-radius:50%;background:#1e3a5f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
   .step-text{font-size:13px;line-height:1.7;white-space:pre-wrap;}
+  .step-text ul,.step-text ol{padding-right:24px;margin:6px 0;text-align:right;}
+  .step-text ul{list-style:disc outside;}
+  .step-text ol{list-style:decimal outside;}
+  .step-text li{margin-bottom:4px;padding-right:4px;}
   .notes{background:#f7f6f3;border-radius:10px;padding:14px;font-size:13px;line-height:1.7;margin-top:8px;}
 </style></head><body>
   <h1>${recipe.name}</h1>
@@ -2849,11 +2921,11 @@ function exportMenuPDF(menu){
   const w=window.open("","_blank");if(!w)return;
   const sections=(menu.sections||[]).filter(s=>s.dishes?.some(d=>d.trim()));
   const hasNotes=(menu.notes||"").replace(/<[^>]+>/g,"").trim().length>0;
-  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Assistant',sans-serif;font-size:16px;color:#1c1917;background:#fff;padding:40px 48px;direction:rtl;text-align:center;min-height:unset;}.frame{border:1px solid #c8c2b8;padding:32px 48px;display:inline-block;width:100%;}.title{font-family:'Playfair Display',serif;font-size:52px;font-weight:400;font-style:italic;color:#1c1917;letter-spacing:1px;margin-bottom:15px;}.section{margin-bottom:16px;}.section:first-of-type{margin-top:32px;}.section-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:12px;}.section-title::before,.notes-title::before{content:"- ";}.section-title::after,.notes-title::after{content:" -";}.dish{font-family:'Playfair Display',serif;font-size:26px;font-weight:400;color:#1c1917;line-height:1.4;margin-bottom:2px;}.section-divider{width:300px;height:1px;background:#c8c2b8;margin:16px auto;}.notes-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:16px;}.notes-content{font-family:'Assistant',sans-serif;font-size:18px;font-weight:300;color:#57534e;line-height:2;}@page{size:A4 portrait;margin:0;}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{padding:24px 32px;width:210mm;min-height:297mm;display:flex;flex-direction:column;justify-content:center;}.frame{flex:1;display:flex;flex-direction:column;justify-content:center;page-break-inside:avoid;break-inside:avoid;}.section{page-break-inside:avoid;break-inside:avoid;}}</style></head><body><div class="frame"><div class="title">${menu.name}</div>${sections.length>0?sections.map((sec,i)=>`<div class="section"><div class="section-title">${(sec.title||"").replace(/^מנות\s*/,"")}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish">${d}</div>`).join("")}</div>${i<sections.length-1?'<div class="section-divider"></div>':""}`).join(""):""}${menu.notes?`<div class="section-divider"></div><div class="notes-title">תוספות</div><div class="notes-content">${menu.notes}</div>`:""}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet"><title>${menu.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Assistant',sans-serif;font-size:16px;color:#1c1917;background:#fff;padding:16px 48px;direction:rtl;text-align:center;min-height:unset;}.frame{border:1px solid #c8c2b8;padding:32px 48px;display:inline-block;width:100%;}.title{font-family:'Playfair Display',serif;font-size:52px;font-weight:400;font-style:italic;color:#1c1917;letter-spacing:1px;margin-bottom:40px;}.section{margin-bottom:16px;}.section:first-of-type{margin-top:32px;}.section-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:12px;}.section-title::before,.notes-title::before{content:"- ";}.section-title::after,.notes-title::after{content:" -";}.dish{font-family:'Playfair Display',serif;font-size:26px;font-weight:400;color:#1c1917;line-height:1.4;margin-bottom:2px;}.section-divider{width:300px;height:1px;background:#c8c2b8;margin:16px auto;}.notes-title{font-family:'Assistant',sans-serif;font-size:13px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#77716e;margin-bottom:16px;}.notes-content{font-family:'Assistant',sans-serif;font-size:18px;font-weight:300;color:#57534e;line-height:2;}.notes-content ul,.notes-content ol{display:inline-block;text-align:right;padding-right:20px;list-style-position:outside;}.notes-content ul{list-style-type:disc;}.notes-content ol{list-style-type:decimal;}.notes-content li{margin-bottom:4px;}@page{size:A4 portrait;margin:0;}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}body{padding:12px 32px;width:210mm;min-height:297mm;display:flex;flex-direction:column;justify-content:center;}.frame{flex:1;display:flex;flex-direction:column;justify-content:center;page-break-inside:avoid;break-inside:avoid;}.section{page-break-inside:avoid;break-inside:avoid;}}</style></head><body><div class="frame"><div class="title">${menu.name}</div>${sections.length>0?sections.map((sec,i)=>`<div class="section"><div class="section-title">${(sec.title||"").replace(/^מנות\s*/,"")}</div>${(sec.dishes||[]).filter(d=>d.trim()).map(d=>`<div class="dish">${d}</div>`).join("")}</div>${i<sections.length-1?'<div class="section-divider"></div>':""}`).join(""):""}${menu.notes?`<div class="section-divider"></div><div class="notes-title">תוספות</div><div class="notes-content">${menu.notes}</div>`:""}</div><script>window.onload=()=>{window.print();}<\/script></body></html>`);
   w.document.close();
 }
 
-function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{},onFormOpen=()=>{},onSelectChange=()=>{}}){
+function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mealTypesList,showFormExternal=false,setShowFormExternal=()=>{},onFormOpen=()=>{},onSelectChange=()=>{},setSection=()=>{},setHomeTab=()=>{},groceryLists=[],setGroceryLists=()=>{},setGroceryActiveId=()=>{}}){
   const newRecipeRef=useRef(null);
   const [alertMsg,setAlertMsg]=useState(null);
   const [imageLoading,setImageLoading]=useState(false);
@@ -2872,6 +2944,36 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   const [confirmId,setConfirmId]=useState(null);
   // ── סעיף 4א: searchQ ──
   const [searchQ,setSearchQ]=useState("");
+  const [groceryLoading,setGroceryLoading]=useState(false);
+  const generateGroceryList=useCallback(async(item)=>{
+    setGroceryLoading(true);
+    try{
+      const prompt=item.type==="recipe"
+        ?`בהתבסס על המתכון הבא, צור רשימת קניות מלאה ומפורטת בעברית. כלול את כל המצרכים עם כמויות ויחידות. מתכון: ${item.name}. מצרכים: ${(item.ingredients||[]).filter(i=>i.item).map(i=>`${i.item}${i.qty?" "+i.qty+(i.unit?" "+i.unit:""):""}`)  .join(", ")}. החזר רשימה בפורמט JSON: {"items":[{"name":"שם המצרך","qty":"כמות","unit":"יחידה"}]}`
+        :`בהתבסס על תפריט הארוחה הבא, צור רשימת קניות מלאה ומפורטת בעברית עם כל המצרכים הנדרשים לבישול כל המנות. תפריט: ${item.name}. מנות: ${(item.sections||[]).flatMap(s=>(s.dishes||[]).filter(d=>d.trim())).join(", ")}. הערות: ${(item.notes||"").replace(/<[^>]+>/g,"").trim()}. החזר רשימה בפורמט JSON: {"items":[{"name":"שם המצרך","qty":"כמות","unit":"יחידה"}]}`;
+      const resp=await fetch("/api/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,max_tokens:1024})});
+      const data=await resp.json();
+      if(!resp.ok||data.error)throw new Error(data.error||"שגיאה");
+      const text=data.content?.[0]?.text||data.text||"";
+      const match=text.match(/\{[\s\S]*\}/);
+      if(!match)throw new Error("תשובה לא תקינה");
+      const parsed=JSON.parse(match[0]);
+      const items=(parsed.items||[]).map(i=>({id:uid(),name:i.name,checked:false,qty:i.qty||"1",unit:i.unit||""}));
+      if(items.length===0)throw new Error("לא נמצאו מצרכים");
+      const listId=uid();
+      const newList={id:listId,name:item.name,items};
+      const {error}=await supabase.from("grocery_lists").upsert({id:listId,name:item.name,items,updated_at:new Date().toISOString()});
+      if(error)console.warn("grocery upsert:",error);
+      setGroceryLists(prev=>[...prev,newList]);
+      setGroceryActiveId(listId);
+      setSection("home");
+      setHomeTab("grocery");
+    }catch(err){
+      setAlertMsg("שגיאה ביצירת רשימת הקניות: "+err.message);
+    }finally{
+      setGroceryLoading(false);
+    }
+  },[setGroceryLists,setGroceryActiveId,setSection,setHomeTab]);
   const normCats=item=>{if(Array.isArray(item.categories))return item.categories;if(item.category)return[item.category];return[];};
   const blankR={type:"recipe",name:"",categories:[],servings:"",ingredients:[{item:"",qty:"",unit:""}],steps:[""],prepNotes:"",concepts:[]};
   const blankM={type:"menu",name:"",categories:[],servings:"",concepts:[],sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],notes:""};
@@ -3006,7 +3108,9 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
           name:parsed.name||"",
           categories:parsed.categories||[],
           servings:String(parsed.servings||""),
-          sections:parsed.sections?.length?parsed.sections:[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],
+          sections:parsed.sections?.length
+            ?parsed.sections.map(s=>({...s,id:uid(),dishes:[...(s.dishes||[""])]}))
+            :[{id:uid(),title:"מנות ראשונות",dishes:[""]},{id:uid(),title:"עיקריות",dishes:[""]},{id:uid(),title:"קינוחים",dishes:[""]}],
           notes:parsed.notes||"",
           concepts:[],
         });
@@ -3074,7 +3178,10 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   const addDishToSection=sid=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:[...s.dishes,""]}:s)}));
   const updateDish=(sid,di,val)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:s.dishes.map((d,i)=>i===di?val:d)}:s)}));
   const removeDish=(sid,di)=>setForm(f=>({...f,sections:(f.sections||[]).map(s=>s.id===sid?{...s,dishes:s.dishes.filter((_,i)=>i!==di)}:s)}));
-  return(  
+  const [dragDishSec,setDragDishSec]=useState(null);
+  const [dragDishIdx,setDragDishIdx]=useState(null);
+  const [dragDishOver,setDragDishOver]=useState(null);
+  return(
     <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
       {alertMsg&&<AlertModal message={alertMsg} onClose={()=>setAlertMsg(null)}/>}
       {confirmId&&<ConfirmModal message="למחוק לצמיתות?" onConfirm={()=>doDelete(confirmId)} onCancel={()=>setConfirmId(null)}/>}
@@ -3160,8 +3267,36 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div><button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button></div>
                   {(form.sections||[]).map(sec=>(
                     <div key={sec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:12}}>
-                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}><Inp placeholder="שם החלק" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>{(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}</div>
-                      {sec.dishes.map((d,di)=><div key={di} style={{display:"flex",gap:6,marginBottom:6}}><Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>{sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}</div>)}
+                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                        <Inp placeholder="שם החלק" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>
+                        {(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}
+                      </div>
+                      {sec.dishes.map((d,di)=>(
+                        <div key={di}
+                          draggable
+                          onDragStart={()=>{setDragDishSec(sec.id);setDragDishIdx(di);}}
+                          onDragOver={e=>{e.preventDefault();setDragDishOver(di);}}
+                          onDragEnd={()=>{
+                            if(dragDishSec===sec.id&&dragDishIdx!==null&&dragDishOver!==null&&dragDishIdx!==dragDishOver){
+                              const dishes=[...sec.dishes];
+                              const [moved]=dishes.splice(dragDishIdx,1);
+                              dishes.splice(dragDishOver,0,moved);
+                              updateSection(sec.id,"dishes",dishes);
+                            }
+                            setDragDishSec(null);setDragDishIdx(null);setDragDishOver(null);
+                          }}
+                          style={{display:"flex",gap:6,marginBottom:6,
+                            opacity:dragDishSec===sec.id&&dragDishIdx===di?0.5:1,
+                            background:dragDishSec===sec.id&&dragDishOver===di?T.navyLight:"transparent",
+                            borderRadius:8,cursor:"grab"}}>
+                          <div style={{display:"flex",flexDirection:"column",justifyContent:"center",gap:2,flexShrink:0,paddingRight:2}}>
+                            <div style={{width:12,height:1.5,background:T.textSub,borderRadius:2}}/>
+                            <div style={{width:12,height:1.5,background:T.textSub,borderRadius:2}}/>
+                          </div>
+                          <Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>
+                          {sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}
+                        </div>
+                      ))}
                       <button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button>
                     </div>
                   ))}
@@ -3202,7 +3337,7 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
                   <div style={{fontSize:11,color:T.textMid,fontWeight:600}}>סגנון</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{menuConceptsList.map(c=><button key={c} onClick={()=>toggleC(c)} style={{padding:"5px 11px",borderRadius:99,fontFamily:T.font,fontSize:11,cursor:"pointer",border:`1px solid ${(form.concepts||[]).includes(c)?T.navyMid:T.border}`,background:(form.concepts||[]).includes(c)?T.navyMid:"transparent",color:(form.concepts||[]).includes(c)?"#fff":T.textMid}}>{c}</button>)}</div>
                   {mode==="recipe"&&(<><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>מצרכים</div>{form.ingredients.map((ing,i)=><div key={i} style={{display:"flex",gap:6}}><Inp placeholder="מצרך" value={ing.item} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,item:e.target.value}:x)}))} style={{flex:3}}/><Inp placeholder="כמות" value={ing.qty} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,qty:e.target.value}:x)}))} style={{flex:1}}/><Inp placeholder="יח׳" value={ing.unit} onChange={e=>setForm(f=>({...f,ingredients:f.ingredients.map((x,j)=>j===i?{...x,unit:e.target.value}:x)}))} style={{flex:1}}/></div>)}<button onClick={()=>setForm(f=>({...f,ingredients:[...f.ingredients,{item:"",qty:"",unit:""}]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ מצרך</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>שלבי הכנה</div>{form.steps.map((st,i)=>(<div key={i} style={{display:"flex",gap:6,alignItems:"flex-start"}}><div style={{width:22,height:22,borderRadius:"50%",background:T.navy,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:8}}>{i+1}</div><div style={{flex:1}}><RichTextEditor value={st} onChange={v=>setForm(f=>({...f,steps:f.steps.map((x,j)=>j===i?v:x)}))} placeholder={`שלב ${i+1}…`} minHeight={60}/></div>{form.steps.length>1&&(<button onClick={()=>setForm(f=>({...f,steps:f.steps.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"8px 4px",flexShrink:0}}>×</button>)}</div>))}<button onClick={()=>setForm(f=>({...f,steps:[...f.steps,""]}))} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:10,padding:"8px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font}}>+ שלב</button><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הכנות מקדימות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הכנות מקדימות…"/></>)}
-                  {mode==="menu"&&(<><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div><button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button></div>{(form.sections||[]).map(sec=>(<div key={sec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:12}}><div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}><Inp placeholder="שם החלק" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>{(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}</div>{sec.dishes.map((d,di)=><div key={di} style={{display:"flex",gap:6,marginBottom:6}}><Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>{sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}</div>)}<button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button></div>))}<div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הערות…"/></>)}
+                  {mode==="menu"&&(<><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:T.textMid,fontWeight:600}}>חלוקת התפריט</div><button onClick={addSection} style={{fontSize:11,color:T.navy,fontFamily:T.font,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:99,padding:"4px 12px",cursor:"pointer",fontWeight:600}}>+ הוספת חלק</button></div>{(form.sections||[]).map(sec=>(<div key={sec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:12}}><div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}><Inp placeholder="שם החלק" value={sec.title} onChange={e=>updateSection(sec.id,"title",e.target.value)} style={{flex:1}}/>{(form.sections||[]).length>1&&<button onClick={()=>removeSection(sec.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={12} color={T.danger}/></button>}</div>{sec.dishes.map((d,di)=>(<div key={di} draggable onDragStart={()=>{setDragDishSec(sec.id);setDragDishIdx(di);}} onDragOver={e=>{e.preventDefault();setDragDishOver(di);}} onDragEnd={()=>{if(dragDishSec===sec.id&&dragDishIdx!==null&&dragDishOver!==null&&dragDishIdx!==dragDishOver){const dishes=[...sec.dishes];const [moved]=dishes.splice(dragDishIdx,1);dishes.splice(dragDishOver,0,moved);updateSection(sec.id,"dishes",dishes);}setDragDishSec(null);setDragDishIdx(null);setDragDishOver(null);}} style={{display:"flex",gap:6,marginBottom:6,opacity:dragDishSec===sec.id&&dragDishIdx===di?0.5:1,background:dragDishSec===sec.id&&dragDishOver===di?T.navyLight:"transparent",borderRadius:8,cursor:"grab"}}><div style={{display:"flex",flexDirection:"column",justifyContent:"center",gap:2,flexShrink:0,paddingRight:2}}><div style={{width:12,height:1.5,background:T.textSub,borderRadius:2}}/><div style={{width:12,height:1.5,background:T.textSub,borderRadius:2}}/></div><Inp placeholder={`מנה ${di+1}`} value={d} onChange={e=>updateDish(sec.id,di,e.target.value)} style={{flex:1}}/>{sec.dishes.length>1&&<button onClick={()=>removeDish(sec.id,di)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}</div>))}<button onClick={()=>addDishToSection(sec.id)} style={{background:"none",border:`1px dashed ${T.border}`,borderRadius:8,padding:"6px",color:T.textSub,cursor:"pointer",fontSize:12,fontFamily:T.font,width:"100%"}}>+ מנה</button></div>))}<div style={{fontSize:11,color:T.textMid,fontWeight:600}}>הערות</div><RichTextEditor value={notesHtml} onChange={setNotesHtml} placeholder="הערות…"/></>)}
                   <div style={{display:"flex",gap:8}}><Btn onClick={save} style={{flex:1,padding:"11px"}}>שמירה</Btn><Btn variant="secondary" onClick={()=>{const deviceId=localStorage.getItem('device_id');localStorage.removeItem(`draft_recipe_form_${deviceId}`);localStorage.removeItem(`draft_recipe_notes_${deviceId}`);setShowForm(false);setEditId(null);}} style={{flex:1,padding:"11px"}}>ביטול</Btn></div>
                 </div>
               </Card>
@@ -3217,6 +3352,16 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {sel.type==="recipe"&&<button onClick={()=>exportRecipePDF(sel)} style={{display:"flex",alignItems:"center",padding:"5px 8px",borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/></button>}
               {sel.type==="menu"&&<button onClick={()=>exportMenuPDF(sel)} style={{display:"flex",alignItems:"center",padding:"5px 8px",borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/></button>}
+              {(sel.type==="recipe"||sel.type==="menu")&&(
+                <button onClick={()=>generateGroceryList(sel)} disabled={groceryLoading}
+                style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",
+                  borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,
+                  color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:groceryLoading?"wait":"pointer",
+                  opacity:groceryLoading?0.6:1}}>
+                  <Icon name="basket" size={13} color={T.navy}/>
+                  {groceryLoading?"מייצר...":"לרשימת קניות"}
+                </button>
+              )}
               <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>
             </div>
           </div>
@@ -4113,7 +4258,7 @@ export default function App(){
       const timeSinceBlur=Date.now()-lastBlur;
       // אם חזרנו תוך 10 שניות — כנראה file picker או חלון קטן, לא יציאה אמיתית
       if(timeSinceBlur<60000)return;
-      if(deviceAuthed&&authed&&Date.now()-lastLoad>60000&&section!=="invest"){
+      if(deviceAuthed&&authed&&Date.now()-lastLoad>300000&&section!=="invest"){
         lastLoad=Date.now();
         loadData();
       }
@@ -4240,7 +4385,7 @@ export default function App(){
       <div style={{maxWidth:720,margin:"0 auto",padding:"12px 16px 80px",overscrollBehavior:"none"}}>
         {section==="home"&&homeTab==="expenses"&&<ExpensesTab expenses={monthExp} setExpenses={setExpenses} cats={cats} month={month} year={year} specialItems={special} setSpecialItems={setSpecial} specialCatsList={specialCatsList} monthSpecialTotal={monthSpecialTotal} defaultWho={defaultWho} expMode={expMode} setExpMode={setExpMode} showExpenseAdd={showExpenseAdd} setShowExpenseAdd={setShowExpenseAdd} showSpecialAdd={showSpecialAdd} setShowSpecialAdd={setShowSpecialAdd} onFormOpen={setAnyFormOpen} savingsGoal={savingsGoal}/>}
         {section==="home"&&homeTab==="grocery"  &&<GroceryTab groceryLists={groceryLists} setGroceryLists={setGroceryLists} groceryActiveId={groceryActiveId} setGroceryActiveId={setGroceryActiveId}/>}
-        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedRecipe}/>}
+        {section==="home"&&homeTab==="recipes"  &&<RecipesTab recipes={recipes} setRecipes={setRecipes} menuConceptsList={menuConceptsList} setMenuConceptsList={setMenuConceptsList} mealTypesList={mealTypesList} showFormExternal={showRecipeAdd} setShowFormExternal={setShowRecipeAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedRecipe} setSection={setSection} setHomeTab={setHomeTab} groceryLists={groceryLists} setGroceryLists={setGroceryLists} setGroceryActiveId={setGroceryActiveId}/>}
         {section==="home"&&homeTab==="notes"    &&<NotesTab notes={notes} setNotes={setNotes} defaultWho={defaultWho}/>}
         {section==="trips"   &&<TripsSection trips={trips} setTrips={setTrips} month={month} year={year} setMonth={setMonth} setYear={setYear} defaultWho={defaultWho} showNew={showTripAdd} setShowNew={setShowTripAdd} onFormOpen={setAnyFormOpen} onSelectChange={setSelectedTrip}/>}
         {section==="invest"  &&<InvestSection tab={investTab} setTab={setInvestTab} assets={assets} setAssets={setAssets} dividends={dividends} setDividends={setDividends} watchlist={watchlist} setWatchlist={setWatchlist} priceSnapshots={priceSnapshots} setPriceSnapshots={setPriceSnapshots} saveAssetAlertPct={saveAssetAlertPct} showAssetFormExternal={showAssetAdd} setShowAssetFormExternal={setShowAssetAdd} portfolioView={portfolioView} setPortfolioView={setPortfolioView} onFormOpen={setAnyFormOpen} defaultWho={defaultWho}/>}

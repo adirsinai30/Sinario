@@ -2957,7 +2957,10 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
         max_tokens:2500,
         system:`אתה עוזר שיוצר רשימות קניות. קבל מתכון או תפריט והחזר JSON בלבד:
 {"items":[{"name":"שם המוצר","qty":"כמות","unit":"יחידה"}]}
-- אחד כמויות זהות
+כללים:
+- unit חייב להיות אחד מ: ק"ג, ליטר, יח'
+- qty חייב להיות מספר בלבד (לדוגמה: "2", "0.5", "3")
+- אחד כמויות זהות של אותו מוצר
 - הוסף מוצרים בסיסיים שנדרשים אך לא מצוינים
 - אל תכלול תבלינים בסיסיים (מלח, פלפל, שמן)
 - החזר JSON בלבד ללא טקסט נוסף`,
@@ -2969,12 +2972,12 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       const match=text.match(/\{[\s\S]*\}/);
       if(!match)throw new Error("תשובה לא תקינה");
       const parsed=JSON.parse(match[0]);
-      const items=(parsed.items||[]).map(i=>({id:uid(),name:i.name,checked:false,qty:i.qty||"1",unit:i.unit||""}));
-      if(items.length===0)throw new Error("לא נמצאו מצרכים");
+      const groceryItems=(parsed.items||[]).map(i=>({id:uid(),name:i.name,qty:i.qty||"1",unit:i.unit||"יח'",checked:false}));
+      if(groceryItems.length===0)throw new Error("לא נמצאו מצרכים");
       const listId=uid();
-      const newList={id:listId,name:item.name,items};
-      const {error}=await supabase.from("grocery_lists").upsert({id:listId,name:item.name,items,updated_at:new Date().toISOString()});
-      if(error)console.warn("grocery upsert:",error);
+      const newList={id:listId,name:item.name,items:groceryItems};
+      const {error}=await supabase.from('grocery_lists').upsert({id:listId,name:item.name,items:groceryItems});
+      if(error)console.error('grocery save error:',error);
       setGroceryLists(prev=>[...prev,newList]);
       setGroceryActiveId(listId);
       setSection("home");

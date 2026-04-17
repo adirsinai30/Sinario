@@ -1159,7 +1159,7 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
         {lists.map(l=>(
           <div key={l.id} style={{display:"flex",alignItems:"center",gap:0,borderRadius:99,border:`1.5px solid ${activeList.id===l.id?T.navy:T.border}`,background:activeList.id===l.id?T.navyLight:"transparent",overflow:"hidden"}}>
             <button onClick={()=>setActiveListId(l.id)} style={{padding:"5px 12px",background:"transparent",border:"none",fontFamily:T.font,fontSize:12,fontWeight:600,color:activeList.id===l.id?T.navy:T.textSub,cursor:"pointer"}}>{l.name}</button>
-            <button onClick={()=>setConfirmDeleteListId(l.id)} style={{padding:"5px 7px 5px 2px",background:"transparent",border:"none",color:T.textSub,cursor:"pointer",fontSize:13,lineHeight:1}}>×</button>
+            <button onClick={()=>setConfirmDeleteListId(l.id)} style={{padding:"5px 10px 5px 8px",background:"transparent",border:"none",color:T.textSub,cursor:"pointer",fontSize:13,lineHeight:1}}>×</button>
           </div>
         ))}
         {showNewList
@@ -1221,7 +1221,11 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
         {active.map((g,i)=>(
           <div key={g.id} style={{display:"flex",alignItems:"center",padding:"9px 14px",borderBottom:i<active.length-1||done.length>0?`1px solid ${T.border}`:"none"}}>
             <button onClick={()=>toggle(g.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.borderHover}`,background:"transparent",cursor:"pointer",flexShrink:0}}/>
-            <div style={{flex:1,fontSize:13,color:T.text,fontWeight:500,textAlign:"right",paddingRight:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{highlight(g.name,searchQ)}</div>
+            <input type="text" value={g.name}
+              onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,name:e.target.value}:x))}
+              style={{flex:1,fontSize:13,color:T.text,fontWeight:500,textAlign:"right",paddingRight:10,
+                background:"transparent",border:"none",outline:"none",fontFamily:T.font,
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}/>
             <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
             <div style={{display:"flex",gap:3,width:COL_QTY+40,flexShrink:0,alignItems:"center"}}>
               <input type="number" value={g.qty||""} onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,qty:e.target.value}:x))} style={{width:36,background:"transparent",border:"none",padding:"4px 2px",color:T.textMid,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}/>
@@ -2997,18 +3001,20 @@ ${(item.sections||[]).map(s=>
 - "טחינה" = טחינה גולמית 300 גרם, לימון 2 יח'
 - "ירקות על האש" = חציל 3 יח', קישוא 4 יח', עגבניות 5 יח', פלפל 4 יח', בצל 3 יח'
 
-כללי יחידות:
-- בשר/עוף: ק"ג או גרם
-- ירקות קטנים (מלפפון, עגבנייה, בצל, גזר): יח' בלבד - לעולם לא עשרוני!
-- ירקות גדולים (כרוב, חציל, קישוא): יח'
-- עלים (פטרוזיליה, כוסברה, בצל ירוק): צרור
-- נוזלים: ליטר/מ"ל
-- אבקות/דגנים: ק"ג/גרם
+כללי יחידות מותרות: ק"ג, ליטר, יח' בלבד.
+- כל מוצר שנמדד במשקל (בשר, עוף, דגים, גרגרים, ירקות ירוקים, קמח, אורז) = ק"ג
+- כל מוצר נוזלי (שמן, מים, חלב, מיץ לימון) = ליטר
+- כל שאר המוצרים שנספרים (ירקות, פירות, ביצים, לחמים) = יח'
 
-חשוב מאוד:
-- qty חייב להיות מספר שלם או חצי (1, 2, 0.5, 1.5) — לא 0.8 ולא 3.5 למוצרים שנספרים ביחידות
-- למוצרים שנמדדים ביחידות (עגבנייה, מלפפון, בצל) — הכמות חייבת להיות שלמה בלבד
-- למוצרים במשקל (בשר, ירקות ירוקים) — ניתן להשתמש בעשרוני
+חשוב: qty חייב להיות מספר שלם או עשרוני הגיוני.
+- ק"ג: יכול להיות עשרוני (1.5, 0.5, 2)
+- ליטר: יכול להיות עשרוני (0.5, 1, 2)
+- יח': חייב להיות מספר שלם (1, 2, 5, 10)
+
+דוגמאות תקינות:
+- בשר טחון: 1.5 ק"ג
+- עגבניות: 8 יח'
+- שמן זית: 0.5 ליטר
 
 החזר JSON בלבד ללא טקסט נוסף:
 {"items":[{"name":"שם המוצר","qty":"כמות","unit":"יחידה"}]}`,

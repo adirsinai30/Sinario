@@ -3026,28 +3026,56 @@ ${(item.sections||[]).map(s=>
       const match=text.match(/\{[\s\S]*\}/);
       if(!match)throw new Error("תשובה לא תקינה");
       const clean=match[0];
-      let parsed;
+      let parsed=null;
+      let partialData=false;
+
       try{
         parsed=JSON.parse(clean);
       }catch{
         try{
-          const fixed=clean
-            .replace(/,\s*}/g,'}')
-            .replace(/,\s*]/g,']')
-            .replace(/([{,]\s*)(\w+):/g,'$1"$2":')
-            .replace(/:\s*'([^']*)'/g,':"$1"');
+          const fixed=clean.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
           parsed=JSON.parse(fixed);
         }catch{
-          const itemMatches=[...clean.matchAll(/"name"\s*:\s*"([^"]+)"[^}]*"qty"\s*:\s*"([^"]*)"[^}]*"unit"\s*:\s*"([^"]*)"/g)];
-          if(itemMatches.length>0){
-            parsed={items:itemMatches.map(m=>({name:m[1],qty:m[2]||"1",unit:m[3]||"יח'"}))} ;
-          }else{
-            throw new Error("לא ניתן לפרסר את התשובה מה-AI");
+          const fullMatches=[...clean.matchAll(/\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"qty"\s*:\s*"?([^",}]+)"?\s*,\s*"unit"\s*:\s*"([^"]*)"\s*\}/g)];
+          if(fullMatches.length>0){
+            parsed={items:fullMatches.map(m=>({
+              name:m[1].trim(),
+              qty:String(m[2]).trim()||"1",
+              unit:m[3].trim()||"יח'"
+            }))};
+          } else {
+            const nameMatches=[...clean.matchAll(/"name"\s*:\s*"([^"]+)"/g)];
+            if(nameMatches.length>0){
+              parsed={items:nameMatches.map(m=>({
+                name:m[1].trim(),
+                qty:"",
+                unit:""
+              }))};
+              partialData=true;
+            }
           }
         }
       }
-      const groceryItems=(parsed.items||[]).map(i=>({id:uid(),name:i.name,qty:i.qty||"1",unit:i.unit||"יח'",checked:false}));
-      if(groceryItems.length===0)throw new Error("לא נמצאו מצרכים");
+
+      if(!parsed||!parsed.items||parsed.items.length===0){
+        console.warn('grocery list parse failed, raw response:',clean);
+        setAlertMsg("לא הצלחתי לייצר רשימה מהתפריט. נסה שוב או ערוך ידנית.");
+        setGroceryLoading(false);
+        return;
+      }
+
+      const groceryItems=parsed.items.map(i=>{
+        const hasQtyUnit=i.qty&&i.unit;
+        if(!hasQtyUnit)partialData=true;
+        return{
+          id:uid(),
+          name:i.name||"",
+          qty:i.qty||"",
+          unit:i.unit||"",
+          checked:false
+        };
+      });
+
       const listId=uid();
       const newList={id:listId,name:item.name,items:groceryItems};
       const {error}=await supabase.from('grocery_lists').upsert({id:listId,name:item.name,items:groceryItems});
@@ -3056,6 +3084,11 @@ ${(item.sections||[]).map(s=>
       setGroceryActiveId(listId);
       setSection("home");
       setHomeTab("grocery");
+      if(partialData){
+        setTimeout(()=>{
+          setAlertMsg("הרשימה נוצרה עם פרטים חלקיים. יש לערוך ידנית את הכמויות והיחידות החסרות.");
+        },500);
+      }
     }catch(err){
       setAlertMsg("שגיאה ביצירת רשימת הקניות: "+err.message);
     }finally{

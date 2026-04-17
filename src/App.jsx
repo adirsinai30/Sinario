@@ -400,8 +400,13 @@ function RichTextEditor({value,onChange,placeholder,minHeight=80}){
     cb.type='checkbox';
     cb.style.cssText='width:14px;height:14px;cursor:pointer;flex-shrink:0';
     cb.addEventListener('change',()=>{
-      span.style.textDecoration=cb.checked?'line-through':'none';
-      span.style.color=cb.checked?'#a8a29e':'inherit';
+      const checked=cb.checked;
+      span.style.textDecoration=checked?'line-through':'none';
+      span.style.color=checked?'#a8a29e':'inherit';
+      span.querySelectorAll('a').forEach(a=>{
+        a.style.textDecoration=checked?'line-through':'none';
+        a.style.color=checked?'#a8a29e':'inherit';
+      });
     });
     div.appendChild(cb);
     div.appendChild(span);
@@ -2957,22 +2962,37 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       const isRecipe=item.type==="recipe";
       const content=isRecipe
         ?(item.ingredients||[]).filter(i=>i.item).map(i=>`${i.qty||""} ${i.unit||""} ${i.item}`.trim()).join("\n")||item.name
-        :`תפריט: ${item.name}\n`+(item.sections||[]).map(s=>
-          `חלק: ${s.title||""}\nמנות: ${(s.dishes||[]).filter(d=>d.trim()).join(" | ")}`
-        ).join("\n\n");
+        :`שם התפריט: ${item.name}
+סוג ארוחה: ארוחה ישראלית/ים תיכונית
+מספר סועדים: ${item.servings||"8"}
+
+רשימת המנות לפי קטגוריות:
+${(item.sections||[]).map(s=>
+  `\n[${s.title||""}]\n${(s.dishes||[]).filter(d=>d.trim()).map(d=>`- ${d}`).join("\n")}`
+).join("\n")}
+
+הערות התפריט: ${(item.notes||"").replace(/<[^>]+>/g,"")||"אין"}`;
       if(!content){setAlertMsg("לא נמצאו מרכיבים ליצירת רשימה");setGroceryLoading(false);return;}
       const resp=await fetch("/api/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         max_tokens:2500,
-        system:`אתה עוזר שיוצר רשימות קניות ממתכונים ותפריטים.
-החזר JSON בלבד בפורמט הבא ללא טקסט נוסף:
-{"items":[{"name":"שם המוצר","qty":"מספר בלבד","unit":"יחידה"}]}
-יחידות מותרות: ק"ג, ליטר, יח'
-חשוב:
-- עבור תפריט: ציין את כל המרכיבים הדרושים לכל המנות
-- אחד כמויות של אותו מוצר שמופיע מספר פעמים
-- הוסף מצרכים בסיסיים שנדרשים (ביצים, קמח וכו')
-- אל תכלול תבלינים בסיסיים (מלח, פלפל, שמן זית)
-- החזר JSON בלבד`,
+        system:`אתה שף מקצועי שיוצר רשימות קניות מפורטות.
+קיבלת תפריט עם מנות. המשימה: לגזור את כל המרכיבים הדרושים להכנת כל מנה.
+
+לכל מנה — חשוב על המרכיבים האמיתיים שנדרשים להכנתה.
+לדוגמה: "קבב" = בשר טחון, בצל, פטרוזיליה, תבלינים, שיפודים
+"פרגית" = חזה עוף/ירכיים, שמן, תבלינים
+"סלט ירקות קצוץ" = עגבניות, מלפפון, פלפל, בצל, לימון
+
+כללים:
+- התייחס לכמות הסועדים בחישוב הכמויות
+- אחד כמויות של מרכיבים שחוזרים במנות שונות
+- כלול מרכיבים עיקריים — לא תבלינים בסיסיים (מלח, פלפל, שמן זית)
+- העדף כמויות ריאליות לארוחה משפחתית
+
+החזר JSON בלבד:
+{"items":[{"name":"שם המוצר","qty":"מספר","unit":"יחידה"}]}
+יחידות: ק"ג, ליטר, יח'
+החזר JSON בלבד ללא טקסט נוסף.`,
         messages:[{role:"user",content:String(content)}]
       })});
       const data=await resp.json();

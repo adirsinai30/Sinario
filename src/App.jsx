@@ -2948,10 +2948,21 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
   const generateGroceryList=useCallback(async(item)=>{
     setGroceryLoading(true);
     try{
-      const prompt=item.type==="recipe"
-        ?`בהתבסס על המתכון הבא, צור רשימת קניות מלאה ומפורטת בעברית. כלול את כל המצרכים עם כמויות ויחידות. מתכון: ${item.name}. מצרכים: ${(item.ingredients||[]).filter(i=>i.item).map(i=>`${i.item}${i.qty?" "+i.qty+(i.unit?" "+i.unit:""):""}`)  .join(", ")}. החזר רשימה בפורמט JSON: {"items":[{"name":"שם המצרך","qty":"כמות","unit":"יחידה"}]}`
-        :`בהתבסס על תפריט הארוחה הבא, צור רשימת קניות מלאה ומפורטת בעברית עם כל המצרכים הנדרשים לבישול כל המנות. תפריט: ${item.name}. מנות: ${(item.sections||[]).flatMap(s=>(s.dishes||[]).filter(d=>d.trim())).join(", ")}. הערות: ${(item.notes||"").replace(/<[^>]+>/g,"").trim()}. החזר רשימה בפורמט JSON: {"items":[{"name":"שם המצרך","qty":"כמות","unit":"יחידה"}]}`;
-      const resp=await fetch("/api/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,max_tokens:1024})});
+      const isRecipe=item.type==="recipe";
+      const content=isRecipe
+        ?(item.ingredients||[]).filter(i=>i.item).map(i=>`${i.qty||""} ${i.unit||""} ${i.item}`.trim()).join("\n")||item.name
+        :(item.sections||[]).map(s=>`${s.title||""}:\n${(s.dishes||[]).filter(d=>d.trim()).join(", ")}`).join("\n")||item.name;
+      if(!content){setAlertMsg("לא נמצאו מרכיבים ליצירת רשימה");setGroceryLoading(false);return;}
+      const resp=await fetch("/api/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        max_tokens:2500,
+        system:`אתה עוזר שיוצר רשימות קניות. קבל מתכון או תפריט והחזר JSON בלבד:
+{"items":[{"name":"שם המוצר","qty":"כמות","unit":"יחידה"}]}
+- אחד כמויות זהות
+- הוסף מוצרים בסיסיים שנדרשים אך לא מצוינים
+- אל תכלול תבלינים בסיסיים (מלח, פלפל, שמן)
+- החזר JSON בלבד ללא טקסט נוסף`,
+        messages:[{role:"user",content:String(content)}]
+      })});
       const data=await resp.json();
       if(!resp.ok||data.error)throw new Error(data.error||"שגיאה");
       const text=data.content?.[0]?.text||data.text||"";

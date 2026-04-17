@@ -1099,6 +1099,7 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
   const setActiveListId=(id)=>setGroceryActiveId(id);
   const [newItem,setNewItem]=useState({name:"",qty:"",unit:""});
   const [confirmClear,setConfirmClear]=useState(false);
+  const [confirmDeleteListId,setConfirmDeleteListId]=useState(null);
   const [editingListName,setEditingListName]=useState(false);
   const [newListName,setNewListName]=useState("");
   const [showNewList,setShowNewList]=useState(false);
@@ -1132,23 +1133,28 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
     setShowNewList(false);
   };
 
-  const deleteList=id=>{
-    if(lists.length<=1)return;
+  const deleteList=async(id)=>{
     const remaining=lists.filter(l=>l.id!==id);
-    setLists(remaining);
-    if(activeListId===id)setActiveListId(remaining[0].id);
+    await supabase.from('grocery_lists').delete().eq('id',id);
+    setGroceryLists(remaining);
+    if(activeListId===id)setGroceryActiveId(remaining[0]?.id||"");
+    setConfirmDeleteListId(null);
   };
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12,animation:"fadeUp .25s ease"}}>
       {confirmClear&&<ConfirmModal message={`למחוק ${doneAll.length} פריטים שנרכשו?`} onConfirm={clearDone} onCancel={()=>setConfirmClear(false)}/>}
+      {confirmDeleteListId&&<ConfirmModal
+        message={`למחוק את הרשימה "${lists.find(l=>l.id===confirmDeleteListId)?.name||""}" לצמיתות?`}
+        onConfirm={()=>deleteList(confirmDeleteListId)}
+        onCancel={()=>setConfirmDeleteListId(null)}/>}
 
       {/* List selector */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         {lists.map(l=>(
           <div key={l.id} style={{display:"flex",alignItems:"center",gap:0,borderRadius:99,border:`1.5px solid ${activeList.id===l.id?T.navy:T.border}`,background:activeList.id===l.id?T.navyLight:"transparent",overflow:"hidden"}}>
             <button onClick={()=>setActiveListId(l.id)} style={{padding:"5px 12px",background:"transparent",border:"none",fontFamily:T.font,fontSize:12,fontWeight:600,color:activeList.id===l.id?T.navy:T.textSub,cursor:"pointer"}}>{l.name}</button>
-            {lists.length>1&&<button onClick={()=>deleteList(l.id)} style={{padding:"5px 7px 5px 2px",background:"transparent",border:"none",color:T.textSub,cursor:"pointer",fontSize:13,lineHeight:1}}>×</button>}
+            <button onClick={()=>setConfirmDeleteListId(l.id)} style={{padding:"5px 7px 5px 2px",background:"transparent",border:"none",color:T.textSub,cursor:"pointer",fontSize:13,lineHeight:1}}>×</button>
           </div>
         ))}
         {showNewList
@@ -2951,19 +2957,22 @@ function RecipesTab({recipes,setRecipes,menuConceptsList,setMenuConceptsList,mea
       const isRecipe=item.type==="recipe";
       const content=isRecipe
         ?(item.ingredients||[]).filter(i=>i.item).map(i=>`${i.qty||""} ${i.unit||""} ${i.item}`.trim()).join("\n")||item.name
-        :(item.sections||[]).map(s=>`${s.title||""}:\n${(s.dishes||[]).filter(d=>d.trim()).join(", ")}`).join("\n")||item.name;
+        :`תפריט: ${item.name}\n`+(item.sections||[]).map(s=>
+          `חלק: ${s.title||""}\nמנות: ${(s.dishes||[]).filter(d=>d.trim()).join(" | ")}`
+        ).join("\n\n");
       if(!content){setAlertMsg("לא נמצאו מרכיבים ליצירת רשימה");setGroceryLoading(false);return;}
       const resp=await fetch("/api/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         max_tokens:2500,
-        system:`אתה עוזר שיוצר רשימות קניות. קבל מתכון או תפריט והחזר JSON בלבד:
-{"items":[{"name":"שם המוצר","qty":"כמות","unit":"יחידה"}]}
-כללים:
-- unit חייב להיות אחד מ: ק"ג, ליטר, יח'
-- qty חייב להיות מספר בלבד (לדוגמה: "2", "0.5", "3")
-- אחד כמויות זהות של אותו מוצר
-- הוסף מוצרים בסיסיים שנדרשים אך לא מצוינים
-- אל תכלול תבלינים בסיסיים (מלח, פלפל, שמן)
-- החזר JSON בלבד ללא טקסט נוסף`,
+        system:`אתה עוזר שיוצר רשימות קניות ממתכונים ותפריטים.
+החזר JSON בלבד בפורמט הבא ללא טקסט נוסף:
+{"items":[{"name":"שם המוצר","qty":"מספר בלבד","unit":"יחידה"}]}
+יחידות מותרות: ק"ג, ליטר, יח'
+חשוב:
+- עבור תפריט: ציין את כל המרכיבים הדרושים לכל המנות
+- אחד כמויות של אותו מוצר שמופיע מספר פעמים
+- הוסף מצרכים בסיסיים שנדרשים (ביצים, קמח וכו')
+- אל תכלול תבלינים בסיסיים (מלח, פלפל, שמן זית)
+- החזר JSON בלבד`,
         messages:[{role:"user",content:String(content)}]
       })});
       const data=await resp.json();

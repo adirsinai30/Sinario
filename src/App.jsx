@@ -128,8 +128,17 @@ function useStorage(key,init){
 
 async function fetchRate(code){
   if(code==="ILS")return 1;
-  try{const r=await fetch("https://api.exchangerate-api.com/v4/latest/ILS");const d=await r.json();if(d.rates?.[code])return +(1/d.rates[code]).toFixed(4);}catch{}
-  return {USD:3.68,EUR:4.02,GBP:4.65,JPY:0.025,AED:1.00}[code]||1;
+  try{
+    const r=await fetch(`https://api.exchangerate-api.com/v4/latest/${code}`);
+    const d=await r.json();
+    if(d.rates?.ILS) return Math.round((d.rates.ILS)*1000)/1000;
+  }catch{}
+  try{
+    const r2=await fetch("https://api.frankfurter.app/latest?from="+code+"&to=ILS");
+    const d2=await r2.json();
+    if(d2.rates?.ILS) return Math.round(d2.rates.ILS*1000)/1000;
+  }catch{}
+  return null;
 }
 
 // ─── ICONS ───────────────────────────────────────────────────────────────────
@@ -2155,62 +2164,101 @@ ${newsContext}`;
                       <button onClick={()=>{setAddDividendId(addDividendId===a.id?null:a.id);setDividendForm({...blankDividend,rateUsed:String(currentRates?.[a.currency]||currentRates?.USD||3.68)});}} style={{flex:1,padding:"7px 0",borderRadius:8,cursor:"pointer",fontSize:11,fontFamily:T.font,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4,background:T.successBg,border:"1px solid #bbf7d0",color:T.success}}>דיבידנד +</button>
                     </div>
                     <div style={{fontSize:11,fontWeight:700,color:T.navy,marginBottom:8,display:"flex",alignItems:"center"}}>
-                  <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"p")}>
+                  <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}}
+                    onClick={()=>toggleSection(a.id,"p")}>
                         <Icon name="trending" size={13} color={T.textMid}/>
-                        קניות ({a.purchases.length})
+                        קניות ({a.purchases.length}) · סה״כ {fmt(costBasisILS(a))}
                       </span>
                     </div>
-                    {isOpen(a.id,"p")&&a.purchases.map(p=>{const totalFx=+p.shares*+p.price+(+p.commission||0);const totalIls=totalFx*rate;return(
-                      <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
-                        <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{p.shares} יחידות × {fmtForeign(p.price,a.currency)}</div><div style={{fontSize:10,color:T.textSub}}>{new Date(p.date).toLocaleDateString("he-IL")}{p.commission>0&&` · עמלה ${fmtForeign(p.commission,a.currency)}`}</div></div>
-                            <div style={{display:"flex",gap:4}}>
-                              <button onClick={()=>setEditPurch({assetId:a.id,purchase:{...p}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="pencil" size={11} color={T.textMid}/></button>
-                              <button onClick={()=>setConfirmPurch({assetId:a.id,purchaseId:p.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
-                            </div>
-                      </div>
-                    );})}
-                    {editPurch?.assetId===a.id&&(()=>{
-                      const ep=editPurch.purchase;
-                      const curSym=CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency;
-                      const r=a.currency!=="ILS"?(+ep.rateUsed||+a.rateUsed||3.68):1;
-                      const shares=+ep.shares||0;
-                      const price=+ep.price||0;
-                      const commission=+ep.commission||0;
-                      const subtotal=shares*price;
-                      const totalForeign=subtotal-commission;
-                      const totalILS=totalForeign*r;
-                      const effectivePrice=shares>0?subtotal/shares:0;
-                      return(
-                        <div style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:12,padding:14,marginTop:8}}>
-                          <div style={{fontSize:12,fontWeight:700,color:T.navy,marginBottom:12}}>עריכת קנייה</div>
-                          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                              <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>כמות יחידות</div><Inp type="number" placeholder="0" value={ep.shares} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,shares:e.target.value}}))}/></div>
-                              <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער קנייה ({curSym})</div><Inp type="number" placeholder="0" value={ep.price} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,price:e.target.value}}))}/></div>
-                            </div>
-                            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                              <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({curSym})</div><Inp type="number" placeholder="0" value={ep.commission===0||ep.commission===""?"":ep.commission} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,commission:e.target.value}}))}/></div>
-                            </div>
-                            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                              {a.currency!=="ILS"&&<div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder={String(currentRates?.USD||"")} value={ep.rateUsed||""} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,rateUsed:e.target.value}}))}/></div>}
-                              <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={ep.date} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,date:e.target.value}}))}/></div>
-                            </div>
-                            {shares>0&&price>0&&(
-                              <div style={{background:"#fff",border:`1px solid ${T.navyBorder}`,borderRadius:10,padding:"10px 14px",display:"flex",flexDirection:"column",gap:4}}>
-                                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>מחיר ליחידה</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>{curSym}{fmtNum(effectivePrice)}</span></div>
-                                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>סה״כ {curSym}</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>{curSym}{fmtNum(totalForeign)}</span></div>
-                                {a.currency!=="ILS"&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>סה״כ ₪</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>₪{fmtNum(totalILS)}</span></div>}
-                                <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.navyBorder}`,paddingTop:4,marginTop:2}}><span style={{fontSize:12,fontWeight:700,color:T.textMid}}>עלות סופית</span><span style={{fontSize:13,fontWeight:700,color:T.navy}}>₪{fmtNum(totalILS)}</span></div>
+                    {isOpen(a.id,"p")&&(
+                      <div style={{borderRadius:10,overflow:"hidden",border:`1px solid ${T.navyBorder}`}}>
+                        {a.purchases.sort((x,y)=>new Date(y.date)-new Date(x.date)).map((p,pi)=>{
+                          const rate=a.currency!=="ILS"?(+p.rateUsed||+a.rateUsed||currentRates?.USD||3.68):1;
+                          const totalFx=+p.shares*+p.price+(+p.commission||0);
+                          const totalIls=totalFx*rate;
+                          return[
+                          <div key={p.id}
+                            style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                              padding:"8px 12px",
+                              borderBottom:pi<a.purchases.length-1?`1px solid ${T.navyBorder}`:"none",
+                              background:pi%2===0?T.navyLight:"#ffffff"}}>
+                            <div>
+                              <div style={{fontSize:12,fontWeight:600,color:T.text}}>
+                                {new Date(p.date).toLocaleDateString("he-IL")}
                               </div>
-                            )}
-                            <div style={{display:"flex",gap:8}}>
-                              <Btn onClick={()=>updatePurchase({assetId:a.id,purchase:{...ep,shares:+ep.shares,price:+ep.price,commission:+ep.commission||0,rateUsed:+ep.rateUsed||+a.rateUsed||3.68}})} style={{flex:1,padding:"10px"}}>שמירה</Btn>
-                              <Btn variant="secondary" onClick={()=>setEditPurch(null)} style={{flex:1,padding:"10px"}}>ביטול</Btn>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <div style={{textAlign:"left"}}>
+                                <div style={{fontSize:12,fontWeight:700,color:T.navy}}>
+                                  +{fmt(totalIls)}
+                                </div>
+                                {a.currency!=="ILS"&&(
+                                  <div style={{fontSize:10,color:T.textSub}}>
+                                    {p.shares} יח׳ × {a.currency!=="ILS"?"$":"₪"}{fmtNum(+p.price)}
+                                    {a.currency!=="ILS"&&p.rateUsed&&` · שער ${fmtNum(+p.rateUsed)}`}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{display:"flex",gap:4}}>
+                                <button onClick={()=>setEditPurch({assetId:a.id,purchase:{...p,rateUsed:String(p.rateUsed||a.rateUsed||"")}})}
+                                  style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,
+                                    padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                                  <Icon name="pencil" size={11} color={T.textMid}/>
+                                </button>
+                                <button onClick={()=>setConfirmPurch({assetId:a.id,purchaseId:p.id})}
+                                  style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,
+                                    padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                                  <Icon name="trash" size={11} color={T.danger}/>
+                                </button>
+                              </div>
+                            </div>
+                          </div>,
+                          editPurch?.assetId===a.id&&editPurch?.purchase?.id===p.id&&(()=>{
+                            const ep=editPurch.purchase;
+                            const curSym=CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency;
+                            const r=a.currency!=="ILS"?(+ep.rateUsed||+a.rateUsed||3.68):1;
+                            const shares=+ep.shares||0;
+                            const price=+ep.price||0;
+                            const commission=+ep.commission||0;
+                            const subtotal=shares*price;
+                            const totalForeign=subtotal-commission;
+                            const totalILS=totalForeign*r;
+                            const effectivePrice=shares>0?subtotal/shares:0;
+                            return(
+                              <div key={`edit-${p.id}`} style={{padding:12,background:T.navyLight,
+                                borderBottom:pi<a.purchases.length-1?`1px solid ${T.navyBorder}`:"none"}}>
+                                <div style={{fontSize:12,fontWeight:700,color:T.navy,marginBottom:12}}>עריכת קנייה</div>
+                                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                                    <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>כמות יחידות</div><Inp type="number" placeholder="0" value={ep.shares} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,shares:e.target.value}}))}/></div>
+                                    <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער קנייה ({curSym})</div><Inp type="number" placeholder="0" value={ep.price} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,price:e.target.value}}))}/></div>
+                                  </div>
+                                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                                    <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>עמלה ({curSym})</div><Inp type="number" placeholder="0" value={ep.commission===0||ep.commission===""?"":ep.commission} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,commission:e.target.value}}))}/></div>
+                                  </div>
+                                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                                    {a.currency!=="ILS"&&<div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>שער המרה לש״ח</div><Inp type="number" placeholder="שער המרה" value={ep.rateUsed??""} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,rateUsed:e.target.value}}))}/></div>}
+                                    <div style={{flex:"1 1 120px"}}><div style={{fontSize:10,color:T.textMid,fontWeight:600,marginBottom:3}}>תאריך</div><Inp type="date" value={ep.date} onChange={e=>setEditPurch(v=>({...v,purchase:{...v.purchase,date:e.target.value}}))}/></div>
+                                  </div>
+                                  {shares>0&&price>0&&(
+                                    <div style={{background:"#fff",border:`1px solid ${T.navyBorder}`,borderRadius:10,padding:"10px 14px",display:"flex",flexDirection:"column",gap:4}}>
+                                      <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>מחיר ליחידה</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>{curSym}{fmtNum(effectivePrice)}</span></div>
+                                      <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>סה״כ {curSym}</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>{curSym}{fmtNum(totalForeign)}</span></div>
+                                      {a.currency!=="ILS"&&<div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:11,color:T.textMid}}>סה״כ ₪</span><span style={{fontSize:12,fontWeight:600,color:T.text}}>₪{fmtNum(totalILS)}</span></div>}
+                                      <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.navyBorder}`,paddingTop:4,marginTop:2}}><span style={{fontSize:12,fontWeight:700,color:T.textMid}}>עלות סופית</span><span style={{fontSize:13,fontWeight:700,color:T.navy}}>₪{fmtNum(totalILS)}</span></div>
+                                    </div>
+                                  )}
+                                  <div style={{display:"flex",gap:8}}>
+                                    <Btn onClick={()=>updatePurchase({assetId:a.id,purchase:{...ep,shares:+ep.shares,price:+ep.price,commission:+ep.commission||0,rateUsed:+ep.rateUsed||+a.rateUsed||3.68}})} style={{flex:1,padding:"10px"}}>שמירה</Btn>
+                                    <Btn variant="secondary" onClick={()=>setEditPurch(null)} style={{flex:1,padding:"10px"}}>ביטול</Btn>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ];})}
+                      </div>
+                    )}
                     {addPurchaseId===a.id&&<TradeForm mode="buy" form={purchaseForm} setForm={setPurchaseForm} onSave={()=>savePurchase(a.id)} onCancel={()=>setAddPurchaseId(null)} currency={a.currency} currentRates={currentRates}/>}
                     {((a.sales||[]).length>0||portfolioView==="active")&&(
                       <div style={{marginTop:12}}>
@@ -4017,7 +4065,7 @@ export default function App(){
     if(conceptsRes.data)setMenuConceptsList(conceptsRes.data.map(c=>c.label));
     if(assetsRes.data){
       const txs=txRes.data||[];const divs=divRes.data||[];
-      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,alertPct:a.alert_pct||null,alertDirection:a.alert_direction||'both',purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
+      setAssets(assetsRes.data.map(a=>({id:a.id,security:a.security||a.label||'',currency:a.currency||'USD',rateUsed:a.rate_used||3.68,alertPct:a.alert_pct||null,alertDirection:a.alert_direction||'both',purchases:txs.filter(t=>t.asset_id===a.id&&t.type==='buy').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,rateUsed:t.rate_used||a.rate_used||3.68})),sales:txs.filter(t=>t.asset_id===a.id&&t.type==='sell').map(t=>({id:t.id,shares:t.shares,price:t.price,commission:t.commission||0,date:t.date,taxRate:t.tax_rate||25,rateUsed:t.rate_used||1}))})));
       setDividends(divs.map(d=>({id:d.id,assetId:d.asset_id,amount:d.amount,currency:d.currency||'USD',rateUsed:d.rate_used||1,date:d.date,taxRate:d.tax_rate||25,notes:d.notes||''})));
     }
     if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));

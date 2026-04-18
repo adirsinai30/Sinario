@@ -1241,19 +1241,19 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
           </div>
         ))}
         {done.length>0&&(<>
-          <div style={{display:"flex",alignItems:"center",padding:"9px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-            <div style={{width:24,flexShrink:0}}/>
-            <div style={{flex:1,fontSize:10,color:T.textSub,fontWeight:700,letterSpacing:.5,textAlign:"right",paddingRight:10}}>נרכשו</div>
-            <div style={{width:1,height:14,background:T.border,marginLeft:8,flexShrink:0}}/>
-            <div style={{width:COL_QTY+40,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
-            <div style={{width:22,flexShrink:0}}/>
-          </div>
+        <div style={{display:"flex",alignItems:"center",padding:"7px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+          <div style={{width:20,flexShrink:0}}/>
+          <div style={{flex:1,fontSize:10,color:T.textSub,fontWeight:700,letterSpacing:.5,textAlign:"right",paddingRight:10}}>נרכשו</div>
+          <div style={{width:1,height:14,background:T.border,marginLeft:8,flexShrink:0}}/>
+          <div style={{width:82,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
+          <div style={{width:20,flexShrink:0}}/>
+        </div>
           {done.map((g,i)=>(
             <div key={g.id} style={{display:"flex",alignItems:"center",padding:"7px 14px",opacity:.4,borderBottom:i<done.length-1?`1px solid ${T.border}`:"none"}}>
               <button onClick={()=>toggle(g.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.navy}`,background:T.navy,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:10}}>✓</span></button>
               <div style={{flex:1,fontSize:13,color:T.textSub,textDecoration:"line-through",textAlign:"right",paddingRight:10}}>{highlight(g.name,searchQ)}</div>
               <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
-              <span style={{width:COL_QTY+40,fontSize:12,color:T.textSub,textAlign:"center",flexShrink:0}}>{g.qty}{g.unit?` ${g.unit}`:""}</span>
+              <span style={{width:COL_QTY+20,fontSize:12,color:T.textSub,textAlign:"center",flexShrink:0}}>{g.qty}{g.unit?` ${g.unit}`:""}</span>
               <div style={{width:22,flexShrink:0}}/>
             </div>
           ))}

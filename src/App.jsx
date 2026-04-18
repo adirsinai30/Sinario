@@ -2275,12 +2275,12 @@ ${newsContext}`;
                             <div style={{display:"flex",alignItems:"center",gap:8}}>
                               <div style={{textAlign:"left"}}>
                                 <div style={{fontSize:12,fontWeight:700,color:T.navy}}>
-                                  +{fmt(totalIls)}
+                                  {fmt(totalIls)}
                                 </div>
                                 {a.currency!=="ILS"&&(
                                   <div style={{fontSize:10,color:T.textSub}}>
-                                    {p.shares} יח׳ × {a.currency!=="ILS"?"$":"₪"}{fmtNum(+p.price)}
-                                    {a.currency!=="ILS"&&p.rateUsed&&` · שער ${fmtNum(+p.rateUsed)}`}
+                                    {p.shares} יח׳ · {a.currency!=="ILS"?"$":"₪"}{fmtNum(+p.price)} ·
+                                    {a.currency!=="ILS"&&p.rateUsed&&` ₪${fmtNum(+p.rateUsed)}`}
                                   </div>
                                 )}
                               </div>
@@ -2446,7 +2446,7 @@ ${newsContext}`;
                           {assetDividends(a.id).sort((x,y)=>new Date(y.date)-new Date(x.date)).map((d,di)=>[
                             <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:di<assetDividends(a.id).length-1?"1px solid #dcfce7":"none",background:di%2===0?"#f0faf4":"#fff"}}>
                               <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{new Date(d.date).toLocaleDateString("he-IL")}</div>{d.notes&&<div style={{fontSize:10,color:T.textSub}}>{d.notes}</div>}</div>
-                              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.success}}>+{fmt((+d.amount)*(+d.rateUsed||1))}</div>{a.currency!=="ILS"&&<div style={{fontSize:10,color:T.textSub}}>{d.amount} {CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency}</div>}</div>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:T.success}}>+{fmt((+d.amount)*(+d.rateUsed||1))}</div>{a.currency!=="ILS"&&<div style={{fontSize:10,color:T.textSub}}>{CURRENCIES.find(c=>c.code===a.currency)?.symbol||a.currency}{d.amount}</div>}</div>
                               <div style={{display:"flex",gap:4}}>
                                 <button onClick={()=>setEditDiv({assetId:a.id,dividend:{...d}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="pencil" size={11} color={T.textMid}/></button>
                                 <button onClick={()=>setConfirmDiv(d.id)} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
@@ -3487,7 +3487,6 @@ ${(item.sections||[]).map(s=>
                   {groceryLoading
                     ?<div style={{width:13,height:13,borderRadius:"50%",border:"2px solid rgba(30,58,95,.3)",borderTop:"2px solid "+T.navy,animation:"spin 1s linear infinite"}}/>
                     :<Icon name="basket" size={13} color={T.navy}/>}
-                  {/* <span>{groceryLoading?"מנתח...":""}</span> */}
                 </button>
               )}
               <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>

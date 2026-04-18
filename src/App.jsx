@@ -3480,14 +3480,14 @@ ${(item.sections||[]).map(s=>
               {sel.type==="menu"&&<button onClick={()=>exportMenuPDF(sel)} style={{display:"flex",alignItems:"center",padding:"5px 8px",borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:"pointer"}}><Icon name="download" size={13} color={T.navy}/></button>}
               {(sel.type==="recipe"||sel.type==="menu")&&(
                 <button onClick={()=>generateGroceryList(sel)} disabled={groceryLoading}
-                style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",
+                style={{display:"flex",alignItems:"center",padding:"5px 8px",
                   borderRadius:8,border:`1px solid ${T.navyBorder}`,background:T.navyLight,
                   color:T.navy,fontSize:12,fontFamily:T.font,fontWeight:600,cursor:groceryLoading?"wait":"pointer",
                   opacity:groceryLoading?0.6:1}}>
                   {groceryLoading
                     ?<div style={{width:13,height:13,borderRadius:"50%",border:"2px solid rgba(30,58,95,.3)",borderTop:"2px solid "+T.navy,animation:"spin 1s linear infinite"}}/>
                     :<Icon name="basket" size={13} color={T.navy}/>}
-                  <span>{groceryLoading?"מנתח...":"לרשימת קניות"}</span>
+                  {/* <span>{groceryLoading?"מנתח...":""}</span> */}
                 </button>
               )}
               <ActionBtns onEdit={()=>openEdit(sel)} onDelete={()=>setConfirmId(sel.id)}/>

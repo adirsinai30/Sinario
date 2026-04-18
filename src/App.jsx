@@ -1219,7 +1219,7 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
           <div style={{width:22,flexShrink:0}}/>
         </div>
         {active.map((g,i)=>(
-          <div key={g.id} style={{display:"flex",alignItems:"center",padding:"9px 14px",borderBottom:i<active.length-1||done.length>0?`1px solid ${T.border}`:"none"}}>
+          <div key={g.id} style={{display:"flex",alignItems:"center",padding:"7px 14px",borderBottom:i<active.length-1||done.length>0?`1px solid ${T.border}`:"none"}}>
             <button onClick={()=>toggle(g.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.borderHover}`,background:"transparent",cursor:"pointer",flexShrink:0}}/>
             <input type="text" value={g.name}
               onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,name:e.target.value}:x))}
@@ -1247,7 +1247,7 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
             <div style={{width:22,flexShrink:0}}/>
           </div>
           {done.map((g,i)=>(
-            <div key={g.id} style={{display:"flex",alignItems:"center",padding:"8px 14px",opacity:.4,borderBottom:i<done.length-1?`1px solid ${T.border}`:"none"}}>
+            <div key={g.id} style={{display:"flex",alignItems:"center",padding:"7px 14px",opacity:.4,borderBottom:i<done.length-1?`1px solid ${T.border}`:"none"}}>
               <button onClick={()=>toggle(g.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.navy}`,background:T.navy,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"#fff",fontSize:10}}>✓</span></button>
               <div style={{flex:1,fontSize:13,color:T.textSub,textDecoration:"line-through",textAlign:"right",paddingRight:10}}>{highlight(g.name,searchQ)}</div>
               <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
@@ -3058,9 +3058,30 @@ ${(item.sections||[]).map(s=>
         };
       });
 
+      const MEAT_KG=['בשר','עוף','פרגית','חזה עוף','ירך','כנף','לבב','קבב','המבורגר',
+        'נקניקיית','מרגז','שניצל','סטייק','כתף','אנטריקוט','צלעות','בשר טחון',
+        'עוף שלם','חצי עוף','רבע עוף','פילה','דג ','סלמון','אמנון','בורי','מוסר'];
+
+      const fixedItems=groceryItems.map(item=>{
+        const name=item.name;
+        const isMeat=MEAT_KG.some(k=>name.includes(k));
+        if(!isMeat) return item;
+        const newUnit='ק"ג';
+        let newQty=item.qty;
+        const qtyNum=parseFloat(item.qty)||1;
+        if(item.unit==="יח'"){
+          if(qtyNum<3){
+            newQty=String(qtyNum);
+          } else if(qtyNum<=20){
+            newQty=String(Math.round(qtyNum*0.3*10)/10);
+          }
+        }
+        return{...item,unit:newUnit,qty:newQty};
+      });
+
       const listId=uid();
-      const newList={id:listId,name:item.name,items:groceryItems};
-      const {error}=await supabase.from('grocery_lists').upsert({id:listId,name:item.name,items:groceryItems});
+      const newList={id:listId,name:item.name,items:fixedItems};
+      const {error}=await supabase.from('grocery_lists').upsert({id:listId,name:item.name,items:fixedItems});
       if(error)console.error('grocery save error:',error);
       setGroceryLists(prev=>[...prev,newList]);
       setGroceryActiveId(listId);

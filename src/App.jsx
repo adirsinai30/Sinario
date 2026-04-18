@@ -1211,31 +1211,33 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
 
       {/* Items list */}
       <Card style={{padding:0,overflow:"hidden"}}>
-        <div style={{display:"flex",alignItems:"center",padding:"9px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-          <div style={{width:24,flexShrink:0}}/>
+        <div style={{display:"flex",alignItems:"center",padding:"7px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+          <div style={{width:20,flexShrink:0}}/>
           <div style={{flex:1,fontSize:10,color:T.textSub,fontWeight:700,letterSpacing:.5,textAlign:"right",paddingRight:10}}>פריט</div>
           <div style={{width:1,height:14,background:T.border,marginLeft:8,flexShrink:0}}/>
-          <div style={{width:COL_QTY+40,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
-          <div style={{width:22,flexShrink:0}}/>
+          <div style={{width:82,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
+          <div style={{width:20,flexShrink:0}}/>
         </div>
         {active.map((g,i)=>(
           <div key={g.id} style={{display:"flex",alignItems:"center",padding:"7px 14px",borderBottom:i<active.length-1||done.length>0?`1px solid ${T.border}`:"none"}}>
             <button onClick={()=>toggle(g.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.borderHover}`,background:"transparent",cursor:"pointer",flexShrink:0}}/>
             <input type="text" value={g.name}
               onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,name:e.target.value}:x))}
-              style={{flex:1,fontSize:13,color:T.text,fontWeight:500,textAlign:"right",paddingRight:10,
-                background:"transparent",border:"none",outline:"none",fontFamily:T.font,
-                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}/>
+              style={{flex:1,fontSize:13,color:T.text,fontWeight:500,textAlign:"right",paddingRight:10,background:"transparent",border:"none",outline:"none",fontFamily:T.font,minWidth:0}}/>
             <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
-            <div style={{display:"flex",gap:3,width:COL_QTY+40,flexShrink:0,alignItems:"center"}}>
-              <input type="number" value={g.qty||""} onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,qty:e.target.value}:x))} style={{width:36,background:"transparent",border:"none",padding:"4px 2px",color:T.textMid,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}/>
-              <select value={g.unit||""} onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,unit:e.target.value}:x))} style={{width:62,background:"transparent",border:"none",padding:"4px 2px",paddingLeft:14,color:g.unit?T.textMid:T.textSub,fontSize:11,outline:"none",fontFamily:T.font,appearance:"none",WebkitAppearance:"none"}}>
+            <div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0}}>
+              <input type="number" value={g.qty||""}
+                onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,qty:e.target.value}:x))}
+                style={{width:32,background:"transparent",border:"none",padding:"2px",color:T.textMid,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}/>
+              <select value={g.unit||""}
+                onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,unit:e.target.value}:x))}
+                style={{width:46,background:"transparent",border:"none",padding:"2px",color:g.unit?T.textMid:T.textSub,fontSize:11,outline:"none",fontFamily:T.font,appearance:"none",WebkitAppearance:"none"}}>
                 <option value="יח'">יח'</option>
-                <option value="ק״ג">ק"ג</option>
+                <option value='ק"ג'>ק"ג</option>
                 <option value="ליטר">ליטר</option>
               </select>
             </div>
-            <button onClick={()=>remove(g.id)} style={{background:"none",border:"none",color:"rgb(168,162,158)",cursor:"pointer",fontSize:20,lineHeight:1,width:22,textAlign:"center",flexShrink:0}}>×</button>
+            <button onClick={()=>remove(g.id)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:16,lineHeight:1,width:20,textAlign:"center",flexShrink:0,marginRight:2}}>×</button>
           </div>
         ))}
         {done.length>0&&(<>

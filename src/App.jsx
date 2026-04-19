@@ -1155,24 +1155,40 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
   const [newListName,setNewListName]=useState("");
   const [showNewList,setShowNewList]=useState(false);
   const [searchQ,setSearchQ]=useState("");
+  const [dragIdx,setDragIdx]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const [listSections,setListSections]=useState([]);
+  const [showAddSection,setShowAddSection]=useState(false);
+  const [newSectionName,setNewSectionName]=useState("");
 
   const activeList=lists.find(l=>l.id===activeListId)||lists[0]||{id:"default",name:"רשימה",items:[]};
   const grocery=activeList.items||[];
   const setGrocery=items=>setLists(lists.map(l=>l.id===activeList.id?{...l,items}:l));
 
+  const addSection=()=>{
+    if(!newSectionName.trim())return;
+    const newSec={id:uid(),type:"section",title:newSectionName.trim()};
+    const unchecked=grocery.filter(g=>!g.checked||(g.type==="section"));
+    const checked=grocery.filter(g=>g.checked&&g.type!=="section");
+    setGrocery([...unchecked,newSec,...checked]);
+    setNewSectionName("");setShowAddSection(false);
+  };
+
   const add=()=>{
     if(!newItem.name.trim())return;
-    setGrocery([...grocery,{id:uid(),name:newItem.name.trim(),qty:newItem.qty||"1",unit:newItem.unit||"יח'",checked:false}]);
+    setGrocery([...grocery,{id:uid(),type:"item",name:newItem.name.trim(),qty:newItem.qty||"1",unit:newItem.unit||"יח'",checked:false}]);
     setNewItem({name:"",qty:"",unit:"יח'"});
   };
   const toggle=id=>setGrocery(grocery.map(g=>g.id===id?{...g,checked:!g.checked}:g));
   const remove=id=>setGrocery(grocery.filter(g=>g.id!==id));
-  const uncheckAll=()=>setGrocery(grocery.map(g=>({...g,checked:false})));
-  const clearDone=()=>{setGrocery(grocery.filter(g=>!g.checked));setConfirmClear(false);};
-  const active=grocery.filter(g=>!g.checked && (!searchQ || g.name.toLowerCase().includes(searchQ.toLowerCase())));
-  const done=grocery.filter(g=>g.checked && (!searchQ || g.name.toLowerCase().includes(searchQ.toLowerCase())));
-  const activeAll=grocery.filter(g=>!g.checked);
-  const doneAll=grocery.filter(g=>g.checked);
+  const uncheckAll=()=>setGrocery(grocery.map(g=>g.type==="section"?g:{...g,checked:false}));
+  const clearDone=()=>{setGrocery(grocery.filter(g=>g.type==="section"||!g.checked));setConfirmClear(false);};
+  const groceryItems=grocery.filter(g=>g.type==="item"||!g.type);
+  const active=groceryItems.filter(g=>!g.checked&&(!searchQ||g.name.toLowerCase().includes(searchQ.toLowerCase())));
+  const done=groceryItems.filter(g=>g.checked&&(!searchQ||g.name.toLowerCase().includes(searchQ.toLowerCase())));
+  const activeAll=groceryItems.filter(g=>!g.checked);
+  const doneAll=groceryItems.filter(g=>g.checked);
+  const displayItems=grocery.filter(g=>g.type==="section"||(( g.type==="item"||!g.type)&&!g.checked&&(!searchQ||g.name.toLowerCase().includes(searchQ.toLowerCase()))));
   const COL_QTY=60;
 
   const createList=()=>{
@@ -1255,37 +1271,104 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
         </div>
       </Card>
 
+      {/* Add section */}
+      <div style={{display:"flex",justifyContent:"flex-end"}}>
+        {showAddSection
+          ?<div style={{display:"flex",gap:6,alignItems:"center",background:T.surface,border:`1px solid ${T.navyBorder}`,borderRadius:10,padding:"6px 10px"}}>
+            <Inp value={newSectionName} onChange={e=>setNewSectionName(e.target.value)}
+              placeholder="שם החלק..."
+              onKeyDown={e=>{if(e.key==="Enter")addSection();if(e.key==="Escape")setShowAddSection(false);}}
+              style={{width:160,fontSize:12,padding:"5px 10px"}} autoFocus/>
+            <Btn onClick={addSection} style={{padding:"6px 12px",fontSize:12}}>הוספה</Btn>
+            <button onClick={()=>{setShowAddSection(false);setNewSectionName("");}} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:16}}>×</button>
+          </div>
+          :<button onClick={()=>setShowAddSection(true)}
+            style={{fontSize:12,color:T.navy,background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:10,padding:"7px 14px",cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:14}}>+</span> הוספת חלק
+          </button>
+        }
+      </div>
+
       {/* Items list */}
       <Card style={{padding:0,overflow:"hidden"}}>
         <div style={{display:"flex",alignItems:"center",padding:"7px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+          <div style={{width:20,flexShrink:0}}/>
           <div style={{width:20,flexShrink:0}}/>
           <div style={{flex:1,fontSize:10,color:T.textSub,fontWeight:700,letterSpacing:.5,textAlign:"right",paddingRight:10}}>פריט</div>
           <div style={{width:1,height:14,background:T.border,marginLeft:8,flexShrink:0}}/>
           <div style={{width:82,fontSize:10,color:T.textSub,fontWeight:700,textAlign:"center",flexShrink:0}}>כמות</div>
           <div style={{width:20,flexShrink:0}}/>
         </div>
-        {active.map((g,i)=>(
-          <div key={g.id} style={{display:"flex",alignItems:"center",padding:"7px 14px",borderBottom:i<active.length-1||done.length>0?`1px solid ${T.border}`:"none"}}>
-            <button onClick={()=>toggle(g.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.borderHover}`,background:"transparent",cursor:"pointer",flexShrink:0}}/>
-            <input type="text" value={g.name}
-              onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,name:e.target.value}:x))}
-              style={{flex:1,fontSize:13,color:T.text,fontWeight:500,textAlign:"right",paddingRight:10,background:"transparent",border:"none",outline:"none",fontFamily:T.font,minWidth:0}}/>
-            <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
-            <div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0}}>
-              <input type="number" value={g.qty||""}
-                onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,qty:e.target.value}:x))}
-                style={{width:32,background:"transparent",border:"none",padding:"2px",color:T.textMid,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}/>
-              <select value={g.unit||""}
-                onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,unit:e.target.value}:x))}
-                style={{width:46,background:"transparent",border:"none",padding:"2px",color:g.unit?T.textMid:T.textSub,fontSize:11,outline:"none",fontFamily:T.font,appearance:"none",WebkitAppearance:"none"}}>
-                <option value="יח'">יח'</option>
-                <option value='ק"ג'>ק"ג</option>
-                <option value="ליטר">ליטר</option>
-              </select>
+        {displayItems.map((g,i)=>{
+          const dragHandlers={
+            draggable:true,
+            onDragStart:()=>setDragIdx(i),
+            onDragOver:e=>{e.preventDefault();setDragOver(i);},
+            onDragEnd:()=>{
+              if(dragIdx!==null&&dragOver!==null&&dragIdx!==dragOver){
+                const arr=[...displayItems];
+                const [m]=arr.splice(dragIdx,1);
+                arr.splice(dragOver,0,m);
+                const doneItems=grocery.filter(g=>g.type==="item"&&g.checked);
+                setGrocery([...arr,...doneItems]);
+              }
+              setDragIdx(null);setDragOver(null);
+            }
+          };
+          if(g.type==="section") return(
+            <div key={g.id} {...dragHandlers}
+              style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                padding:"6px 14px",background:T.bg,
+                borderBottom:`1px solid ${T.border}`,
+                opacity:dragIdx===i?0.5:1,cursor:"grab"}}>
+              <button onClick={()=>{
+                const doneItems=grocery.filter(g=>g.type==="item"&&g.checked);
+                const rest=displayItems.filter((_,j)=>j!==i);
+                setGrocery([...rest,...doneItems]);
+              }} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:14,padding:0}}>×</button>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                  <div style={{width:12,height:1.5,background:T.textSub,borderRadius:2}}/>
+                  <div style={{width:12,height:1.5,background:T.textSub,borderRadius:2}}/>
+                </div>
+                <span style={{fontSize:12,fontWeight:700,color:T.navy}}>{g.title}</span>
+              </div>
             </div>
-            <button onClick={()=>remove(g.id)} style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:16,lineHeight:1,width:20,textAlign:"center",flexShrink:0,marginRight:2}}>×</button>
-          </div>
-        ))}
+          );
+          return(
+            <div key={g.id} {...dragHandlers}
+              style={{display:"flex",alignItems:"center",padding:"7px 14px",
+                borderBottom:i<displayItems.length-1?`1px solid ${T.border}`:"none",
+                opacity:dragIdx===i?0.5:1,
+                background:dragOver===i?T.navyLight:"transparent"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:2,flexShrink:0,marginLeft:8,cursor:"grab"}}>
+                <div style={{width:12,height:1.5,background:T.border,borderRadius:2}}/>
+                <div style={{width:12,height:1.5,background:T.border,borderRadius:2}}/>
+                <div style={{width:12,height:1.5,background:T.border,borderRadius:2}}/>
+              </div>
+              <button onClick={()=>toggle(g.id)}
+                style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${T.borderHover}`,background:"transparent",cursor:"pointer",flexShrink:0}}/>
+              <input type="text" value={g.name}
+                onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,name:e.target.value}:x))}
+                style={{flex:1,fontSize:13,color:T.text,fontWeight:500,textAlign:"right",paddingRight:10,background:"transparent",border:"none",outline:"none",fontFamily:T.font,minWidth:0}}/>
+              <div style={{width:1,alignSelf:"stretch",background:T.border,marginLeft:8,flexShrink:0}}/>
+              <div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0}}>
+                <input type="number" value={g.qty||""}
+                  onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,qty:e.target.value}:x))}
+                  style={{width:32,background:"transparent",border:"none",padding:"2px",color:T.textMid,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}/>
+                <select value={g.unit||"יח'"}
+                  onChange={e=>setGrocery(grocery.map(x=>x.id===g.id?{...x,unit:e.target.value}:x))}
+                  style={{width:46,background:"transparent",border:"none",padding:"2px",color:T.textMid,fontSize:11,outline:"none",fontFamily:T.font,appearance:"none",WebkitAppearance:"none"}}>
+                  <option value="יח'">יח'</option>
+                  <option value='ק"ג'>ק"ג</option>
+                  <option value="ליטר">ליטר</option>
+                </select>
+              </div>
+              <button onClick={()=>remove(g.id)}
+                style={{background:"none",border:"none",color:T.textSub,cursor:"pointer",fontSize:16,lineHeight:1,width:20,textAlign:"center",flexShrink:0}}>×</button>
+            </div>
+          );
+        })}
         {done.length>0&&(<>
         <div style={{display:"flex",alignItems:"center",padding:"7px 14px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
           <div style={{width:20,flexShrink:0}}/>
@@ -3172,6 +3255,7 @@ ${(item.sections||[]).map(s=>
         if(!hasQtyUnit)partialData=true;
         return{
           id:uid(),
+          type:"item",
           name:i.name||"",
           qty:i.qty||"",
           unit:i.unit||"",
@@ -4471,7 +4555,7 @@ export default function App(){
     if(watchlistRes.data&&watchlistRes.data.length>0)setWatchlist(watchlistRes.data.map(w=>w.ticker));
     if(mealTypesRes.data)setMealTypesList(mealTypesRes.data.map(c=>c.label));
     if(groceryRes.data&&groceryRes.data.length>0){
-      setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:l.items||[]})));
+      setGroceryLists(groceryRes.data.map(l=>({id:l.id,name:l.name,items:(l.items||[]).map(i=>({...i,type:i.type||"item"}))})));
     }
     if(deviceRes.data?.owner)setDefaultWho(deviceRes.data.owner);
     if(snapshotsRes.data){

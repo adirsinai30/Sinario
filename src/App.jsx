@@ -959,15 +959,45 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
           <div style={{display:"flex",gap:16,alignItems:"center"}}>
           <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:14}}>חלוקה לקטגוריות</div>
-              {[...cats].sort((a,b)=>catSpent(b.id)-catSpent(a.id)).map(c=>{const sp=catSpent(c.id);return(
-                <div key={c.id} onClick={()=>setCatPopup({catId:c.id,label:c.label})} style={{marginBottom:11,cursor:"pointer"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}><CatIcon icon={c.icon} color={c.color} size={28}/><span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span></div>
-                    <span style={{fontSize:12,color:sp>c.budget?T.danger:T.textSub,flexShrink:0,fontWeight:sp>c.budget?600:400}}>{fmt(sp)}</span>
-                  </div>
-                  <PBar value={sp} max={c.budget||1} color={c.color||T.navy} h={4}/>
-                </div>
-              );})}
+              {(()=>{
+  const catList=[...cats].sort((a,b)=>catSpent(b.id)-catSpent(a.id));
+  const items=[...catList.map(c=>({type:"regular",c}))];
+  if(liveSpecialTotal>0){
+    const insertIdx=items.findIndex(({c})=>catSpent(c.id)<liveSpecialTotal);
+    const pos=insertIdx===-1?items.length:insertIdx;
+    items.splice(pos,0,{type:"special"});
+  }
+  return items.map(({type,c})=>{
+    if(type==="special") return(
+      <div key="__special__" onClick={()=>setCatPopup({catId:"__special__",label:"הוצאות מיוחדות"})}
+        style={{marginBottom:11,cursor:"pointer"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:28,height:28,borderRadius:10,background:T.navyLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <Icon name="sparkle" size={12} color={T.navy}/>
+            </div>
+            <span style={{fontSize:12,color:T.textMid,fontWeight:500}}>הוצאות מיוחדות</span>
+          </div>
+          <span style={{fontSize:12,color:T.textSub,flexShrink:0,fontWeight:400}}>{fmt(liveSpecialTotal)}</span>
+        </div>
+        <PBar value={liveSpecialTotal} max={totalBudget||1} color={T.navy} h={4}/>
+      </div>
+    );
+    const sp=catSpent(c.id);
+    return(
+      <div key={c.id} onClick={()=>setCatPopup({catId:c.id,label:c.label})} style={{marginBottom:11,cursor:"pointer"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+            <CatIcon icon={c.icon} color={c.color} size={28}/>
+            <span style={{fontSize:12,color:T.textMid,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</span>
+          </div>
+          <span style={{fontSize:12,color:sp>c.budget?T.danger:T.textSub,flexShrink:0,fontWeight:sp>c.budget?600:400}}>{fmt(sp)}</span>
+        </div>
+        <PBar value={sp} max={c.budget||1} color={c.color||T.navy} h={4}/>
+      </div>
+    );
+  });
+})()}
             </div>
             <Donut slices={cats.map(c=>({val:catSpent(c.id),color:c.color}))} size={140}/>
           </div>
@@ -1062,24 +1092,40 @@ function ExpensesTab({expenses,setExpenses,cats,month,year,specialItems,setSpeci
             <div style={{width:32,height:3,borderRadius:2,background:T.border,margin:"0 auto 16px"}}/>
             <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>{catPopup.label}</div>
             <div style={{fontSize:12,color:T.textSub,marginBottom:16}}>{MONTHS[month]} {year}</div>
-            {expenses
-              .filter(e=>e.catId===catPopup.catId)
-              .sort((a,b)=>new Date(b.date)-new Date(a.date))
-              .map((ex,i,arr)=>{
-                const cat=cats.find(c=>c.id===ex.catId);
-                return(
-                  <div key={ex.id}
-                    style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<arr.length-1?`1px solid ${T.border}`:"none"}}>
-                    <div>
-                      <div style={{fontSize:13,color:T.text,fontWeight:500}}>{ex.desc||"הוצאה"}</div>
-                      <div style={{fontSize:11,color:T.textSub,marginTop:2}}>{ex.who==="א"?"אדיר":"ספיר"} · {new Date(ex.date).toLocaleDateString("he-IL")}</div>
+            {catPopup.catId==="__special__"
+              ?specialItems
+                  .filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;})
+                  .sort((a,b)=>new Date(b.date)-new Date(a.date))
+                  .map((ex,i,arr)=>(
+                    <div key={ex.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<arr.length-1?`1px solid ${T.border}`:"none"}}>
+                      <div>
+                        <div style={{fontSize:13,color:T.text,fontWeight:500}}>{ex.desc||"הוצאה מיוחדת"}</div>
+                        <div style={{fontSize:11,color:T.textSub,marginTop:2}}>
+                          {ex.who==="א"?"אדיר":"ספיר"} · {new Date(ex.date).toLocaleDateString("he-IL")}
+                        </div>
+                      </div>
+                      <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(toILS(ex))}</div>
                     </div>
-                    <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(ex.amount)}</div>
-                  </div>
-                );
-              })}
-            {expenses.filter(e=>e.catId===catPopup.catId).length===0&&(
+                  ))
+              :expenses
+                  .filter(e=>e.catId===catPopup.catId)
+                  .sort((a,b)=>new Date(b.date)-new Date(a.date))
+                  .map((ex,i,arr)=>(
+                    <div key={ex.id}
+                      style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<arr.length-1?`1px solid ${T.border}`:"none"}}>
+                      <div>
+                        <div style={{fontSize:13,color:T.text,fontWeight:500}}>{ex.desc||"הוצאה"}</div>
+                        <div style={{fontSize:11,color:T.textSub,marginTop:2}}>{ex.who==="א"?"אדיר":"ספיר"} · {new Date(ex.date).toLocaleDateString("he-IL")}</div>
+                      </div>
+                      <div style={{fontSize:14,fontWeight:600,color:T.text}}>{fmt(ex.amount)}</div>
+                    </div>
+                  ))
+            }
+            {catPopup.catId!=="__special__"&&expenses.filter(e=>e.catId===catPopup.catId).length===0&&(
               <div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין הוצאות בקטגוריה זו החודש</div>
+            )}
+            {catPopup.catId==="__special__"&&specialItems.filter(i=>{const d=new Date(i.date);return d.getMonth()===month&&d.getFullYear()===year;}).length===0&&(
+              <div style={{textAlign:"center",color:T.textSub,padding:24,fontSize:13}}>אין הוצאות מיוחדות החודש</div>
             )}
           </div>
         </div>
@@ -1102,7 +1148,7 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
     }
   };
   const setActiveListId=(id)=>setGroceryActiveId(id);
-  const [newItem,setNewItem]=useState({name:"",qty:"",unit:""});
+  const [newItem,setNewItem]=useState({name:"",qty:"",unit:"יח'"});
   const [confirmClear,setConfirmClear]=useState(false);
   const [confirmDeleteListId,setConfirmDeleteListId]=useState(null);
   const [editingListName,setEditingListName]=useState(false);
@@ -1116,8 +1162,8 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
 
   const add=()=>{
     if(!newItem.name.trim())return;
-    setGrocery([...grocery,{id:uid(),name:newItem.name.trim(),qty:newItem.qty||"1",unit:newItem.unit||"",checked:false}]);
-    setNewItem({name:"",qty:"",unit:""});
+    setGrocery([...grocery,{id:uid(),name:newItem.name.trim(),qty:newItem.qty||"1",unit:newItem.unit||"יח'",checked:false}]);
+    setNewItem({name:"",qty:"",unit:"יח'"});
   };
   const toggle=id=>setGrocery(grocery.map(g=>g.id===id?{...g,checked:!g.checked}:g));
   const remove=id=>setGrocery(grocery.filter(g=>g.id!==id));
@@ -1202,7 +1248,7 @@ function GroceryTab({groceryLists,setGroceryLists,groceryActiveId,setGroceryActi
           <input type="number" placeholder="כמות" value={newItem.qty} onChange={e=>setNewItem({...newItem,qty:e.target.value})} style={{width:50,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 4px",color:T.text,fontSize:13,outline:"none",fontFamily:T.font,textAlign:"center"}}/>
           <select value={newItem.unit} onChange={e=>setNewItem({...newItem,unit:e.target.value})} style={{width:64,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 4px",color:newItem.unit?T.text:T.textSub,fontSize:12,outline:"none",fontFamily:T.font,textAlign:"center"}}>
             <option value="יח'">יח'</option>
-            <option value="ק״ג">ק"ג</option>
+            <option value='ק"ג'>ק"ג</option>
             <option value="ליטר">ליטר</option>
           </select>
           <Btn onClick={add} style={{padding:"10px 12px",flexShrink:0}}><Icon name="plus" size={13} color="#fff"/></Btn>
@@ -1366,9 +1412,17 @@ function TradeForm({mode,form,setForm,onSave,onCancel,currency,currentRates={},a
                 <span style={{fontSize:12,fontWeight:600,color:T.text}}>₪{fmtNum(totalILS)}</span>
               </div>
             )}
-            {!isBuy&&taxAmount>0&&(
+            {!isBuy&&profitILS>0&&(
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:11,color:T.danger}}>מס ({taxPct}%)</span>
+                <span style={{fontSize:11,color:T.textMid}}>רווח לפני מס</span>
+                <span style={{fontSize:12,color:profitILS>=0?T.success:T.danger}}>
+                  {profitILS>=0?"+":""}{fmt(profitILS)}
+                </span>
+              </div>
+            )}
+            {!isBuy&&profitILS>0&&taxAmount>0&&(
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontSize:11,color:T.danger}}>מס על רווח ({taxPct}%)</span>
                 <span style={{fontSize:12,color:T.danger}}>-₪{fmtNum(taxAmount)}</span>
               </div>
             )}
@@ -2146,7 +2200,6 @@ ${newsContext}`;
               <Card key={a.id} style={{padding:16}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,cursor:"pointer"}} onClick={()=>setExpandedId(isExpanded?null:a.id)}>
                   <div style={{flex:1}}>
-                    {/* ── סעיף 7ד: highlight ── */}
                     <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:3,display:"flex",alignItems:"center",flexWrap:"wrap",gap:4}}>
                       {highlight(a.security,searchQ)}
                       {alertTriggered&&alertDiff!==null&&(
@@ -2160,7 +2213,10 @@ ${newsContext}`;
                         </span>
                       )}
                     </div>
-                    <div style={{fontSize:11,color:T.textSub}}>{shrs>0?`${(n=>Number.isInteger(Number(n.toFixed(3)))?Number(n).toLocaleString():parseFloat(Number(n).toFixed(3)).toLocaleString(undefined,{maximumFractionDigits:3}))(shrs)} יחידות`:"נמכר"}{" · "}שער ממוצע {fmtForeign(avg,a.currency)}{" · "}{fmt(avg*rate)}/יח׳</div>
+                    {portfolioView==="active"
+                      ?<div style={{fontSize:11,color:T.textSub}}>{shrs>0?`${(n=>Number.isInteger(Number(n.toFixed(3)))?Number(n).toLocaleString():parseFloat(Number(n).toFixed(3)).toLocaleString(undefined,{maximumFractionDigits:3}))(shrs)} יחידות`:"נמכר"}{" · "}שער ממוצע {fmtForeign(avg,a.currency)}{" · "}{fmt(avg*rate)}/יח׳</div>
+                      :null
+                    }
                     {portfolioView==="active"?(
                       price?(
                         <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
@@ -2169,12 +2225,26 @@ ${newsContext}`;
                           {avg>0&&<span style={{fontSize:11,fontWeight:700,color:price>=avg?T.success:T.danger,background:price>=avg?T.successBg:T.dangerBg,border:`1px solid ${price>=avg?"#bbf7d0":T.dangerBorder}`,borderRadius:99,padding:"2px 8px"}}>{price>=avg?"+":""}{(((price-avg)/avg)*100).toFixed(2)}%</span>}
                         </div>
                       ):""
-                    ):(
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,fontWeight:700,color:realPnL>=0?T.success:T.danger,background:realPnL>=0?T.successBg:T.dangerBg,borderRadius:99,padding:"3px 10px",border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>{realPnL>=0?"+":""}({realPnLPct.toFixed(2)}%)</span>
-                        {price&&<span style={{fontSize:11,color:T.textSub}}>מחיר נוכחי: {fmtForeign(price,a.currency)} · {fmt(price*rate)}</span>}
-                      </div>
-                    )}
+                    ):(()=>{
+                      const lastSale=(a.sales||[]).sort((x,y)=>new Date(y.date)-new Date(x.date))[0];
+                      const avgSalePrice=(a.sales||[]).reduce((s,sl)=>s+ +sl.price* +sl.shares,0)/((a.sales||[]).reduce((s,sl)=>s+ +sl.shares,0)||1);
+                      return(
+                        <>
+                          <div style={{fontSize:11,color:T.textSub,marginTop:4}}>
+                            נמכר{lastSale?` · ${new Date(lastSale.date).toLocaleDateString("he-IL")}`:""} · שער ממוצע {a.currency!=="ILS"?"$":"₪"}{fmtNum(avgSalePrice)}/יח׳
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
+                            <span style={{fontSize:11,fontWeight:700,
+                              color:realPnL>=0?T.success:T.danger,
+                              background:realPnL>=0?T.successBg:T.dangerBg,
+                              borderRadius:99,padding:"2px 8px",
+                              border:`1px solid ${realPnL>=0?"#bbf7d0":T.dangerBorder}`}}>
+                              {realPnL>=0?"+":""}{realPnLPct.toFixed(2)}%
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
                     {portfolioView==="active"&&<div style={{fontSize:20,fontWeight:600,fontFamily:T.display,color:T.text}}>{fmt(currentValILS(a))}</div>}
@@ -2350,20 +2420,66 @@ ${newsContext}`;
                         <div style={{fontSize:11,fontWeight:700,color:T.danger,marginBottom:8,display:"flex",alignItems:"center"}}>
                       <span style={{cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center",gap:6}} onClick={()=>toggleSection(a.id,"s")}>
                             <Icon name="download" size={13} color={T.textMid}/>
-                            מכירות ({(a.sales||[]).length})
+                            מכירות ({(a.sales||[]).length}) · סה"כ {fmt((a.sales||[]).reduce((tot,s)=>{const r=a.currency!=="ILS"?(+s.rateUsed||+a.rateUsed||currentRates[a.currency]||1):1;const rev=(+s.shares*+s.price-(+s.commission||0));const grossPnl=(rev-+s.shares*avgBuyPrice(a))*r;const tax=grossPnl>0?grossPnl*(+s.taxRate||25)/100:0;return tot+rev*r-tax;},0))}
                           </span>
                         </div>
-                        {isOpen(a.id,"s")&&(a.sales||[]).map(s=>{const avgCost=avgBuyPrice(a);const revenue=+s.shares*+s.price-(+s.commission||0);const costOfSale=+s.shares*avgCost;const salePnl=(revenue-costOfSale)*rate;const pnlPos=salePnl>=0;return(
-                          <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px dashed ${T.border}`}}>
-                            <div><div style={{fontSize:12,fontWeight:600,color:T.text}}>{s.shares} יחידות × {fmtForeign(s.price,a.currency)}</div><div style={{fontSize:10,color:T.textSub}}>{new Date(s.date).toLocaleDateString("he-IL")}{s.commission>0&&` · עמלה ${fmtForeign(s.commission,a.currency)}`}</div></div>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{textAlign:"left"}}><div style={{fontSize:11,fontWeight:700,color:pnlPos?T.success:T.danger}}>{pnlPos?"+":""}{fmt(salePnl)}</div><div style={{fontSize:10,color:T.textSub}}>רווח/הפסד</div></div>
-                            <div style={{display:"flex",gap:4}}>
-                                  <button onClick={()=>setEditSale({assetId:a.id,sale:{...s}})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="pencil" size={11} color={T.textMid}/></button>
-                                  <button onClick={()=>setConfirmSale({assetId:a.id,saleId:s.id})} style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={11} color={T.danger}/></button>
-                                </div>
-                             </div>
+                        {isOpen(a.id,"s")&&(a.sales||[]).length>0&&(
+                          <div style={{borderRadius:10,overflow:"hidden",border:`1px solid ${T.dangerBorder}`}}>
+                            {(a.sales||[]).sort((x,y)=>new Date(y.date)-new Date(x.date)).map((s,si)=>{
+                              const avgCost=avgBuyPrice(a);
+                              const sRate=a.currency!=="ILS"?(+s.rateUsed||+a.rateUsed||currentRates[a.currency]||1):1;
+                              const revenue=(+s.shares*+s.price-(+s.commission||0));
+                              const costOfSale=+s.shares*avgCost;
+                              const grossPnl=(revenue-costOfSale)*sRate;
+                              const taxOnProfit=grossPnl>0?grossPnl*(+s.taxRate||25)/100:0;
+                              const salePnl=grossPnl-taxOnProfit;
+                              const pnlPos=salePnl>=0;
+                              return[
+                                <div key={s.id}
+                                  style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                                    padding:"8px 12px",
+                                    borderBottom:si<(a.sales||[]).length-1?`1px solid ${T.dangerBorder}`:"none",
+                                    background:si%2===0?"#fff5f5":"#ffffff"}}>
+                                  <div>
+                                    <div style={{fontSize:12,fontWeight:600,color:T.text}}>
+                                      {new Date(s.date).toLocaleDateString("he-IL")}
+                                    </div>
+                                  </div>
+                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <div style={{textAlign:"left"}}>
+                                      <div style={{fontSize:12,fontWeight:700,color:pnlPos?T.success:T.danger}}>
+                                        {pnlPos?"+":""}{fmt(salePnl)}
+                                      </div>
+                                      {a.currency!=="ILS"&&(
+                                        <div style={{fontSize:10,color:T.textSub}}>
+                                          {s.shares} יח׳ · {a.currency!=="ILS"?"$":"₪"}{fmtNum(+s.price)}
+                                          {s.rateUsed?` · שער ₪${fmtNum(+s.rateUsed)}`:""}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div style={{display:"flex",gap:4}}>
+                                      <button onClick={()=>setEditSale({assetId:a.id,sale:{...s}})}
+                                        style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,
+                                          padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                                        <Icon name="pencil" size={11} color={T.textMid}/>
+                                      </button>
+                                      <button onClick={()=>setConfirmSale({assetId:a.id,saleId:s.id})}
+                                        style={{background:"none",border:`1px solid ${T.dangerBorder}`,borderRadius:7,
+                                          padding:"4px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                                        <Icon name="trash" size={11} color={T.danger}/>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>,
+                                editSale?.assetId===a.id&&editSale?.sale?.id===s.id&&(
+                                  <div key={`edit-${s.id}`} style={{padding:12,background:"#fff5f5",
+                                    borderBottom:si<(a.sales||[]).length-1?`1px solid ${T.dangerBorder}`:"none"}}>
+                                  </div>
+                                )
+                              ];
+                            })}
                           </div>
-                        );})}
+                        )}
                         {isOpen(a.id,"s")&&(a.sales||[]).length===0&&<div style={{fontSize:11,color:T.textSub,fontStyle:"italic"}}>אין מכירות עדיין</div>}
                         {editSale?.assetId===a.id&&(()=>{
                           const es=editSale.sale;
@@ -2376,7 +2492,10 @@ ${newsContext}`;
                           const subtotal=shares*price;
                           const totalForeign=subtotal-commission;
                           const totalILS=totalForeign*r;
-                          const taxAmount=totalForeign>0?Math.max(0,totalILS*(taxPct/100)):0;
+                          const avgCostPerShare=avgBuyPrice(a);
+                          const costILSEdit=+es.shares*avgCostPerShare*(+es.rateUsed||+a.rateUsed||1);
+                          const profitILSEdit=totalILS-costILSEdit;
+                          const taxAmount=profitILSEdit>0?Math.round(profitILSEdit*(taxPct/100)*100)/100:0;
                           const netILS=totalILS-taxAmount;
                           return(
                             <div style={{background:T.dangerBg,border:`1px solid ${T.dangerBorder}`,borderRadius:12,padding:14,marginTop:8}}>
@@ -3449,6 +3568,15 @@ ${(item.sections||[]).map(s=>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   {r.type==="recipe"&&<button onClick={e=>{e.stopPropagation();exportRecipePDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="download" size={12} color={T.navy}/></button>}
                   {r.type==="menu"&&<button onClick={e=>{e.stopPropagation();exportMenuPDF(r);}} style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="download" size={12} color={T.navy}/><span style={{fontSize:10,color:T.navy,fontFamily:T.font,fontWeight:600}}></span></button>}
+                  <button onClick={e=>{e.stopPropagation();generateGroceryList(r);}}
+                    disabled={groceryLoading}
+                    style={{background:T.navyLight,border:`1px solid ${T.navyBorder}`,borderRadius:8,
+                      padding:"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",
+                      opacity:groceryLoading?0.6:1}}>
+                    {groceryLoading
+                      ?<div style={{width:12,height:12,borderRadius:"50%",border:"2px solid rgba(30,58,95,.3)",borderTop:`2px solid ${T.navy}`,animation:"spin 1s linear infinite"}}/>
+                      :<Icon name="basket" size={12} color={T.navy}/>}
+                  </button>
                   <ActionBtns onEdit={()=>openEdit(r)} onDelete={()=>setConfirmId(r.id)}/>
                 </div>
               </div>
